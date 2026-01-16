@@ -1,0 +1,62 @@
+schema: '2.0'
+stages:
+  train_classifier:
+    cmd: PYTHONPATH=src python -m xraygen.train.train_classifier
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: cf4ef53c4505c08a7417127f722bbd10.dir
+      size: 7863270
+      nfiles: 10
+    - path: data/raw/metadata_sample.csv
+      hash: md5
+      md5: e868447b87a759216a58caae382ce55b
+      size: 66
+    - path: src/xraygen/data/dataset.py
+      hash: md5
+      md5: 5fc4fd8bdf778f9cce32039525608a80
+      size: 668
+    - path: src/xraygen/models/classifier.py
+      hash: md5
+      md5: 0ad7d0c7b94fc9aa04b6984c15a57bbe
+      size: 638
+    - path: src/xraygen/train/train_classifier.py
+      hash: md5
+      md5: b8bfd1fa7f39bc130e70c57cacbb4088
+      size: 4205
+    outs:
+    - path: models/classifier
+      hash: md5
+      md5: 49cd06f449deee72f44e6d4d03074dbf.dir
+      size: 33577585
+      nfiles: 1
+  train_generator:
+    cmd: PYTHONPATH=src python -m xraygen.train.train_generator
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: cf4ef53c4505c08a7417127f722bbd10.dir
+      size: 7863270
+      nfiles: 10
+    - path: data/raw/metadata_sample.csv
+      hash: md5
+      md5: e868447b87a759216a58caae382ce55b
+      size: 66
+    - path: src/xraygen/data/dataset.py
+      hash: md5
+      md5: 5fc4fd8bdf778f9cce32039525608a80
+      size: 668
+    - path: src/xraygen/models/generator.py
+      hash: md5
+      md5: 44878507287d76c3df603ca1a3f9ac83
+      size: 2893
+    - path: src/xraygen/train/train_generator.py
+      hash: md5
+      md5: 978b7f83161e9ce52a619216e164ea3b
+      size: 3981
+    outs:
+    - path: models/generator
+      hash: md5
+      md5: 8a9ae2d3c9d25a5a63a17be1f703c101.dir
+      size: 14315030
+      nfiles: 1

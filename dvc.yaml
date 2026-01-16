@@ -9,3 +9,14 @@ stages:
       - data/raw
     outs:
       - models/classifier
+
+  train_generator:
+    cmd: PYTHONPATH=src python -m xraygen.train.train_generator
+    deps:
+      - src/xraygen/train/train_generator.py
+      - src/xraygen/models/generator.py
+      - src/xraygen/data/dataset.py
+      - data/raw/metadata_sample.csv
+      - data/raw
+    outs:
+      - models/generator
