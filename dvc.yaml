@@ -1,0 +1,11 @@
+stages:
+  train_classifier:
+    cmd: PYTHONPATH=src python -m xraygen.train.train_classifier
+    deps:
+      - src/xraygen/train/train_classifier.py
+      - src/xraygen/models/classifier.py
+      - src/xraygen/data/dataset.py
+      - data/raw/metadata_sample.csv
+      - data/raw
+    outs:
+      - models/classifier
