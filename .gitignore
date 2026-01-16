@@ -1,0 +1,91 @@
+# -----------------------------
+# Python general
+# -----------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.log
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# -----------------------------
+# ML / PyTorch
+# -----------------------------
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.onnx
+
+# Model output folders
+models/classifier/
+models/generator/
+models/**/checkpoints/
+models/**/runs/
+
+# TensorBoard logs
+runs/
+tensorboard/
+
+# -----------------------------
+# Data
+# -----------------------------
+data/raw/*
+data/interim/*
+data/processed/*
+data/augmented/*
+
+# But keep empty folder structure
+!data/
+!data/raw/
+!data/interim/
+!data/processed/
+!data/augmented/
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!data/augmented/.gitkeep
+
+# Large files from training
+*.npz
+*.npy
+
+# -----------------------------
+# DVC
+# -----------------------------
+*.dvc
+.cache/
+.temp/
+
+# Keep dvc.yaml and .dvcignore
+!dvc.yaml
+!.dvcignore
+
+# -----------------------------
+# FiftyOne
+# -----------------------------
+fiftyone/
+fiftyone.db/
+.fiftyone/
+fiftyone.sqlite*
+
+# -----------------------------
+# System / OS
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+#environment file
+.env
