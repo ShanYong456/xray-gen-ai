@@ -42,11 +42,6 @@ tensorboard/
 # -----------------------------
 # Data
 # -----------------------------
-data/raw/*
-data/interim/*
-data/processed/*
-data/augmented/*
-
 # But keep empty folder structure
 !data/
 !data/raw/
@@ -57,6 +52,11 @@ data/augmented/*
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 !data/augmented/.gitkeep
+
+data/raw/*
+data/interim/*
+data/processed/*
+data/augmented/*
 
 # Large files from training
 *.npz
