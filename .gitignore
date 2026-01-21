@@ -50,12 +50,12 @@ tensorboard/
 !data/augmented/
 !data/raw/.gitkeep
 !data/interim/.gitkeep
-!data/processed/.gitkeep
+!data/processed_data/.gitkeep
 !data/augmented/.gitkeep
 
 data/raw/*
 data/interim/*
-data/processed/*
+data/processed_data/*
 data/augmented/*
 
 # Large files from training
