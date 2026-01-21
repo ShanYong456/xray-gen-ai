@@ -1,4 +1,6 @@
 import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,6 +9,19 @@ import torchvision.transforms as T
 
 from xraygen.data.dataset import XRayDataset
 from xraygen.models.classifier import XRayClassifier
+
+import json
+
+#LOAD THE EXPORTED DATASET
+
+with open("/home/ssy/Desktop/data_preprocessing/exports/xray_ls_cls_plus_coco_full/metadata.json") as f:
+    manifest = json.load(f)
+
+labels = manifest["labels"]
+samples = manifest["samples"]
+
+print("Num labels:", len(labels))
+print("Num samples:", len(samples))
 
 
 def train_classifier(
