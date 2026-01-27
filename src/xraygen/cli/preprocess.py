@@ -8,33 +8,49 @@ import numpy as np
 # =====================
 # CONFIG
 # =====================
-INPUT_DIR  = Path("data/raw")
-OUTPUT_DIR = Path("data/interim")
+INPUT_DIR  = Path("data/raw/Stage0/Gray")
+OUTPUT_DIR = Path("data/interim/Stage0/Gray")
 
 TARGET_SIZE = (512, 512)   # (width, height)
 OUTPUT_EXT = ".png"        # ".png" or ".tif"
+
+# 🔑 CHOOSE OUTPUT MODE
+# "gray"  -> 1 channel grayscale
+# "color" -> 3 channel (keep original)
+OUTPUT_MODE = "gray"       # <-- change to "color" when needed
 
 
 # =====================
 # HELPERS
 # =====================
 def load_image(path):
-    # Load image exactly as-is (keeps 8-bit or 16-bit)
+    """Load image exactly as-is (8-bit or 16-bit, any channels)."""
     img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
     if img is None:
         raise ValueError(f"Cannot read {path}")
     return img
 
 
-def to_grayscale(img):
-    if img.ndim == 2:
+def convert_channels(img):
+    """Convert image based on OUTPUT_MODE."""
+    if OUTPUT_MODE == "gray":
+        if img.ndim == 2:
+            return img
+        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    elif OUTPUT_MODE == "color":
+        if img.ndim == 2:
+            # expand grayscale to 3 channels if needed
+            return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         return img
-    return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    else:
+        raise ValueError(f"Invalid OUTPUT_MODE: {OUTPUT_MODE}")
 
 
 def normalize_bit_depth(img):
     """
-    - If 16-bit: scale to 0–65535
+    - If 16-bit: normalize to full 0–65535 range
     - If 8-bit: keep as-is
     """
     if img.dtype == np.uint16:
@@ -49,8 +65,12 @@ def resize_image(img):
 
 
 def mild_denoise(img):
-    # Optional but safe
-    return cv2.medianBlur(img, 3)
+    # Median blur is safe for X-ray (edge-preserving)
+    if img.ndim == 2:
+        return cv2.medianBlur(img, 3)
+    else:
+        # Apply per-channel
+        return cv2.merge([cv2.medianBlur(c, 3) for c in cv2.split(img)])
 
 
 # =====================
@@ -58,7 +78,7 @@ def mild_denoise(img):
 # =====================
 def preprocess_image(in_path, out_path):
     img = load_image(in_path)
-    img = to_grayscale(img)
+    img = convert_channels(img)
     img = normalize_bit_depth(img)
     img = resize_image(img)
     img = mild_denoise(img)
