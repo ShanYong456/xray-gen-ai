@@ -1,0 +1,19 @@
+# 1) Ignore EVERYTHING
+*
+
+# 2) Keep gitignore
+!.gitignore
+
+# 3) Allow Git to enter folders
+!*/
+
+# 4) BUT fully ignore web directory again
+web/
+web/**
+
+# 5) Whitelist ONLY the files you want
+!lastest_net_D.pth
+!lastest_net_G.pth
+!loss_log.txt
+!test_opt.txt
+!train_opt.txt

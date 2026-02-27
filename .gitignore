@@ -49,6 +49,8 @@ data/augmented/*
 data/test/*
 data/labels*
 
+datasets/*
+
 # But keep empty folder structure
 !data/
 !data/raw/
@@ -74,6 +76,8 @@ data/labels*
 *.dvc
 .cache/
 .temp/
+
+
 
 # Keep dvc.yaml and .dvcignore
 !dvc.yaml

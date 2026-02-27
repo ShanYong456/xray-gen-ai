@@ -1,0 +1,2777 @@
+[
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-26-969_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-26-969_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-26-969_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-26-969_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-26-969_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-57-35-979_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-57-35-979_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-57-35-979_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-57-35-979_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-57-35-979_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-13-18-160_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-13-18-160_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-13-18-160_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-13-18-160_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-13-18-160_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-09-04-772_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-09-04-772_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-09-04-772_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-09-04-772_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-09-04-772_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-13-03-081_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-13-03-081_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-13-03-081_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-13-03-081_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-13-03-081_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-56-666_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-56-666_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-56-666_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-56-666_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-26-56-666_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-41-31-767_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-41-31-767_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-41-31-767_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-41-31-767_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-41-31-767_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-19-00-964_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-19-00-964_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-19-00-964_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-19-00-964_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-19-00-964_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-49-03-873_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-49-03-873_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-49-03-873_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-49-03-873_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-49-03-873_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-11-51-599_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-11-51-599_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-11-51-599_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-11-51-599_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-11-51-599_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-38-52-428_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-38-52-428_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-38-52-428_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-38-52-428_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-38-52-428_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-22-38-551_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-22-38-551_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-22-38-551_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-22-38-551_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-22-38-551_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-56-28-695_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-56-28-695_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-56-28-695_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-56-28-695_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-56-28-695_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-58-49-058_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-58-49-058_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-58-49-058_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-58-49-058_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-58-49-058_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-12-58-084_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-12-58-084_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-12-58-084_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-12-58-084_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-12-58-084_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-37-50-052_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-37-50-052_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-37-50-052_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-37-50-052_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-37-50-052_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_13-21-40-104_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_13-21-40-104_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_13-21-40-104_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_13-21-40-104_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_13-21-40-104_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-16-07-283_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-16-07-283_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-16-07-283_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-16-07-283_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-16-07-283_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-26-54-797_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-26-54-797_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-26-54-797_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-26-54-797_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-26-54-797_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-20-11-208_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-20-11-208_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-20-11-208_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-20-11-208_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-20-11-208_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-40-14-157_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-40-14-157_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-40-14-157_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-40-14-157_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-40-14-157_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-28-44-636_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-28-44-636_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-28-44-636_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-28-44-636_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-28-44-636_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-13-20-621_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-13-20-621_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-13-20-621_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-13-20-621_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-13-20-621_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-06-07-013_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-06-07-013_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-06-07-013_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-06-07-013_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-06-07-013_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-00-57-180_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-00-57-180_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-00-57-180_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-00-57-180_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-00-57-180_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-15-06-096_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-15-06-096_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-15-06-096_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-15-06-096_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-15-06-096_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-42-42-961_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-42-42-961_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-42-42-961_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-42-42-961_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-42-42-961_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-32-207_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-32-207_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-32-207_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-32-207_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-32-207_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-21-10-902_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-21-10-902_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-21-10-902_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-21-10-902_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-21-10-902_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-15-24-248_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-15-24-248_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-15-24-248_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-15-24-248_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-15-24-248_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-23-12-057_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-23-12-057_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-23-12-057_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-23-12-057_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-23-12-057_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-10-13-097_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-10-13-097_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-10-13-097_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-10-13-097_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-10-13-097_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-13-32-712_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-13-32-712_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-13-32-712_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-13-32-712_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-13-32-712_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-25-40-493_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-25-40-493_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-25-40-493_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-25-40-493_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-25-40-493_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-31-01-601_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-31-01-601_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-31-01-601_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-31-01-601_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-31-01-601_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-59-467_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-59-467_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-59-467_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-59-467_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-59-467_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-53-56-108_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-53-56-108_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-53-56-108_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-53-56-108_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-53-56-108_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-54-284_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-54-284_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-54-284_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-54-284_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-54-284_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-31-10-336_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-31-10-336_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-31-10-336_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-31-10-336_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-31-10-336_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-19-23-119_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-19-23-119_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-19-23-119_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-19-23-119_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-19-23-119_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-50-857_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-50-857_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-50-857_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-50-857_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-50-857_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-32-34-055_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-32-34-055_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-32-34-055_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-32-34-055_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-32-34-055_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-05-616_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-05-616_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-05-616_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-05-616_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-34-05-616_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-56-51-487_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-56-51-487_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-56-51-487_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-56-51-487_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-56-51-487_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-41-13-107_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-41-13-107_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-41-13-107_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-41-13-107_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-41-13-107_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-11-27-975_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-11-27-975_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-11-27-975_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-11-27-975_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-11-27-975_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-53-34-087_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-53-34-087_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-53-34-087_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-53-34-087_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-53-34-087_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-29-17-984_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-29-17-984_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-29-17-984_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-29-17-984_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-29-17-984_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-54-14-634_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-54-14-634_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-54-14-634_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-54-14-634_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-54-14-634_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-14-02-607_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-14-02-607_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-14-02-607_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-14-02-607_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-14-02-607_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-28-01-010_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-28-01-010_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-28-01-010_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-28-01-010_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-28-01-010_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-08-45-783_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-08-45-783_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-08-45-783_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-08-45-783_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-08-45-783_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-19-368_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-19-368_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-19-368_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-19-368_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-37-19-368_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-06-51-465_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-06-51-465_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-06-51-465_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-06-51-465_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-06-51-465_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-38-57-061_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-38-57-061_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-38-57-061_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-38-57-061_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-38-57-061_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-47-06-629_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-47-06-629_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-47-06-629_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-47-06-629_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-47-06-629_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-27-34-751_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-27-34-751_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-27-34-751_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-27-34-751_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-27-34-751_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-35-304_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-35-304_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-35-304_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-35-304_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-12-35-304_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-31-51-694_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-31-51-694_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-31-51-694_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-31-51-694_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-31-51-694_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-08-02-839_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-08-02-839_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-08-02-839_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-08-02-839_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-08-02-839_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-03-06-363_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-03-06-363_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-03-06-363_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-03-06-363_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-03-06-363_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-26-40-051_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-26-40-051_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-26-40-051_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-26-40-051_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-26-40-051_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-46-10-506_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-46-10-506_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-46-10-506_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-46-10-506_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-46-10-506_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-23-13-571_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-23-13-571_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-23-13-571_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-23-13-571_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-23-13-571_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-44-10-147_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-44-10-147_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-44-10-147_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-44-10-147_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-44-10-147_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-55-32-193_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-55-32-193_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-55-32-193_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-55-32-193_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-55-32-193_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-52-35-817_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-52-35-817_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-52-35-817_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-52-35-817_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-52-35-817_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-17-37-382_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-17-37-382_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-17-37-382_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-17-37-382_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-17-37-382_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-00-19-303_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-00-19-303_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-00-19-303_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-00-19-303_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-00-19-303_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-09-28-277_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-09-28-277_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-09-28-277_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-09-28-277_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-09-28-277_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-51-50-237_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-51-50-237_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-51-50-237_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-51-50-237_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-51-50-237_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-51-33-152_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-51-33-152_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-51-33-152_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-51-33-152_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-51-33-152_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-52-59-815_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-52-59-815_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-52-59-815_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-52-59-815_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-52-59-815_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-16-07-167_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-16-07-167_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-16-07-167_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-16-07-167_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-16-07-167_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-07-48-012_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-07-48-012_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-07-48-012_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-07-48-012_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-07-48-012_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-42-05-312_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-42-05-312_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-42-05-312_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-42-05-312_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-42-05-312_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-14-32-254_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-14-32-254_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-14-32-254_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-14-32-254_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-14-32-254_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-52-400_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-52-400_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-52-400_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-52-400_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-52-400_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-44-15-912_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-44-15-912_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-44-15-912_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-44-15-912_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-44-15-912_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-21-07-247_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-21-07-247_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-21-07-247_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-21-07-247_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-21-07-247_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-25-806_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-25-806_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-25-806_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-25-806_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-27-25-806_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-45-35-409_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-45-35-409_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-45-35-409_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-45-35-409_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-45-35-409_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-51-42-535_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-51-42-535_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-51-42-535_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-51-42-535_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-51-42-535_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-35-45-942_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-35-45-942_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-35-45-942_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-35-45-942_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-35-45-942_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-19-12-393_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-19-12-393_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-19-12-393_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-19-12-393_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-19-12-393_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-24-07-367_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-24-07-367_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-24-07-367_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-24-07-367_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-24-07-367_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-35-04-926_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-35-04-926_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-35-04-926_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-35-04-926_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-35-04-926_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-03-03-989_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-03-03-989_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-03-03-989_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-03-03-989_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-03-03-989_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-50-03-780_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-50-03-780_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-50-03-780_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-50-03-780_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-50-03-780_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-43-45-479_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-43-45-479_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-43-45-479_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-43-45-479_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-43-45-479_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-04-15-563_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-04-15-563_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-04-15-563_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-04-15-563_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_18-04-15-563_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-24-232_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-24-232_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-24-232_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-24-232_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-26-24-232_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-59-23-020_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-59-23-020_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-59-23-020_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-59-23-020_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-59-23-020_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-46-54-575_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-46-54-575_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-46-54-575_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-46-54-575_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-46-54-575_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-50-18-006_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-50-18-006_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-50-18-006_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-50-18-006_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-50-18-006_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-22-54-420_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-22-54-420_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-22-54-420_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-22-54-420_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-22-54-420_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-48-17-942_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-48-17-942_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-48-17-942_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-48-17-942_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-48-17-942_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-33-03-699_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-33-03-699_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-33-03-699_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-33-03-699_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-33-03-699_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-40-12-343_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-40-12-343_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-40-12-343_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-40-12-343_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-40-12-343_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-15-02-290_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-15-02-290_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-15-02-290_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-15-02-290_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-15-02-290_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-29-30-807_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-29-30-807_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-29-30-807_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-29-30-807_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-29-30-807_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-56-193_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-56-193_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-56-193_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-56-193_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-56-193_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-25-823_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-25-823_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-25-823_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-25-823_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_16-37-25-823_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-40-11-763_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-40-11-763_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-40-11-763_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-40-11-763_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-40-11-763_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-18-51-660_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-18-51-660_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-18-51-660_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-18-51-660_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-18-51-660_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-27-23-319_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-27-23-319_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-27-23-319_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-27-23-319_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_17-27-23-319_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-46-35-205_aug00.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-46-35-205_aug01.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-46-35-205_aug02.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-46-35-205_aug03.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage2__2026-01-21_15-46-35-205_orig.png",
+    "overlap": 1,
+    "stage": "stage2"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-50-10-137_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-50-10-137_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-50-10-137_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-50-10-137_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_11-50-10-137_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-43-810_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-43-810_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-43-810_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-43-810_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-43-810_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-19-074_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-19-074_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-19-074_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-19-074_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_12-19-19-074_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-58-55-593_aug00.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-58-55-593_aug01.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-58-55-593_aug02.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-58-55-593_aug03.png",
+    "overlap": 0,
+    "stage": "stage1"
+  },
+  {
+    "image": "images/train2/stage1__2026-01-21_10-58-55-593_orig.png",
+    "overlap": 0,
+    "stage": "stage1"
+  }
+]

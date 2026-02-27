@@ -1,803 +1,5 @@
 [
   {
-    "image": "2026-01-21_10-32-05-130_aug00.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug000.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug001.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug002.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug003.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug004.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug005.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug006.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug007.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug008.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug009.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug010.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug011.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug012.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug013.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug014.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug015.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug016.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug017.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug018.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug019.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug020.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug021.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug022.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug023.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug024.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug025.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug026.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug028.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug029.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug03.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug030.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug031.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug033.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug034.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug035.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug036.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug037.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug038.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug039.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug040.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug041.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug042.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug043.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug045.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug047.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug048.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug049.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug050.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug052.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug053.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug054.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug055.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug056.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug058.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug059.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug060.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug062.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug063.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug064.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_aug066.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-05-130_orig.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug00.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug000.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug001.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug002.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug003.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug004.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug005.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug006.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug007.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug008.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug009.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug010.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug011.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug012.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug013.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug014.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug015.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug016.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug017.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug018.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug019.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug020.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug021.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug022.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug023.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug024.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug026.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug027.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug028.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug029.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug03.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug031.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug032.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug033.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug036.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug037.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug038.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug039.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug040.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug041.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug042.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug043.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug044.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug045.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug046.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug047.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug048.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug049.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug050.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug051.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug052.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug053.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug054.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug055.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug056.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug057.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug059.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug060.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug061.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug062.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug063.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug064.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug065.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug066.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_aug067.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-23-081_orig.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-40-301_aug00.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-32-40-301_aug000.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -817,6 +19,12 @@
   },
   {
     "image": "2026-01-21_10-32-40-301_aug003.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-40-301_aug004.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -847,12 +55,6 @@
   },
   {
     "image": "2026-01-21_10-32-40-301_aug009.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-32-40-301_aug01.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -918,13 +120,13 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-32-40-301_aug02.png",
+    "image": "2026-01-21_10-32-40-301_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-32-40-301_aug020.png",
+    "image": "2026-01-21_10-32-40-301_aug021.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -948,6 +150,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-32-40-301_aug025.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-32-40-301_aug026.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -960,7 +168,13 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-32-40-301_aug03.png",
+    "image": "2026-01-21_10-32-40-301_aug028.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-40-301_aug029.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1008,6 +222,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-32-40-301_aug037.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-32-40-301_aug038.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -1015,6 +235,12 @@
   },
   {
     "image": "2026-01-21_10-32-40-301_aug039.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-40-301_aug040.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1092,6 +318,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-32-40-301_aug053.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-32-40-301_aug054.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -1111,6 +343,12 @@
   },
   {
     "image": "2026-01-21_10-32-40-301_aug057.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-40-301_aug058.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1147,6 +385,12 @@
   },
   {
     "image": "2026-01-21_10-32-40-301_aug064.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-40-301_aug065.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1212,6 +456,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-32-59-757_aug007.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-32-59-757_aug008.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -1266,6 +516,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-32-59-757_aug017.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-32-59-757_aug018.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -1279,6 +535,12 @@
   },
   {
     "image": "2026-01-21_10-32-59-757_aug020.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-59-757_aug021.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1308,6 +570,18 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-32-59-757_aug026.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-59-757_aug027.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-32-59-757_aug028.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -1321,6 +595,12 @@
   },
   {
     "image": "2026-01-21_10-32-59-757_aug030.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-59-757_aug031.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1392,7 +672,19 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-32-59-757_aug043.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-32-59-757_aug044.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-59-757_aug045.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1494,19 +786,43 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-32-59-757_aug062.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-59-757_aug063.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-59-757_aug064.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-32-59-757_aug065.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-32-59-757_orig.png",
+    "image": "2026-01-21_10-32-59-757_aug066.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-16-846_aug00.png",
+    "image": "2026-01-21_10-32-59-757_aug067.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-32-59-757_orig.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1572,12 +888,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-16-846_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-33-16-846_aug010.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -1638,7 +948,7 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-16-846_aug02.png",
+    "image": "2026-01-21_10-33-16-846_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1657,6 +967,12 @@
   },
   {
     "image": "2026-01-21_10-33-16-846_aug023.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-16-846_aug024.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1687,12 +1003,6 @@
   },
   {
     "image": "2026-01-21_10-33-16-846_aug029.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-33-16-846_aug03.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1794,6 +1104,18 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-33-16-846_aug046.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-16-846_aug047.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-33-16-846_aug048.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -1837,6 +1159,12 @@
   },
   {
     "image": "2026-01-21_10-33-16-846_aug055.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-16-846_aug056.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -1914,12 +1242,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-34-031_aug00.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-33-34-031_aug000.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -1975,12 +1297,6 @@
   },
   {
     "image": "2026-01-21_10-33-34-031_aug009.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-33-34-031_aug01.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2046,12 +1362,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-34-031_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-33-34-031_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2059,6 +1369,12 @@
   },
   {
     "image": "2026-01-21_10-33-34-031_aug021.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-34-031_aug022.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2076,6 +1392,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-33-34-031_aug025.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-33-34-031_aug026.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2088,13 +1410,13 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-34-031_aug029.png",
+    "image": "2026-01-21_10-33-34-031_aug028.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-34-031_aug03.png",
+    "image": "2026-01-21_10-33-34-031_aug029.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2119,6 +1441,12 @@
   },
   {
     "image": "2026-01-21_10-33-34-031_aug033.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-34-031_aug034.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2161,6 +1489,24 @@
   },
   {
     "image": "2026-01-21_10-33-34-031_aug041.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-34-031_aug042.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-34-031_aug043.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-34-031_aug044.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2256,6 +1602,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-33-34-031_aug060.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-33-34-031_aug061.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2268,7 +1620,19 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-33-34-031_aug063.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-33-34-031_aug064.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-34-031_aug065.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2287,12 +1651,6 @@
   },
   {
     "image": "2026-01-21_10-33-34-031_orig.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-33-52-180_aug00.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2358,12 +1716,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-52-180_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-33-52-180_aug010.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2394,6 +1746,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-33-52-180_aug015.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-33-52-180_aug016.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2418,12 +1776,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-33-52-180_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-33-52-180_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2443,6 +1795,12 @@
   },
   {
     "image": "2026-01-21_10-33-52-180_aug023.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-52-180_aug024.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2473,12 +1831,6 @@
   },
   {
     "image": "2026-01-21_10-33-52-180_aug029.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-33-52-180_aug03.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2562,7 +1914,19 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-33-52-180_aug043.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-33-52-180_aug044.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-52-180_aug045.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2592,6 +1956,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-33-52-180_aug050.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-33-52-180_aug051.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2616,6 +1986,18 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-33-52-180_aug055.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-52-180_aug056.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-33-52-180_aug057.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2623,6 +2005,12 @@
   },
   {
     "image": "2026-01-21_10-33-52-180_aug058.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-33-52-180_aug059.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2677,12 +2065,6 @@
   },
   {
     "image": "2026-01-21_10-33-52-180_orig.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-34-09-750_aug00.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2748,12 +2130,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-09-750_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-34-09-750_aug010.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2814,12 +2190,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-09-750_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-34-09-750_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2827,6 +2197,12 @@
   },
   {
     "image": "2026-01-21_10-34-09-750_aug021.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-09-750_aug022.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2862,13 +2238,13 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-09-750_aug029.png",
+    "image": "2026-01-21_10-34-09-750_aug028.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-09-750_aug03.png",
+    "image": "2026-01-21_10-34-09-750_aug029.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -2898,6 +2274,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-09-750_aug034.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-09-750_aug035.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -2911,6 +2293,12 @@
   },
   {
     "image": "2026-01-21_10-34-09-750_aug037.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-09-750_aug038.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3060,6 +2448,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-09-750_aug063.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-09-750_aug064.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3072,6 +2466,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-09-750_aug066.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-09-750_aug067.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3079,12 +2479,6 @@
   },
   {
     "image": "2026-01-21_10-34-09-750_orig.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-34-28-820_aug00.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3150,12 +2544,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-28-820_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-34-28-820_aug010.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3216,12 +2604,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-28-820_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-34-28-820_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3229,6 +2611,12 @@
   },
   {
     "image": "2026-01-21_10-34-28-820_aug021.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-28-820_aug022.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3264,13 +2652,13 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-28-820_aug029.png",
+    "image": "2026-01-21_10-34-28-820_aug028.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-28-820_aug03.png",
+    "image": "2026-01-21_10-34-28-820_aug029.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3330,6 +2718,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-28-820_aug039.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-28-820_aug040.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3360,6 +2754,18 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-28-820_aug045.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-28-820_aug046.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-28-820_aug047.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3379,6 +2785,12 @@
   },
   {
     "image": "2026-01-21_10-34-28-820_aug050.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-28-820_aug051.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3456,7 +2868,19 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-28-820_aug064.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-28-820_aug065.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-28-820_aug066.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3469,12 +2893,6 @@
   },
   {
     "image": "2026-01-21_10-34-28-820_orig.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-34-47-193_aug00.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3540,12 +2958,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-47-193_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-34-47-193_aug010.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3606,12 +3018,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-47-193_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-34-47-193_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3619,6 +3025,12 @@
   },
   {
     "image": "2026-01-21_10-34-47-193_aug021.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-47-193_aug022.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3660,7 +3072,7 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-34-47-193_aug03.png",
+    "image": "2026-01-21_10-34-47-193_aug029.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3690,6 +3102,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-47-193_aug034.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-47-193_aug035.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3697,6 +3115,12 @@
   },
   {
     "image": "2026-01-21_10-34-47-193_aug036.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-47-193_aug037.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3726,7 +3150,19 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-47-193_aug042.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-47-193_aug043.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-47-193_aug044.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3762,6 +3198,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-47-193_aug050.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-47-193_aug051.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3787,6 +3229,12 @@
   },
   {
     "image": "2026-01-21_10-34-47-193_aug055.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-34-47-193_aug056.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -3840,6 +3288,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-34-47-193_aug065.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-34-47-193_aug066.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -3858,408 +3312,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-35-05-112_aug00.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug000.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug001.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug002.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug003.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug004.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug005.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug006.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug007.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug008.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug009.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug010.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug011.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug012.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug013.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug014.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug015.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug016.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug017.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug018.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug019.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug020.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug021.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug022.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug023.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug025.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug026.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug027.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug029.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug03.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug030.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug032.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug033.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug034.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug035.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug036.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug037.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug038.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug039.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug040.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug041.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug042.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug044.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug046.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug047.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug048.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug049.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug050.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug051.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug052.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug053.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug054.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug055.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug058.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug059.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug060.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug061.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug062.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug063.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug064.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug065.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug066.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_aug067.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-05-112_orig.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-23-513_aug00.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-35-23-513_aug000.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4273,6 +3325,12 @@
   },
   {
     "image": "2026-01-21_10-35-23-513_aug002.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-35-23-513_aug003.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4309,12 +3367,6 @@
   },
   {
     "image": "2026-01-21_10-35-23-513_aug009.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-23-513_aug01.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4380,12 +3432,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-35-23-513_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-35-23-513_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4393,6 +3439,12 @@
   },
   {
     "image": "2026-01-21_10-35-23-513_aug021.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-35-23-513_aug022.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4422,6 +3474,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-35-23-513_aug027.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-35-23-513_aug028.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4429,12 +3487,6 @@
   },
   {
     "image": "2026-01-21_10-35-23-513_aug029.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-23-513_aug03.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4452,6 +3504,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-35-23-513_aug032.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-35-23-513_aug033.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4459,6 +3517,12 @@
   },
   {
     "image": "2026-01-21_10-35-23-513_aug034.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-35-23-513_aug035.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4638,13 +3702,25 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-35-23-513_orig.png",
+    "image": "2026-01-21_10-35-23-513_aug065.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-35-41-660_aug00.png",
+    "image": "2026-01-21_10-35-23-513_aug066.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-35-23-513_aug067.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-35-23-513_orig.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4710,12 +3786,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-35-41-660_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-35-41-660_aug010.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4776,13 +3846,13 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-35-41-660_aug02.png",
+    "image": "2026-01-21_10-35-41-660_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-35-41-660_aug020.png",
+    "image": "2026-01-21_10-35-41-660_aug021.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4812,6 +3882,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-35-41-660_aug026.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-35-41-660_aug027.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4825,12 +3901,6 @@
   },
   {
     "image": "2026-01-21_10-35-41-660_aug029.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-35-41-660_aug03.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4866,6 +3936,18 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-35-41-660_aug035.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-35-41-660_aug036.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-35-41-660_aug037.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4873,6 +3955,12 @@
   },
   {
     "image": "2026-01-21_10-35-41-660_aug038.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-35-41-660_aug039.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -4920,6 +4008,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-35-41-660_aug047.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-35-41-660_aug048.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4956,6 +4050,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-35-41-660_aug054.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-35-41-660_aug055.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4980,6 +4080,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-35-41-660_aug059.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-35-41-660_aug060.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -4987,6 +4093,12 @@
   },
   {
     "image": "2026-01-21_10-35-41-660_aug061.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-35-41-660_aug062.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -5023,12 +4135,6 @@
   },
   {
     "image": "2026-01-21_10-35-41-660_orig.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-36-00-094_aug00.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -5094,12 +4200,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-36-00-094_aug01.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-36-00-094_aug010.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5160,12 +4260,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-36-00-094_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-36-00-094_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5196,6 +4290,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-36-00-094_aug025.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-36-00-094_aug026.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5215,12 +4315,6 @@
   },
   {
     "image": "2026-01-21_10-36-00-094_aug029.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-36-00-094_aug03.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -5328,6 +4422,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-36-00-094_aug047.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-36-00-094_aug048.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5341,6 +4441,12 @@
   },
   {
     "image": "2026-01-21_10-36-00-094_aug050.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-36-00-094_aug051.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -5448,12 +4554,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-36-28-447_aug00.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-36-28-447_aug000.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5509,12 +4609,6 @@
   },
   {
     "image": "2026-01-21_10-36-28-447_aug009.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
-    "image": "2026-01-21_10-36-28-447_aug01.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -5580,12 +4674,6 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-36-28-447_aug02.png",
-    "no_contraband": 1,
-    "isolated_items": 0,
-    "empty": 1
-  },
-  {
     "image": "2026-01-21_10-36-28-447_aug020.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5599,6 +4687,12 @@
   },
   {
     "image": "2026-01-21_10-36-28-447_aug022.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-36-28-447_aug023.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -5640,13 +4734,13 @@
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-36-28-447_aug03.png",
+    "image": "2026-01-21_10-36-28-447_aug030.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
   },
   {
-    "image": "2026-01-21_10-36-28-447_aug030.png",
+    "image": "2026-01-21_10-36-28-447_aug031.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
@@ -5706,6 +4800,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-36-28-447_aug041.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-36-28-447_aug042.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5736,6 +4836,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-36-28-447_aug047.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-36-28-447_aug048.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5754,6 +4860,12 @@
     "empty": 1
   },
   {
+    "image": "2026-01-21_10-36-28-447_aug051.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
     "image": "2026-01-21_10-36-28-447_aug052.png",
     "no_contraband": 1,
     "isolated_items": 0,
@@ -5767,6 +4879,12 @@
   },
   {
     "image": "2026-01-21_10-36-28-447_aug054.png",
+    "no_contraband": 1,
+    "isolated_items": 0,
+    "empty": 1
+  },
+  {
+    "image": "2026-01-21_10-36-28-447_aug055.png",
     "no_contraband": 1,
     "isolated_items": 0,
     "empty": 1
