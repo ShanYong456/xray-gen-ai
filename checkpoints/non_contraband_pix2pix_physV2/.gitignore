@@ -12,8 +12,7 @@ web/
 web/**
 
 # 5) Whitelist ONLY the files you want
-!lastest_net_D.pth
-!lastest_net_G.pth
+
 !loss_log.txt
 !test_opt.txt
 !train_opt.txt
