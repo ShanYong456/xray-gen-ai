@@ -4,7 +4,7 @@ import random
 from pathlib import Path
 
 SIZE = 1024
-OUT_COUNT = 2000
+OUT_COUNT = 10
 
 OBJECT_LIB = Path("data/raw/Contraband/Metal/Cropped")
 OUT_DIR = Path("datasets/Contraband/Metal/gen_random_masks")
