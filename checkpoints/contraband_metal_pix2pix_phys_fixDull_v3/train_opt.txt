@@ -15,10 +15,10 @@
                  dm_alpha: 0.1                           
                 empty_dir: data/interim/GAN/Empty        	[default: ]
                empty_path:                               
-                    epoch: latest                        
+                    epoch: lastest                       	[default: latest]
               epoch_count: 1                             
                     gamma: 2.2                           
-              gan_bg_keep: 0.2                           
+              gan_bg_keep: 0.35                          	[default: 0.2]
                gan_bg_ref: empty                         
             gan_dilate_px: 7                             
           gan_mask_dilate: True                          	[default: False]
@@ -29,11 +29,11 @@
                   isTrain: True                          	[default: None]
                 lambda_L1: 10.0                          	[default: 100.0]
                 lambda_bg: 3.0                           	[default: 1.5]
-                lambda_fm: 5.0                           	[default: 10.0]
+                lambda_fm: 10.0                          
                 load_iter: 0                             	[default: 0]
                 load_size: 1024                          	[default: 286]
                        lr: 0.0002                        
-                     lr_D: 5e-05                         	[default: None]
+                     lr_D: 0.0001                        	[default: None]
                      lr_G: 0.0002                        	[default: None]
            lr_decay_iters: 50                            
                 lr_policy: linear                        

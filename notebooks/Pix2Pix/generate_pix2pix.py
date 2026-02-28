@@ -7,7 +7,7 @@ import numpy as np
 # CONFIG YOU MUST MATCH
 # =========================
 SIZE = 1024  # must match your training load_size/crop_size
-MODEL_NAME = "contraband_metal_pix2pix_phys_fixDull_v3"   # your pix2pix --name
+MODEL_NAME = "contraband_metal_pix2pix_phys_fixDull_v4"   # your pix2pix --name
 # MODEL_NAME = "non_contraband_pix2pix_physV2"       # your pix2pix --name
 PIX2PIX_DIR = Path("external/pix2pix")
 
@@ -91,6 +91,34 @@ def tight_crop(mask_bin):
     x0, x1 = xs.min(), xs.max()
     y0, y1 = ys.min(), ys.max()
     return x0, y0, x1, y1
+
+def vary_instance_mask(mask_bin, rng, scale_var=0.08, blur_sigma=0.5):
+    """Add subtle variations to instance for realistic duplication.
+    
+    Variations prevent exact copy-paste artifacts that confuse the model.
+    """
+    h, w = mask_bin.shape[:2]
+    
+    # Scale variation (small)
+    scale = rng.uniform(1.0 - scale_var, 1.0 + scale_var)
+    new_h, new_w = max(2, int(h * scale)), max(2, int(w * scale))
+    m = cv2.resize(mask_bin, (new_w, new_w), interpolation=cv2.INTER_LINEAR)
+    
+    # Slight blur for softer edges (less perfect copy look)
+    if blur_sigma > 0:
+        m = cv2.GaussianBlur(m, (3, 3), blur_sigma)
+        _, m = cv2.threshold(m, 127, 255, cv2.THRESH_BINARY)
+    
+    # Pad back to original size
+    pad_h = (h - new_h) // 2
+    pad_w = (w - new_w) // 2
+    if pad_h > 0 or pad_w > 0:
+        m = cv2.copyMakeBorder(m, abs(pad_h), abs(pad_h), abs(pad_w), abs(pad_w),
+                               cv2.BORDER_CONSTANT, value=0)
+    if m.shape != mask_bin.shape:
+        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_NEAREST)
+    
+    return m.astype(np.uint8)
 
 def add_contour_bgr(mask_bgr):
     gray = cv2.cvtColor(mask_bgr, cv2.COLOR_BGR2GRAY)
@@ -191,7 +219,9 @@ def build_shape_library_for_paste(coco, images_dir: Path):
 
 def place_instance(canvas_bgr, occ_mask, inst_mask_bin, color_bgr, rng,
                    scale_range=(0.95, 1.05), rot_deg=0.0, max_tries=80,
-                   allow_overlap=False, morph="dilate", morph_k=3, morph_iter=1, soft_edges=False):
+                   allow_overlap=False, morph="dilate", morph_k=3, morph_iter=1, soft_edges=False,
+                   blend_width=5):
+    """Place instance with improved realism via soft blending."""
     Hc, Wc = canvas_bgr.shape[:2]
     h, w = inst_mask_bin.shape[:2]
 
@@ -229,8 +259,16 @@ def place_instance(canvas_bgr, occ_mask, inst_mask_bin, color_bgr, rng,
             if np.any((occ_region > 0) & (m > 0)):
                 continue
 
-        region = canvas_bgr[y0:y0 + new_h, x0:x0 + new_w]
-        region[m > 0] = color_bgr
+        # Improved blending: create soft edges by blending mask edges
+        m_blend = m.copy().astype(np.float32)
+        if blend_width > 0:
+            eroded = cv2.erode(m, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (blend_width, blend_width)))
+            m_blend = np.where(eroded > 0, 255, m_blend * 0.7)
+
+        region = canvas_bgr[y0:y0 + new_h, x0:x0 + new_w].copy()
+        region_mask = m_blend[:, :, np.newaxis] / 255.0
+        region[m > 0] = (region[m > 0] * (1 - region_mask[m > 0]) + 
+                         np.broadcast_to(color_bgr, region[m > 0].shape) * region_mask[m > 0]).astype(np.uint8)
         canvas_bgr[y0:y0 + new_h, x0:x0 + new_w] = region
 
         occ_region = occ_mask[y0:y0 + new_h, x0:x0 + new_w]
@@ -385,7 +423,8 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
                                soft_edges=False,
                                min_comp_area=50,
                                max_add_tries=1200,
-                               sample_k=200):
+                               sample_k=200,
+                               var_scale=0.10, var_blur=0.8):
     if want_classes is None or targets is None:
         raise SystemExit("real_scene_count requires --classes and --count.")
 
@@ -424,18 +463,26 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
         cur = count_components_for_train_id(canvas_bgr, train_id, min_area=min_comp_area)
 
         tries = 0
+        num_placed_this_class = 0  # Track duplicates
         while cur < target and tries < max_add_tries:
             tries += 1
             canvas_backup = canvas_bgr.copy()
             occ_backup = occ_mask.copy()
 
             inst = rng.choice(lib[cls_name])
+            inst_mask = inst["mask"].copy()
+            
+            # For duplicates (2nd, 3rd instance etc), add subtle variation
+            # to prevent model from seeing exact copies
+            if num_placed_this_class > 0:
+                inst_mask = vary_instance_mask(inst_mask, rng, scale_var=var_scale, blur_sigma=var_blur)
+            
             color_bgr = PALETTE_BGR.get(train_id, (255, 255, 255))
 
             ok = place_instance(
                 canvas_bgr=canvas_bgr,
                 occ_mask=occ_mask,
-                inst_mask_bin=inst["mask"],
+                inst_mask_bin=inst_mask,
                 color_bgr=color_bgr,
                 rng=rng,
                 scale_range=(float(scale_min), float(scale_max)),
@@ -445,6 +492,7 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
                 morph_k=morph_k,
                 morph_iter=morph_iter,
                 soft_edges=soft_edges,
+                blend_width=5,
                 max_tries=140,
             )
 
@@ -460,6 +508,7 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
                 continue
 
             cur = new_cur
+            num_placed_this_class += 1
 
         if cur < target:
             print(f"real_scene_count: Could not reach target for {cls_name}. Got {cur}, wanted {target}.")
@@ -583,6 +632,10 @@ def main():
     ap.add_argument("--empty_path", type=str, default="")
 
     ap.add_argument("--norm", type=str, default="batch", choices=["batch", "instance", "none"])
+    ap.add_argument("--var_scale", type=float, default=0.10, 
+                    help="Scale variation for duplicate instances (0.0-0.3, higher = more variation)")
+    ap.add_argument("--var_blur", type=float, default=0.8,
+                    help="Blur sigma for duplicate instance edges (0.0-2.0, higher = softer edges)")
 
     args = ap.parse_args()
     rng = random.Random(args.seed)
@@ -622,6 +675,7 @@ def main():
             morph=args.morph, morph_k=args.morph_k, morph_iter=args.morph_iter,
             soft_edges=args.soft_edges, min_comp_area=int(args.min_comp_area),
             max_add_tries=int(args.max_add_tries), sample_k=int(args.base_sample_k),
+            var_scale=args.var_scale, var_blur=args.var_blur,
         )
         print(f"real_scene_count picked image_id={img_id}, file={fname}")
 
@@ -713,7 +767,7 @@ python notebooks/StyleGan/generate_pix2pix.py \
 
   
   Paste mode with strict count enforcement (each placed instance must create a new blob):
-  python notebooks/StyleGan/generate_pix2pix.py \
+  python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode paste \
   --images_dir data/raw/Contraband/Metal \
   --coco_json data/raw/Contraband/Metal/result.json \
@@ -725,21 +779,25 @@ python notebooks/StyleGan/generate_pix2pix.py \
   --epoch latest
 
   Hyper-realistic real_scene_count mode (start from real image, enforce counts by drop/add):
-  python notebooks/StyleGan/generate_pix2pix.py \
+ python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode real_scene_count \
   --images_dir data/raw/Contraband/Metal \
   --coco_json data/raw/Contraband/Metal/result.json \
   --classes Blade,Vape \
   --count 2,1 \
-  --morph none \
+  --morph dilate \
+  --morph_k 3 \
+  --morph_iter 1 \
+  --scale_min 0.90 \
+  --scale_max 1.10 \
+  --rot_deg 1.0 \
   --seed 88 \
   --out_dataset datasets/_gen_real \
-  --epoch latest \
   --use_delta_comp \
   --empty_dir data/interim/GAN/Empty \
   --norm instance
 
-python notebooks/StyleGan/generate_pix2pix.py \
+python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode real_scene_count \
   --images_dir data/raw/Non-Contraband \
   --coco_json data/raw/Non-Contraband/result.json \

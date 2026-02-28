@@ -185,8 +185,9 @@ python external/pix2pix/train.py \
   --compose_eps 1e-6 \
   --empty_dir data/interim/GAN/Empty \
   --preprocess none --load_size 1024 --crop_size 1024 \
-  --lr_G 0.0002 --lr_D 0.0001 \
+  --lr_G 0.0002  --lr_D 5e-05 \
   --n_epochs 150 --n_epochs_decay 150 \
+  --continue_train --epoch latest \
   --batch_size 1 --no_flip
 
 Test
