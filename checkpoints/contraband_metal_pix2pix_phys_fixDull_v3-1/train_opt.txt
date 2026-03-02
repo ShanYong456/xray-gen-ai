@@ -33,7 +33,7 @@
                 load_iter: 0                             	[default: 0]
                 load_size: 1024                          	[default: 286]
                        lr: 0.0002                        
-                     lr_D: 2e-05                         	[default: None]
+                     lr_D: 4e-05                         	[default: None]
                      lr_G: 0.0002                        	[default: None]
            lr_decay_iters: 50                            
                 lr_policy: linear                        

@@ -51,6 +51,11 @@ data/labels*
 
 datasets/*
 
+
+# ignore all generated html/images under checkpoints
+checkpoints/**/web/*.html
+checkpoints/**/web/*.png
+
 # But keep empty folder structure
 !data/
 !data/raw/

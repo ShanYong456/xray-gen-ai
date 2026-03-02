@@ -13,8 +13,6 @@ web/**
 
 # 5) Whitelist ONLY the files you want
 
-=======
->>>>>>> f5dc861 (minor update to the gitignore file structure)
 !loss_log.txt
 !test_opt.txt
 !train_opt.txt
