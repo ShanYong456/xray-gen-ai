@@ -5,10 +5,10 @@ import numpy as np
 # =========================
 # Config
 # =========================
-INPUT_DIR = Path("data/raw/Empty")
+INPUT_DIR = Path("data/raw/Blade")
 
-OUT_GRAY  = Path("data/interim/GAN/Empty")
-OUT_COLOR = Path("data/interim/GAN/Empty")
+OUT_GRAY  = Path("data/interim/Blade/Gray")
+OUT_COLOR = Path("data/interim/Blade/Color")
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff"}
 TARGET_SIZE = (1500, 1000)  # (width, height)

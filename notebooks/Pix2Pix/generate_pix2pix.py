@@ -7,17 +7,35 @@ import numpy as np
 # CONFIG YOU MUST MATCH
 # =========================
 SIZE = 1024  # must match your training load_size/crop_size
-MODEL_NAME = "contraband_metal_pix2pix_phys_fixDull_v4"   # your pix2pix --name
-# MODEL_NAME = "non_contraband_pix2pix_physV2"       # your pix2pix --name
+#MODEL_NAME = "contraband_metal_pix2pix_phys_fixDull_v4"   # your pix2pix --name
+MODEL_NAME = "non_contraband_pix2pix_physV2"       # your pix2pix --name
 PIX2PIX_DIR = Path("external/pix2pix")
+
+# =========================
+# NEW (ONLY WHAT'S NEEDED)
+# =========================
+# Folder of tray masks (white=tray, black=outside). Put multiple PNGs here.
+TRAY_MASK_DIR = Path("data/interim/GAN/Empty_Tray_mask/Mask")
+
+# Folder of colored cutouts (your object library). Each PNG is category-color filled.
+#Contraband Metal
+#CUTOUT_DIR = Path("data/raw/Contraband/Metal/Cropped")
+#Non-Contraband
+CUTOUT_DIR = Path("data/raw/Non-Contraband/Cropped")
+
+# For random mask generation
+RAND_N_MIN, RAND_N_MAX = 1, 3
+RAND_MAX_TRIES_PER_OBJ = 300
+RAND_ALLOW_OVERLAP = False
+RAND_SCALE_MIN, RAND_SCALE_MAX = 0.6, 1.4
+RAND_ROT_MIN, RAND_ROT_MAX = 0.0, 360.0
 
 # IMPORTANT:
 # Build the canvas in RGB (model conditioning), then convert to BGR ONLY when saving with cv2.imwrite().
 # (In this script we keep masks in BGR consistently because OpenCV uses BGR.)
 # Your palette MUST match whatever you used to generate training masks.
-
+"""
 # Contraband METAL:
-
 PALETTE_BGR = {
     0: (0, 0, 0),         # background
     1: (255, 0, 0),       # blue
@@ -27,9 +45,8 @@ PALETTE_BGR = {
     5: (0, 255, 255),     # yellow
     6: (255, 0, 255),     # magenta
 }
-
-
 """
+
 # Non-Contraband:
 PALETTE_BGR = {
     0:  (0, 0, 0),
@@ -55,7 +72,8 @@ PALETTE_BGR = {
     15: (255, 255, 128),
     16: (112, 55, 89),
 }
-"""
+
+
 # -------------------------
 # Geometry helpers
 # -------------------------
@@ -93,31 +111,30 @@ def tight_crop(mask_bin):
     return x0, y0, x1, y1
 
 def vary_instance_mask(mask_bin, rng, scale_var=0.08, blur_sigma=0.5):
-    """Add subtle variations to instance for realistic duplication.
-    
-    Variations prevent exact copy-paste artifacts that confuse the model.
-    """
+    """Add subtle variations to instance for realistic duplication."""
     h, w = mask_bin.shape[:2]
-    
-    # Scale variation (small)
     scale = rng.uniform(1.0 - scale_var, 1.0 + scale_var)
     new_h, new_w = max(2, int(h * scale)), max(2, int(w * scale))
-    m = cv2.resize(mask_bin, (new_w, new_w), interpolation=cv2.INTER_LINEAR)
-    
-    # Slight blur for softer edges (less perfect copy look)
+
+    # FIX: (new_w, new_h) not (new_w, new_w)
+    m = cv2.resize(mask_bin, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
     if blur_sigma > 0:
         m = cv2.GaussianBlur(m, (3, 3), blur_sigma)
         _, m = cv2.threshold(m, 127, 255, cv2.THRESH_BINARY)
-    
-    # Pad back to original size
+
     pad_h = (h - new_h) // 2
     pad_w = (w - new_w) // 2
     if pad_h > 0 or pad_w > 0:
-        m = cv2.copyMakeBorder(m, abs(pad_h), abs(pad_h), abs(pad_w), abs(pad_w),
-                               cv2.BORDER_CONSTANT, value=0)
+        m = cv2.copyMakeBorder(
+            m,
+            abs(pad_h), abs(pad_h),
+            abs(pad_w), abs(pad_w),
+            cv2.BORDER_CONSTANT, value=0
+        )
     if m.shape != mask_bin.shape:
         m = cv2.resize(m, (w, h), interpolation=cv2.INTER_NEAREST)
-    
+
     return m.astype(np.uint8)
 
 def add_contour_bgr(mask_bgr):
@@ -127,6 +144,155 @@ def add_contour_bgr(mask_bgr):
     out = mask_bgr.copy()
     out[edges > 0] = (255, 255, 255)
     return out
+
+# -------------------------
+# NEW: random mask generation from tray mask + cutouts
+# -------------------------
+def load_tray_masks(tray_dir: Path):
+    paths = sorted(list(tray_dir.glob("*.png")))
+    if not paths:
+        raise SystemExit(f"No tray mask PNGs found in {tray_dir}")
+
+    masks = []
+    for p in paths:
+        m = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
+        if m is None:
+            continue
+        if m.shape != (SIZE, SIZE):
+            m = cv2.resize(m, (SIZE, SIZE), interpolation=cv2.INTER_NEAREST)
+        masks.append(m > 127)
+
+    if not masks:
+        raise SystemExit(f"Could not read any tray masks from {tray_dir}")
+    print(f"[random_mask] Loaded tray masks: {len(masks)} from {tray_dir}")
+    return masks
+
+def infer_train_id_from_cutout_bgr(cut_bgr: np.ndarray) -> int:
+    """Cutouts are filled with category color (from PALETTE_BGR). Infer which train_id they represent."""
+    m = np.any(cut_bgr > 0, axis=2)
+    if not np.any(m):
+        return 0
+    pix = cut_bgr[m].reshape(-1, 3)
+    uniq, counts = np.unique(pix, axis=0, return_counts=True)
+    bgr = tuple(uniq[np.argmax(counts)].tolist())
+    for tid, col in PALETTE_BGR.items():
+        if tuple(col) == bgr:
+            return int(tid)
+    return 0
+
+def load_cutouts(cutout_root: Path):
+    items = []
+    for cls_dir in cutout_root.iterdir():
+        if not cls_dir.is_dir():
+            continue
+        for p in cls_dir.glob("*.png"):
+            img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
+            if img is None or img.ndim != 3:
+                continue
+            if img.shape[2] == 4:
+                bgr = img[:, :, :3].copy()
+                a = img[:, :, 3] > 0
+                bgr[~a] = 0
+            else:
+                bgr = img[:, :, :3].copy()
+
+            tid = infer_train_id_from_cutout_bgr(bgr)
+            if tid == 0:
+                continue
+
+            m = np.any(bgr > 0, axis=2)
+            ys, xs = np.where(m)
+            if len(xs) == 0:
+                continue
+            y1, y2 = ys.min(), ys.max() + 1
+            x1, x2 = xs.min(), xs.max() + 1
+            bgr = bgr[y1:y2, x1:x2].copy()
+
+            items.append({"bgr": bgr, "train_id": tid})
+
+    if not items:
+        raise SystemExit(f"No valid colored cutouts loaded from {cutout_root}")
+    print(f"[random_mask] Loaded cutouts: {len(items)} from {cutout_root}")
+    return items
+
+def rotate_preserve_bgr(img: np.ndarray, angle_deg: float) -> np.ndarray:
+    h, w = img.shape[:2]
+    if h == 0 or w == 0:
+        return img
+    cx, cy = w / 2.0, h / 2.0
+    M = cv2.getRotationMatrix2D((cx, cy), angle_deg, 1.0)
+    cos = abs(M[0, 0]); sin = abs(M[0, 1])
+    new_w = int(h * sin + w * cos)
+    new_h = int(h * cos + w * sin)
+    M[0, 2] += (new_w / 2) - cx
+    M[1, 2] += (new_h / 2) - cy
+    out = cv2.warpAffine(
+        img, M, (new_w, new_h),
+        flags=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(0, 0, 0),
+    )
+    return out
+
+def transform_cutout(bgr: np.ndarray, rng: random.Random):
+    s = rng.uniform(RAND_SCALE_MIN, RAND_SCALE_MAX)
+    out = cv2.resize(bgr, None, fx=s, fy=s, interpolation=cv2.INTER_NEAREST)
+    ang = rng.uniform(RAND_ROT_MIN, RAND_ROT_MAX)
+    out = rotate_preserve_bgr(out, ang)
+
+    m = np.any(out > 0, axis=2)
+    ys, xs = np.where(m)
+    if len(xs) == 0:
+        return None
+    y1, y2 = ys.min(), ys.max() + 1
+    x1, x2 = xs.min(), xs.max() + 1
+    return out[y1:y2, x1:x2].copy()
+
+def build_random_mask_canvas(rng: random.Random, tray_masks, cutouts,
+                             n_min=RAND_N_MIN, n_max=RAND_N_MAX,
+                             allow_overlap=RAND_ALLOW_OVERLAP,
+                             max_tries_per_obj=RAND_MAX_TRIES_PER_OBJ):
+    tray = rng.choice(tray_masks)
+    canvas = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+    occ = np.zeros((SIZE, SIZE), dtype=bool)
+
+    n = rng.randint(int(n_min), int(n_max))
+    for _ in range(n):
+        item = rng.choice(cutouts)
+        cut = transform_cutout(item["bgr"], rng)
+        if cut is None:
+            continue
+        h, w = cut.shape[:2]
+        if h >= SIZE or w >= SIZE or h < 2 or w < 2:
+            continue
+
+        obj_mask = np.any(cut > 0, axis=2)
+
+        ok = False
+        for _t in range(max_tries_per_obj):
+            x = rng.randint(0, SIZE - w)
+            y = rng.randint(0, SIZE - h)
+
+            tray_region = tray[y:y+h, x:x+w]
+            if not np.all(tray_region[obj_mask]):
+                continue
+
+            if not allow_overlap:
+                if np.any(occ[y:y+h, x:x+w] & obj_mask):
+                    continue
+
+            region = canvas[y:y+h, x:x+w]
+            region[obj_mask] = cut[obj_mask]
+            canvas[y:y+h, x:x+w] = region
+            occ[y:y+h, x:x+w][obj_mask] = True
+
+            ok = True
+            break
+
+        if not ok:
+            continue
+
+    return canvas
 
 # -------------------------
 # Dataset parsing
@@ -259,7 +425,6 @@ def place_instance(canvas_bgr, occ_mask, inst_mask_bin, color_bgr, rng,
             if np.any((occ_region > 0) & (m > 0)):
                 continue
 
-        # Improved blending: create soft edges by blending mask edges
         m_blend = m.copy().astype(np.float32)
         if blend_width > 0:
             eroded = cv2.erode(m, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (blend_width, blend_width)))
@@ -267,7 +432,7 @@ def place_instance(canvas_bgr, occ_mask, inst_mask_bin, color_bgr, rng,
 
         region = canvas_bgr[y0:y0 + new_h, x0:x0 + new_w].copy()
         region_mask = m_blend[:, :, np.newaxis] / 255.0
-        region[m > 0] = (region[m > 0] * (1 - region_mask[m > 0]) + 
+        region[m > 0] = (region[m > 0] * (1 - region_mask[m > 0]) +
                          np.broadcast_to(color_bgr, region[m > 0].shape) * region_mask[m > 0]).astype(np.uint8)
         canvas_bgr[y0:y0 + new_h, x0:x0 + new_w] = region
 
@@ -463,7 +628,7 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
         cur = count_components_for_train_id(canvas_bgr, train_id, min_area=min_comp_area)
 
         tries = 0
-        num_placed_this_class = 0  # Track duplicates
+        num_placed_this_class = 0
         while cur < target and tries < max_add_tries:
             tries += 1
             canvas_backup = canvas_bgr.copy()
@@ -471,12 +636,10 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
 
             inst = rng.choice(lib[cls_name])
             inst_mask = inst["mask"].copy()
-            
-            # For duplicates (2nd, 3rd instance etc), add subtle variation
-            # to prevent model from seeing exact copies
+
             if num_placed_this_class > 0:
                 inst_mask = vary_instance_mask(inst_mask, rng, scale_var=var_scale, blur_sigma=var_blur)
-            
+
             color_bgr = PALETTE_BGR.get(train_id, (255, 255, 255))
 
             ok = place_instance(
@@ -523,7 +686,6 @@ def clean_test_dir(test_dir: Path):
     for p in test_dir.glob("*.png"):
         p.unlink()
 
-# >>> EDIT: helper to pick/load ONE empty tray image
 def load_empty_tray_bgr(empty_dir: str, empty_path: str) -> np.ndarray:
     if empty_path:
         p = Path(empty_path)
@@ -541,7 +703,7 @@ def load_empty_tray_bgr(empty_dir: str, empty_path: str) -> np.ndarray:
         cands = sorted([p for p in d.glob("*") if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}])
         if not cands:
             raise FileNotFoundError(f"No images found in --empty_dir: {d}")
-        img = cv2.imread(str(cands[0]))  # deterministic: first file
+        img = cv2.imread(str(cands[0]))
         if img is None:
             raise FileNotFoundError(f"Could not read empty tray image: {cands[0]}")
         return cv2.resize(img, (SIZE, SIZE), interpolation=cv2.INTER_AREA)
@@ -576,6 +738,8 @@ def run_pix2pix_test(
         "--num_test=1",
         f"--epoch={epoch}",
         "--eval",
+        #enable for older model
+        "--no_use_display_mapper",
     ]
 
     if use_delta_comp:
@@ -607,8 +771,9 @@ def main():
     ap.add_argument("--add_contour", action="store_true")
     ap.add_argument("--no_overlap", action="store_true")
 
+    # EDIT: add random_mask
     ap.add_argument("--mode", type=str, default="real_scene",
-                    choices=["real_scene", "paste", "real_scene_count"])
+                    choices=["real_scene", "paste", "real_scene_count", "random_mask"])
 
     ap.add_argument("--scale_min", type=float, default=0.98)
     ap.add_argument("--scale_max", type=float, default=1.02)
@@ -632,10 +797,15 @@ def main():
     ap.add_argument("--empty_path", type=str, default="")
 
     ap.add_argument("--norm", type=str, default="batch", choices=["batch", "instance", "none"])
-    ap.add_argument("--var_scale", type=float, default=0.10, 
+    ap.add_argument("--var_scale", type=float, default=0.10,
                     help="Scale variation for duplicate instances (0.0-0.3, higher = more variation)")
     ap.add_argument("--var_blur", type=float, default=0.8,
                     help="Blur sigma for duplicate instance edges (0.0-2.0, higher = softer edges)")
+                
+    # Allow disabling it explicitly (needed when checkpoint has no display_mapper)
+    ap.add_argument('--no_use_display_mapper', action='store_false',
+                    dest='use_display_mapper',
+                    help='disable display mapper (do not load *_net_display_mapper.pth)')
 
     args = ap.parse_args()
     rng = random.Random(args.seed)
@@ -679,6 +849,28 @@ def main():
         )
         print(f"real_scene_count picked image_id={img_id}, file={fname}")
 
+    elif args.mode == "random_mask":
+        # NEW: generate random mask from tray masks + colored cutouts
+        tray_masks = load_tray_masks(TRAY_MASK_DIR)
+        cutouts = load_cutouts(CUTOUT_DIR)
+
+        allow_overlap = not bool(args.no_overlap) and bool(RAND_ALLOW_OVERLAP)
+        # If you pass --no_overlap, force no-overlap.
+        if args.no_overlap:
+            allow_overlap = False
+
+        canvas_bgr = build_random_mask_canvas(
+            rng=rng,
+            tray_masks=tray_masks,
+            cutouts=cutouts,
+            n_min=RAND_N_MIN,
+            n_max=RAND_N_MAX,
+            allow_overlap=allow_overlap,
+            max_tries_per_obj=RAND_MAX_TRIES_PER_OBJ,
+        )
+        img_id, fname = -1, "random_mask"
+        print("random_mask: generated synthetic mask from tray+cutouts")
+
     else:
         raise SystemExit("paste mode omitted here for brevity (unchanged in your original).")
 
@@ -696,12 +888,10 @@ def main():
     tag = "ALL" if not want_classes else "_".join(want_classes)
     ab_path = test_dir / f"gen_{args.mode}_{tag}_seed{args.seed}.png"
 
-    # >>> EDIT: if delta-comp, set B = empty tray AND write matching empty file name into a temp empty_dir
     effective_empty_dir = args.empty_dir
     if args.use_delta_comp:
         empty_bgr = load_empty_tray_bgr(args.empty_dir, args.empty_path)
 
-        # Make a temp folder that WILL match filenames exactly
         tmp_empty_dir = out_root / "empty_for_test"
         tmp_empty_dir.mkdir(parents=True, exist_ok=True)
 
@@ -709,7 +899,7 @@ def main():
         cv2.imwrite(str(tmp_empty_dir / ab_path.name), empty_bgr)
         effective_empty_dir = str(tmp_empty_dir)
 
-        blank_B = empty_bgr  # nicer eval view (real_B = empty tray)
+        blank_B = empty_bgr
     else:
         blank_B = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
 
@@ -783,15 +973,15 @@ python notebooks/StyleGan/generate_pix2pix.py \
   --mode real_scene_count \
   --images_dir data/raw/Contraband/Metal \
   --coco_json data/raw/Contraband/Metal/result.json \
-  --classes Blade,Vape \
-  --count 2,1 \
+  --classes Nail \
+  --count 1 \
   --morph dilate \
   --morph_k 3 \
   --morph_iter 1 \
   --scale_min 0.90 \
   --scale_max 1.10 \
   --rot_deg 1.0 \
-  --seed 88 \
+  --seed 1 \
   --out_dataset datasets/_gen_real \
   --use_delta_comp \
   --empty_dir data/interim/GAN/Empty \
@@ -812,6 +1002,31 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --norm instance
 
   
+
+  python notebooks/Pix2Pix/generate_pix2pix.py \
+  --mode random_mask \
+  --images_dir data/raw/Contraband/Metal \
+  --coco_json data/raw/Contraband/Metal/result.json \
+  --seed 1 \
+  --out_dataset datasets/_gen_random \
+  --epoch latest \
+  --use_delta_comp \
+  --empty_dir data/interim/GAN/Empty \
+  --norm instance \
+  --no_overlap
+
+
+  python notebooks/Pix2Pix/generate_pix2pix.py \
+  --mode random_mask \
+  --images_dir data/raw/Non-Contraband \
+  --coco_json data/raw/Non-Contraband/result.json \
+  --seed 1 \
+  --out_dataset datasets/_gen_random \
+  --epoch latest \
+  --use_delta_comp \
+  --empty_dir data/interim/GAN/Empty \
+  --norm instance \
+  --no_overlap
   
 
   To print out classes that you have:

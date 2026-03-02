@@ -67,6 +67,10 @@ class BaseOptions:
 
         parser.add_argument("--empty_path", type=str, default="",
                             help="Path to a single empty tray image used for all samples.")
+        
+        parser.add_argument('--no_use_display_mapper', action='store_false',
+                    dest='use_display_mapper',
+                    help='disable display mapper (skip loading *_net_display_mapper.pth)')
         self.initialized = True
         return parser
 

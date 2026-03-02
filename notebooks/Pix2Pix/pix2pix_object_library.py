@@ -141,6 +141,13 @@ def main():
     anns = coco.get("annotations", [])
     cats = coco.get("categories", [])
 
+    print("\n=== COCO Categories ===")
+    for c in cats:
+        raw = c["name"]
+        safe = safe_name(raw)
+        print(f"id={c['id']:>3} | raw='{raw}' | safe='{safe}'")
+    print("=======================\n")
+
     if not images or not anns or not cats:
         raise ValueError("JSON does not look like COCO: must contain images/annotations/categories")
 
@@ -213,12 +220,16 @@ def main():
         # ----------------------------
         # COLOR LINKING (the key part)
         # ----------------------------
-        if args.use_category_color:
+        if args.use_category_color and cat_name in cat_to_pal:
             # Prefer: category -> palette index -> PALETTE_BGR
+            pal_idx = int(cat_to_pal[cat_name])
+            if pal_idx not in PALETTE_BGR:
+                print(f"[WARN] {cat_name=} has pal_idx={pal_idx} not in PALETTE_BGR (0..6). Using WHITE fallback.")
             if cat_name in cat_to_pal:
                 pal_idx = int(cat_to_pal[cat_name])
                 bgr = PALETTE_BGR.get(pal_idx, (255, 255, 255))
                 rgb = (bgr[2], bgr[1], bgr[0])  # BGR -> RGB
+            
             else:
                 # Fallback: optional direct RGB json
                 rgb = palette_rgb_fallback.get(cat_name, (255, 255, 255))
@@ -255,11 +266,11 @@ if __name__ == "__main__":
 
 
 """
-python notebooks/StyleGan/pix2pix_object_library.py --coco_json data/raw/Contraband/Metal/result.json --out_dir data/raw/Contraband/Metal/Cropped --use_category_color   --cat_to_palette_json data/raw/Contraband/Metal/color_palette.json
+python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Contraband/Metal/result.json --out_dir data/raw/Contraband/Metal/Cropped --use_category_color   --cat_to_palette_json data/raw/Contraband/Metal/color_palette.json
 
 
 
-python notebooks/StyleGan/pix2pix_object_library.py --coco_json data/raw/Non-Contraband/result.json --out_dir data/raw/Non-Contraband/Cropped --use_category_color   --cat_to_palette_json data/raw/Non-Contraband/color_palette.json
+python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Non-Contraband/result.json --out_dir data/raw/Non-Contraband/Cropped --use_category_color   --cat_to_palette_json data/raw/Non-Contraband/color_palette.json
 
 
 
