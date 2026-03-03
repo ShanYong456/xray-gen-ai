@@ -8,6 +8,7 @@ import cv2
 # ============================================================
 # Fixed palette (YOUR exact palette) in BGR
 # ============================================================
+"""
 # CONTRABAND METAL:
 
 PALETTE_BGR = {
@@ -18,6 +19,13 @@ PALETTE_BGR = {
     4: (255, 255, 0),     # cyan
     5: (0, 255, 255),     # yellow
     6: (255, 0, 255),     # magenta
+}
+"""
+
+# Shampoo:
+PALETTE_BGR = {
+    0: (0, 0, 0),         # background
+    1: (255, 0, 0),       # blue
 }
 
 

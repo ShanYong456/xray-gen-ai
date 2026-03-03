@@ -199,6 +199,76 @@ python external/pix2pix/train.py \
   --continue_train --epoch latest \
   --batch_size 1 --no_flip
 
+
+
+  python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo \
+  --name Shampoo_pix2pix_phys_fixDull_v1\
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 10 \
+  --use_delta_comp --use_masked_l1 --lambda_bg 3.0 \
+  --use_masked_gan --gan_bg_keep 0.35 \
+  --gan_mask_dilate --gan_dilate_px 7 \
+  --use_fm --lambda_fm 10 \
+  --delta_scale 0.7 --od_gain 4.0 \
+  --use_gamma --gamma 2.2 \
+  --compose_eps 1e-6 \
+  --empty_dir data/interim/GAN/Empty \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --lr_G 0.0002  --lr_D 0.00002\
+  --n_epochs 150 --n_epochs_decay 150 \
+  --batch_size 1 --no_flip
+
+   python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo \
+  --name Shampoo_pix2pix_phys_v1 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 60 \
+  --use_delta_comp \
+  --use_masked_l1 --lambda_bg 1.5 \
+  --empty_dir data/interim/GAN/Empty \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --n_epochs 150 --n_epochs_decay 150 \
+  --batch_size 1 --no_flip --no_dropout
+
+  python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo \
+  --name Shampoo_pix2pix_physV2 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 60 --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_scale 1.0 --compose_eps 1e-6 \
+  --empty_dir data/interim/GAN/Empty \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --n_epochs 150 --n_epochs_decay 150 \
+  --lr_G 0.0002  --lr_D 0.0002\
+  --batch_size 1 --no_flip --no_dropout
+
+  # WITHOUT EMPTY TRAY
+   python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo \
+  --name Shampoo_pix2pix_plain_v1 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 3 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 10 \
+  --use_fm --lambda_fm 10 \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --lr_G 0.0002 --lr_D 0.0002 \
+  --n_epochs 150 --n_epochs_decay 150 \
+  --batch_size 1 --no_flip
+
+ 
+
 Test
 
 python external/pix2pix/test.py \

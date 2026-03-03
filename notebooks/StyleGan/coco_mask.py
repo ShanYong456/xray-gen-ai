@@ -6,13 +6,13 @@ import numpy as np
 # =========================
 # Paths
 # =========================
-IMAGES_DIR = Path("data/raw/Contraband/Metal")                 # your images
-COCO_JSON  = Path("data/raw/Contraband/Metal/result.json")     # COCO export
+IMAGES_DIR = Path("data/raw/Shampoo")                 # your images
+COCO_JSON  = Path("data/raw/Shampoo/result.json")     # COCO export
 
-OUT_MASKS   = Path("data/interim/contraband_metalV2/masks")         # raw label-id masks (0..K)  (will look black)
-OUT_VIZ     = Path("data/interim/contraband_metalV2/masks_viz")     # grayscale view (0..255)
-OUT_COLOR   = Path("data/interim/contraband_metalV2/masks_color")   # colored mask (per-class color)
-OUT_OVERLAY = Path("data/interim/contraband_metalV2/masks_overlay") # colored mask overlaid on image
+OUT_MASKS   = Path("data/interim/Shampoo/masks")         # raw label-id masks (0..K)  (will look black)
+OUT_VIZ     = Path("data/interim/Shampoo/masks_viz")     # grayscale view (0..255)
+OUT_COLOR   = Path("data/interim/Shampoo/masks_color")   # colored mask (per-class color)
+OUT_OVERLAY = Path("data/interim/Shampoo/masks_overlay") # colored mask overlaid on image
 
 for d in [OUT_MASKS, OUT_VIZ, OUT_COLOR, OUT_OVERLAY]:
     d.mkdir(parents=True, exist_ok=True)
@@ -41,7 +41,7 @@ for ann in coco.get("annotations", []):
 # Classes = 1..K
 # If you have more than 6 classes, extend this list.
 
-
+"""
 # FOR CONTRABAND METAL:
 PALETTE = {
     0: (0, 0, 0),         # background
@@ -52,7 +52,13 @@ PALETTE = {
     5: (0, 255, 255),     # yellow
     6: (255, 0, 255),     # magenta
 }
+"""
 
+#FOR SHAMPOO:
+PALETTE = {
+    0: (0, 0, 0),         # background
+    1: (255, 0, 0),       # blue
+}
 
 #FOR NON_CONTRABAND:
 """

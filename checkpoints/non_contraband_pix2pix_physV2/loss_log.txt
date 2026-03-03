@@ -839,3 +839,4 @@
 
 [Rank 0] (epoch: 300, iters: 140, time: 1.246, data: 0.004) , G_GAN: 1.003, G_L1: 1.203, D_real: 0.000, D_fake: 0.000
 
+================ Training Loss (Tue Mar  3 13:24:43 2026) ================

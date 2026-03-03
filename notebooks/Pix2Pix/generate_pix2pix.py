@@ -8,7 +8,7 @@ import numpy as np
 # =========================
 SIZE = 1024  # must match your training load_size/crop_size
 #MODEL_NAME = "contraband_metal_pix2pix_phys_fixDull_v4"   # your pix2pix --name
-MODEL_NAME = "non_contraband_pix2pix_physV2"       # your pix2pix --name
+MODEL_NAME = "Shampoo_pix2pix_physV2"       # your pix2pix --name
 PIX2PIX_DIR = Path("external/pix2pix")
 
 # =========================
@@ -21,7 +21,7 @@ TRAY_MASK_DIR = Path("data/interim/GAN/Empty_Tray_mask/Mask")
 #Contraband Metal
 #CUTOUT_DIR = Path("data/raw/Contraband/Metal/Cropped")
 #Non-Contraband
-CUTOUT_DIR = Path("data/raw/Non-Contraband/Cropped")
+CUTOUT_DIR = Path("data/raw/Shampoo/Cropped")
 
 # For random mask generation
 RAND_N_MIN, RAND_N_MAX = 1, 3
@@ -47,6 +47,13 @@ PALETTE_BGR = {
 }
 """
 
+# Shampoo:
+PALETTE_BGR = {
+    0:  (0, 0, 0),
+    1: (255, 0, 0),   
+}
+
+"""
 # Non-Contraband:
 PALETTE_BGR = {
     0:  (0, 0, 0),
@@ -72,6 +79,7 @@ PALETTE_BGR = {
     15: (255, 255, 128),
     16: (112, 55, 89),
 }
+"""
 
 
 # -------------------------
@@ -713,10 +721,11 @@ def load_empty_tray_bgr(empty_dir: str, empty_path: str) -> np.ndarray:
 def run_pix2pix_test(
     temp_dataset_dir: Path,
     epoch="latest",
-    norm="batch",
+    norm="instance",
     use_delta_comp=False,
     empty_dir="",
     empty_path="",
+
 ):
     input_nc = 6 if use_delta_comp else 3
 
@@ -739,7 +748,7 @@ def run_pix2pix_test(
         f"--epoch={epoch}",
         "--eval",
         #enable for older model
-        "--no_use_display_mapper",
+        #"--no_use_display_mapper",
     ]
 
     if use_delta_comp:
@@ -1028,6 +1037,22 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --norm instance \
   --no_overlap
   
+
+   python notebooks/Pix2Pix/generate_pix2pix.py \
+  --mode real_scene_count \
+  --images_dir data/raw/Shampoo \
+  --coco_json data/raw/Shampoo/result.json \
+  --classes Shampoo \
+  --count 1 \
+  --seed 1 --norm instance \
+  --out_dataset datasets/_gen_real \
+  --use_delta_comp \
+  --empty_dir data/interim/GAN/Empty \
+  --norm instance
+  
+  
+  
+
 
   To print out classes that you have:
   python - <<'PY'

@@ -9,8 +9,8 @@ from pathlib import Path
 SIZE = 1024
 OUT_COUNT = 10
 
-OBJECT_LIB = Path("data/raw/Non-Contraband/Cropped")
-OUT_DIR = Path("datasets/Non-Contraband/gen_random_masks")
+OBJECT_LIB = Path("data/raw/Shampoo/Cropped")
+OUT_DIR = Path("datasets/Shampoo/gen_random_masks")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Tray masks folder (exported from Label Studio COCO -> PNGs)
@@ -20,7 +20,7 @@ TRAY_MASK_DIR = Path("data/interim/GAN/Empty_Tray_mask/Mask")  # put multiple tr
 ALLOW_OVERLAP = False  # False = no overlaps between placed objects
 
 # Placement controls
-N_MIN, N_MAX = 1, 3
+N_MIN, N_MAX = 1, 1
 MAX_TRIES_PER_OBJECT = 200  # attempts before giving up on placing one object
 
 # Cluster controls
