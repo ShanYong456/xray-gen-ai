@@ -8,7 +8,7 @@ import numpy as np
 # =========================
 SIZE = 1024  # must match your training load_size/crop_size
 #MODEL_NAME = "contraband_metal_pix2pix_phys_fixDull_v4"   # your pix2pix --name
-MODEL_NAME = "Shampoo_pix2pix_physV2"       # your pix2pix --name
+MODEL_NAME = "Shampoo_Blade_pix2pix_V1"       # your pix2pix --name
 PIX2PIX_DIR = Path("external/pix2pix")
 
 # =========================
@@ -46,12 +46,20 @@ PALETTE_BGR = {
     6: (255, 0, 255),     # magenta
 }
 """
-
+"""
 # Shampoo:
 PALETTE_BGR = {
     0:  (0, 0, 0),
     1: (255, 0, 0),   
 }
+"""
+# Shampoo_Blade:
+PALETTE_BGR = {
+    0:  (0, 0, 0),
+    1: (0, 255, 0),       # green
+    2: (255, 0, 0),       # blue
+}
+
 
 """
 # Non-Contraband:
@@ -598,25 +606,47 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
                                max_add_tries=1200,
                                sample_k=200,
                                var_scale=0.10, var_blur=0.8):
+
     if want_classes is None or targets is None:
         raise SystemExit("real_scene_count requires --classes and --count.")
 
-    img_id = choose_best_real_image_for_targets(coco, want_classes, targets, rng, sample_k=sample_k)
-    _, inst_full, fname = get_instances_for_image(coco, images_dir, img_id)
+    # -------------------------
+    # 1️⃣ Pick best base image
+    # -------------------------
+    img_id = choose_best_real_image_for_targets(
+        coco, want_classes, targets, rng, sample_k=sample_k
+    )
+
+    base_img, inst_full, fname = get_instances_for_image(
+        coco, images_dir, img_id
+    )
+
+    tray_mask = np.any(base_img > 0, axis=2)
+    tray_mask = cv2.resize(tray_mask.astype(np.uint8),
+                           (force_size, force_size),
+                           interpolation=cv2.INTER_NEAREST).astype(bool)
 
     insts = []
     for d in inst_full:
-        m = cv2.resize(d["mask"], (force_size, force_size), interpolation=cv2.INTER_NEAREST)
-        insts.append({"train_id": d["train_id"], "cname": d["cname"], "mask": m})
+        m = cv2.resize(d["mask"], (force_size, force_size),
+                       interpolation=cv2.INTER_NEAREST)
+        insts.append({
+            "train_id": d["train_id"],
+            "cname": d["cname"],
+            "mask": m
+        })
 
     want_set = set(want_classes)
     controllable = [it for it in insts if it["cname"] in want_set]
     others = [it for it in insts if it["cname"] not in want_set] if keep_others else []
 
+    # -------------------------
+    # 2️⃣ Keep closest matches first
+    # -------------------------
     new_ctrl = []
     for cls_name, target in zip(want_classes, targets):
         cls_insts = [it for it in controllable if it["cname"] == cls_name]
-        rng.shuffle(cls_insts)
+        cls_insts.sort(key=lambda x: -np.sum(x["mask"] > 0))  # large first
         new_ctrl.extend(cls_insts[:max(0, int(target))])
 
     canvas_bgr = render_from_instances(others + new_ctrl, size=force_size)
@@ -626,27 +656,47 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
 
     lib, _, _, _ = build_shape_library_for_paste(coco, images_dir)
 
+    # -------------------------
+    # 3️⃣ Add missing instances
+    # -------------------------
     for cls_name, target in zip(want_classes, targets):
+
         target = int(target)
 
         if cls_name not in lib or len(lib[cls_name]) == 0:
-            raise SystemExit(f"Class '{cls_name}' not found or empty in COCO for paste adding.")
+            raise SystemExit(f"Class '{cls_name}' not found in COCO.")
 
         train_id = int(lib[cls_name][0]["train_id"])
-        cur = count_components_for_train_id(canvas_bgr, train_id, min_area=min_comp_area)
+        cur = count_components_for_train_id(
+            canvas_bgr, train_id, min_area=min_comp_area
+        )
 
         tries = 0
-        num_placed_this_class = 0
+        num_added = 0
+
         while cur < target and tries < max_add_tries:
             tries += 1
+
             canvas_backup = canvas_bgr.copy()
             occ_backup = occ_mask.copy()
 
             inst = rng.choice(lib[cls_name])
             inst_mask = inst["mask"].copy()
 
-            if num_placed_this_class > 0:
-                inst_mask = vary_instance_mask(inst_mask, rng, scale_var=var_scale, blur_sigma=var_blur)
+            # -------- Better variation --------
+            if num_added > 0:
+                inst_mask = vary_instance_mask(
+                    inst_mask,
+                    rng,
+                    scale_var=var_scale,
+                    blur_sigma=var_blur
+                )
+
+                # random morph jitter
+                if rng.random() < 0.5:
+                    k = rng.choice([3, 5])
+                    inst_mask = cv2.erode(inst_mask,
+                                          np.ones((k, k), np.uint8), 1)
 
             color_bgr = PALETTE_BGR.get(train_id, (255, 255, 255))
 
@@ -658,7 +708,7 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
                 rng=rng,
                 scale_range=(float(scale_min), float(scale_max)),
                 rot_deg=float(rot_deg),
-                allow_overlap=False,
+                allow_overlap=True,  # allow light touching
                 morph=morph,
                 morph_k=morph_k,
                 morph_iter=morph_iter,
@@ -672,20 +722,30 @@ def build_real_scene_count_mask(coco, images_dir: Path, rng,
                 occ_mask[:] = occ_backup
                 continue
 
-            new_cur = count_components_for_train_id(canvas_bgr, train_id, min_area=min_comp_area)
+            # -------- Tray constraint --------
+            mask_region = np.any(canvas_bgr > 0, axis=2)
+            if not np.all(tray_mask[mask_region]):
+                canvas_bgr[:] = canvas_backup
+                occ_mask[:] = occ_backup
+                continue
+
+            new_cur = count_components_for_train_id(
+                canvas_bgr, train_id, min_area=min_comp_area
+            )
+
             if new_cur <= cur:
                 canvas_bgr[:] = canvas_backup
                 occ_mask[:] = occ_backup
                 continue
 
             cur = new_cur
-            num_placed_this_class += 1
+            num_added += 1
 
         if cur < target:
-            print(f"real_scene_count: Could not reach target for {cls_name}. Got {cur}, wanted {target}.")
+            print(f"[real_scene_count] Could not reach target for {cls_name}. "
+                  f"Got {cur}, wanted {target}.")
 
     return canvas_bgr, img_id, fname
-
 # -------------------------
 # IO + pix2pix
 # -------------------------
@@ -880,6 +940,82 @@ def main():
         img_id, fname = -1, "random_mask"
         print("random_mask: generated synthetic mask from tray+cutouts")
 
+    elif args.mode == "paste":
+        if not want_classes:
+            raise SystemExit("--mode paste requires --classes.")
+
+        counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
+        if len(counts_raw) == 1:
+            targets = [int(counts_raw[0])] * len(want_classes)
+        elif len(counts_raw) == len(want_classes):
+            targets = [int(x) for x in counts_raw]
+        else:
+            raise SystemExit("--count must be 1 number or same length as --classes")
+
+        # Build instance library from dataset
+        lib, cat_id_to_train, cat_name_to_train, skipped_rle = \
+            build_shape_library_for_paste(coco, images_dir)
+
+        if skipped_rle > 0:
+            print(f"[paste] Skipped {skipped_rle} RLE annotations (polygons only supported).")
+
+        canvas_bgr = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+        occ_mask = np.zeros((SIZE, SIZE), dtype=np.uint8)
+
+        allow_overlap = not args.no_overlap
+
+        for cls_name, target in zip(want_classes, targets):
+            if cls_name not in lib or len(lib[cls_name]) == 0:
+                raise SystemExit(f"Class '{cls_name}' not found in dataset or empty.")
+
+            train_id = lib[cls_name][0]["train_id"]
+            color_bgr = PALETTE_BGR.get(train_id, (255, 255, 255))
+
+            placed = 0
+            tries = 0
+
+            while placed < int(target) and tries < args.strict_max_global_tries:
+                tries += 1
+
+                inst = rng.choice(lib[cls_name])
+                inst_mask = inst["mask"].copy()
+
+                if placed > 0:
+                    inst_mask = vary_instance_mask(
+                        inst_mask,
+                        rng,
+                        scale_var=args.var_scale,
+                        blur_sigma=args.var_blur
+                    )
+
+                ok = place_instance(
+                    canvas_bgr=canvas_bgr,
+                    occ_mask=occ_mask,
+                    inst_mask_bin=inst_mask,
+                    color_bgr=color_bgr,
+                    rng=rng,
+                    scale_range=(float(args.scale_min), float(args.scale_max)),
+                    rot_deg=float(args.rot_deg),
+                    allow_overlap=allow_overlap,
+                    morph=args.morph,
+                    morph_k=args.morph_k,
+                    morph_iter=args.morph_iter,
+                    soft_edges=args.soft_edges,
+                    blend_width=5,
+                    max_tries=120,
+                )
+
+                if ok:
+                    placed += 1
+
+            if placed < int(target):
+                print(f"[paste] Could not reach target for {cls_name}. "
+                      f"Placed {placed}/{target}")
+
+        img_id, fname = -1, "paste_synthetic"
+        print("paste mode: generated synthetic mask from pasted instances")
+
+
     else:
         raise SystemExit("paste mode omitted here for brevity (unchanged in your original).")
 
@@ -1027,8 +1163,8 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
 
   python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode random_mask \
-  --images_dir data/raw/Non-Contraband \
-  --coco_json data/raw/Non-Contraband/result.json \
+  --images_dir data/raw/Shampoo_Blade \
+  --coco_json data/raw/Shampoo_Blade/result.json \
   --seed 1 \
   --out_dataset datasets/_gen_random \
   --epoch latest \
@@ -1040,8 +1176,8 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
 
    python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode real_scene_count \
-  --images_dir data/raw/Shampoo \
-  --coco_json data/raw/Shampoo/result.json \
+  --images_dir data/raw/Shampoo_Blade \
+  --coco_json data/raw/Shampoo_Blade/result.json \
   --classes Shampoo \
   --count 1 \
   --seed 1 --norm instance \

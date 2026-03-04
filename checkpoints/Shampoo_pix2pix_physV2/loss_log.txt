@@ -1184,3 +1184,9 @@
 
 [Rank 0] (epoch: 194, iters: 40, time: 1.425, data: 0.004) , G_GAN: 0.866, G_L1: 1.182, D_real: 0.023, D_fake: 0.014
 
+[Rank 0] (epoch: 195, iters: 20, time: 0.451, data: 0.003) , G_GAN: 0.591, G_L1: 1.115, D_real: 0.120, D_fake: 0.157
+
+[Rank 0] (epoch: 195, iters: 120, time: 0.454, data: 0.004) , G_GAN: 0.600, G_L1: 1.179, D_real: 0.092, D_fake: 0.170
+
+[Rank 0] (epoch: 196, iters: 100, time: 0.446, data: 0.241) , G_GAN: 0.890, G_L1: 1.198, D_real: 0.009, D_fake: 0.033
+

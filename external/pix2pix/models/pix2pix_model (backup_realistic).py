@@ -1,6 +1,4 @@
 import torch
-import torch.nn.functional as F
-
 from .base_model import BaseModel
 from . import networks
 
@@ -9,9 +7,9 @@ class Pix2PixModel(BaseModel):
     """pix2pix model with OPTIONAL physics-style delta compositing on an empty tray E.
 
     When enabled:
-      - dataset must provide input["E"] (empty tray image, SAME normalization as A/B, typically [-1,1])
+      - dataset must provide input["E"] (empty tray image, same normalization as A/B)
       - generator input becomes concat([A, E]) so input_nc must match (e.g. 3+3=6)
-      - generator predicts delta in OD space (same channels as B)
+      - generator predicts delta (same channels as B)
       - model composes fake_B internally in log space (optical density)
 
     When disabled (default), behaves like standard pix2pix.
@@ -25,7 +23,8 @@ class Pix2PixModel(BaseModel):
             parser.set_defaults(pool_size=0, gan_mode="vanilla")
             parser.add_argument("--lambda_L1", type=float, default=100.0, help="weight for L1 loss")
 
-        # ---- Physics / delta-compositing options ----
+        # ---- NEW options for delta-compositing (physics) ----
+        
         parser.add_argument(
             "--compose_eps", type=float, default=1e-6,
             help="epsilon for log/exp stability in delta composition"
@@ -34,31 +33,6 @@ class Pix2PixModel(BaseModel):
             "--delta_scale", type=float, default=1.0,
             help="scale applied to predicted delta before adding in log-space"
         )
-
-        # Constrain delta to be physically plausible (OD delta >= 0)
-        parser.add_argument(
-            "--delta_positive", action="store_true",
-            help="If set, force delta_od >= 0 using softplus (recommended for X-ray attenuation)."
-        )
-        parser.add_argument(
-            "--delta_max", type=float, default=6.0,
-            help="Clamp OD delta to [0, delta_max] to prevent over-darkening/explosions."
-        )
-
-        # Optional OD gamma to soften/strengthen OD mapping (useful for 8-bit X-rays)
-        parser.add_argument(
-            "--od_gamma", type=float, default=1.0,
-            help="Gamma applied before OD: OD = -log(I^gamma + eps). <1 softens OD."
-        )
-
-        # Mask handling (mask channels count, before concatenating E)
-        parser.add_argument(
-            "--mask_nc", type=int, default=3,
-            help="How many channels in A correspond to the semantic mask (before E). "
-                 "For one-hot shampoo+blade use 2; for RGB palette mask use 3."
-        )
-
-        # Masked L1 option (object + background identity)
         parser.add_argument(
             "--use_masked_l1", action="store_true",
             help="If set (and use_delta_comp), use masked object L1 + background identity L1."
@@ -68,23 +42,13 @@ class Pix2PixModel(BaseModel):
             help="background identity strength vs empty tray outside mask (only used with use_masked_l1)"
         )
 
-        # Regularize delta outside mask to be ~0 (stabilizes OOD layouts)
-        parser.add_argument(
-            "--lambda_delta_bg", type=float, default=5.0,
-            help="Penalty weight for delta outside object mask (only used with use_delta_comp)."
-        )
-
-        parser.add_argument("--mask_thr", type=float, default=0.05,
-                    help="threshold in [0,1] after unnormalizing A to detect object pixels")
-
         return parser
 
     def __init__(self, opt):
         """Initialize the pix2pix class."""
         BaseModel.__init__(self, opt)
 
-        # Add delta bg loss name for logging when physics mode is on
-        self.loss_names = ["G_GAN", "G_L1", "G_delta_bg", "D_real", "D_fake"]
+        self.loss_names = ["G_GAN", "G_L1", "D_real", "D_fake"]
         self.visual_names = ["real_A", "fake_B", "real_B"]
 
         if self.isTrain:
@@ -109,23 +73,15 @@ class Pix2PixModel(BaseModel):
         if self.isTrain:
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             self.criterionL1 = torch.nn.L1Loss()
-            self.optimizer_G = torch.optim.Adam(
-                self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999)
-            )
-            self.optimizer_D = torch.optim.Adam(
-                self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999)
-            )
+            self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+            self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
 
         # holders for physics mode
         self.empty_E = None
-        self.delta_raw = None
-        self.delta_od = None
+        self.delta = None
         self.mask_M = None
-
-        # init loss holder
-        self.loss_G_delta_bg = torch.tensor(0.0, device=self.device)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform pre-processing steps.
@@ -161,76 +117,43 @@ class Pix2PixModel(BaseModel):
         self.image_paths = input["A_paths" if AtoB else "B_paths"]
 
     def _build_object_mask_from_A(self):
-        """Build object mask M from the FIRST mask_nc channels of the condition.
-
-        IMPORTANT: A is normalized to [-1,1]. Background black becomes -1, so abs()>0 breaks.
-        We first unnormalize to [0,1], then threshold.
-        """
-        mask_nc = int(getattr(self.opt, "mask_nc", 3))
-        A_only = self.real_A[:, :mask_nc, :, :]          # [-1,1]
-
-        # unnormalize to [0,1]
-        A01 = (A_only + 1.0) * 0.5                       # [0,1]
-
-        # object = any channel has value > small threshold
-        thr = float(getattr(self.opt, "mask_thr", 0.05)) # you can tune 0.02~0.1
-        M = (A01.sum(dim=1, keepdim=True) > thr).float() # (N,1,H,W)
-
+        """Build object mask M from the FIRST 3 channels of the condition (assumes mask is 3ch color)."""
+        # If your mask has different channels, adjust this slice.
+        A_only = self.real_A[:, :3, :, :]
+        M = (A_only.abs().sum(dim=1, keepdim=True) > 0).float()  # (N,1,H,W)
         return A_only, M
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         if not getattr(self.opt, "use_delta_comp", False):
             self.fake_B = self.netG(self.real_A)  # G(A)
-            self.delta_raw = None
-            self.delta_od = None
-            self.mask_M = None
             return
 
-        # ---- netG predicts delta (raw) ----
-        self.delta_raw = self.netG(self.real_A)  # (N,C,H,W) same channels as B
+        # ---- netG predicts delta ----
+        self.delta = self.netG(self.real_A)  # predicted residual (same channels as B)
 
         # ---- object mask from A ----
         _, M = self._build_object_mask_from_A()
         self.mask_M = M
 
-        # Expand mask to channels
-        if self.delta_raw.shape[1] != 1:
-            M_exp = M.expand(-1, self.delta_raw.shape[1], -1, -1)
+        # expand mask to channels
+        if self.delta.shape[1] != 1:
+            M_exp = M.expand(-1, self.delta.shape[1], -1, -1)
         else:
             M_exp = M
 
         eps = float(getattr(self.opt, "compose_eps", 1e-6))
         delta_scale = float(getattr(self.opt, "delta_scale", 1.0))
-        delta_max = float(getattr(self.opt, "delta_max", 6.0))
-        delta_positive = bool(getattr(self.opt, "delta_positive", False))
 
         # Convert empty tray to [0,1] intensity
-        # Assumes empty_E is normalized to [-1,1] like B
         E01 = (self.empty_E + 1.0) * 0.5
         E01 = torch.clamp(E01, 0.0, 1.0)
-
-        # Optional gamma before OD to soften harsh OD for 8-bit X-rays
-        od_gamma = float(getattr(self.opt, "od_gamma", 1.0))
-        if od_gamma != 1.0:
-            E01 = torch.pow(E01, od_gamma)
 
         # Optical density: OD = -log(I)
         OD_E = -torch.log(E01 + eps)
 
-        # delta in OD space
-        if delta_positive:
-            delta_od = F.softplus(self.delta_raw)  # >= 0
-        else:
-            delta_od = self.delta_raw  # allow +/- (not recommended for X-ray attenuation)
-
-        # scale + clamp for stability
-        delta_od = delta_od * delta_scale
-        if delta_positive:
-            delta_od = torch.clamp(delta_od, 0.0, delta_max)
-
-        # store for regularization / debugging
-        self.delta_od = delta_od
+        # delta in OD space (allow +/- by default)
+        delta_od = self.delta * delta_scale
 
         # Compose: OD_pred = OD_E + M * delta_od
         OD_pred = OD_E + M_exp * delta_od
@@ -261,45 +184,24 @@ class Pix2PixModel(BaseModel):
         pred_fake = self.netD(fake_AB)
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
 
-        # Default: no delta regularizer
-        self.loss_G_delta_bg = torch.tensor(0.0, device=self.device)
-
         # L1 loss
         if getattr(self.opt, "use_delta_comp", False) and getattr(self.opt, "use_masked_l1", False):
             # object mask
             _, M_obj = self._build_object_mask_from_A()  # (N,1,H,W)
             M_obj = M_obj.expand_as(self.fake_B)
 
-            # --- Area-normalized masked losses (IMPORTANT) ---
-            eps = 1e-6
-
             # object region matches real_B
-            obj_num = torch.sum(torch.abs(self.fake_B - self.real_B) * M_obj)
-            obj_den = torch.sum(M_obj) + eps
-            obj_l1 = obj_num / obj_den
+            obj_l1 = (torch.abs(self.fake_B - self.real_B) * M_obj).mean()
 
             # background region stays like empty_E
-            bg = (1.0 - M_obj)
-            bg_num = torch.sum(torch.abs(self.fake_B - self.empty_E) * bg)
-            bg_den = torch.sum(bg) + eps
-            bg_l1 = bg_num / bg_den
+            bg_l1 = (torch.abs(self.fake_B - self.empty_E) * (1.0 - M_obj)).mean()
 
             lambda_bg = float(getattr(self.opt, "lambda_bg", 1.5))
             self.loss_G_L1 = (obj_l1 + lambda_bg * bg_l1) * self.opt.lambda_L1
-
-            # --- Delta background regularizer (stabilizes OOD/multi-instance) ---
-            lam_delta_bg = float(getattr(self.opt, "lambda_delta_bg", 5.0))
-            if lam_delta_bg > 0.0 and self.delta_od is not None and self.mask_M is not None:
-                M = self.mask_M
-                if self.delta_od.shape[1] != 1:
-                    M = M.expand(-1, self.delta_od.shape[1], -1, -1)
-                # penalize any delta outside object region
-                self.loss_G_delta_bg = torch.mean(torch.abs(self.delta_od) * (1.0 - M)) * lam_delta_bg
-
         else:
             self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
 
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_delta_bg
+        self.loss_G = self.loss_G_GAN + self.loss_G_L1
         self.loss_G.backward()
 
     def optimize_parameters(self):

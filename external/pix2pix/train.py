@@ -239,7 +239,7 @@ python external/pix2pix/train.py \
 
   python external/pix2pix/train.py \
   --dataroot datasets/Shampoo \
-  --name Shampoo_pix2pix_physV2 \
+  --name Shampoo_pix2pix_V1 \
   --model pix2pix --dataset_mode aligned --direction AtoB \
   --input_nc 6 --output_nc 3 \
   --netG unet_256 --norm instance \
@@ -249,9 +249,64 @@ python external/pix2pix/train.py \
   --empty_dir data/interim/GAN/Empty \
   --preprocess none --load_size 1024 --crop_size 1024 \
   --n_epochs 150 --n_epochs_decay 150 \
-  --lr_G 0.0002  --lr_D 0.0002\
+  --lr_G 0.0002 --lr_D 0.0002\
+  --continue_train --epoch latest \
   --batch_size 1 --no_flip --no_dropout
 
+  python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_Blade \
+  --name Shampoo_Blade_pix2pix_V1 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 60 --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_scale 1.0 --compose_eps 1e-6 \
+  --empty_dir data/interim/GAN/Empty \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --n_epochs 17 --n_epochs_decay 150 \
+  --lr_G 0.0002 --lr_D 0.0002\
+  --continue_train --epoch latest \
+  --batch_size 1 --no_flip --no_dropout
+
+   python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_Blade \
+  --name Shampoo_Blade_pix2pix_V2 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 80 --use_masked_l1 --lambda_bg 0.1 \
+  --use_delta_comp --compose_eps 1e-6 \
+  --delta_positive --delta_scale 0.3 --delta_max 4.0 \
+  --od_gamma 0.7 --mask_nc 3 --lambda_delta_bg 5.0 \
+  --empty_path data/interim/GAN/Empty/2026-01-21_10-34-09-750.png \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --n_epochs 17 --n_epochs_decay 150 \
+  --lr_G 0.0002 --lr_D 0.0001 \
+  --batch_size 1 --no_flip --no_dropout
+  
+
+  python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_Blade \
+  --name Shampoo_Blade_pix2pix_V2 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 120 --use_masked_l1 --lambda_bg 0.05 \
+  --use_delta_comp --compose_eps 1e-6 \
+  --delta_positive --delta_scale 1.0 --delta_max 10.0 \
+  --od_gamma 0.9 --mask_nc 3 --lambda_delta_bg 10.0 \
+  --empty_path data/interim/GAN/Empty/2026-01-21_10-34-09-750.png \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --n_epochs 60 --n_epochs_decay 60 \
+  --lr_G 0.0002 --lr_D 0.00005 \
+  --batch_size 1 --no_flip --no_dropout \
+  --netD basic --n_layers_D 2 --ndf 32
+
+
+  
   # WITHOUT EMPTY TRAY
    python external/pix2pix/train.py \
   --dataroot datasets/Shampoo \

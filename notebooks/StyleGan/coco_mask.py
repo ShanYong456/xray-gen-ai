@@ -6,13 +6,13 @@ import numpy as np
 # =========================
 # Paths
 # =========================
-IMAGES_DIR = Path("data/raw/Shampoo")                 # your images
-COCO_JSON  = Path("data/raw/Shampoo/result.json")     # COCO export
+IMAGES_DIR = Path("data/raw/Shampoo&Blade")                 # your images
+COCO_JSON  = Path("data/raw/Shampoo&Blade/result.json")     # COCO export
 
-OUT_MASKS   = Path("data/interim/Shampoo/masks")         # raw label-id masks (0..K)  (will look black)
-OUT_VIZ     = Path("data/interim/Shampoo/masks_viz")     # grayscale view (0..255)
-OUT_COLOR   = Path("data/interim/Shampoo/masks_color")   # colored mask (per-class color)
-OUT_OVERLAY = Path("data/interim/Shampoo/masks_overlay") # colored mask overlaid on image
+OUT_MASKS   = Path("data/interim/Shampoo&Blade/masks")         # raw label-id masks (0..K)  (will look black)
+OUT_VIZ     = Path("data/interim/Shampoo&Blade/masks_viz")     # grayscale view (0..255)
+OUT_COLOR   = Path("data/interim/Shampoo&Blade/masks_color")   # colored mask (per-class color)
+OUT_OVERLAY = Path("data/interim/Shampoo&Blade/masks_overlay") # colored mask overlaid on image
 
 for d in [OUT_MASKS, OUT_VIZ, OUT_COLOR, OUT_OVERLAY]:
     d.mkdir(parents=True, exist_ok=True)
@@ -54,10 +54,12 @@ PALETTE = {
 }
 """
 
-#FOR SHAMPOO:
+#FOR SHAMPOO&BLADE:
 PALETTE = {
     0: (0, 0, 0),         # background
-    1: (255, 0, 0),       # blue
+    1: (0, 255, 0),       # green
+    2: (255, 0, 0),       # blue
+    
 }
 
 #FOR NON_CONTRABAND:
