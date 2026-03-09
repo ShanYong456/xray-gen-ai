@@ -280,7 +280,7 @@ python external/pix2pix/train.py \
   --use_delta_comp --compose_eps 1e-6 \
   --delta_positive --delta_scale 0.3 --delta_max 4.0 \
   --od_gamma 0.7 --mask_nc 3 --lambda_delta_bg 5.0 \
-  --empty_path data/interim/GAN/Empty/2026-01-21_10-34-09-750.png \
+  --empty_dir data/interim/GAN/Empty \
   --preprocess none --load_size 1024 --crop_size 1024 \
   --n_epochs 17 --n_epochs_decay 150 \
   --lr_G 0.0002 --lr_D 0.0001 \
@@ -289,23 +289,122 @@ python external/pix2pix/train.py \
 
   python external/pix2pix/train.py \
   --dataroot datasets/Shampoo_Blade \
-  --name Shampoo_Blade_pix2pix_V2 \
+  --name Shampoo_Blade_pix2pix_V2_detailV1 \
   --model pix2pix --dataset_mode aligned --direction AtoB \
   --input_nc 6 --output_nc 3 \
   --netG unet_256 --norm instance \
   --gan_mode lsgan \
-  --lambda_L1 120 --use_masked_l1 --lambda_bg 0.05 \
-  --use_delta_comp --compose_eps 1e-6 \
-  --delta_positive --delta_scale 1.0 --delta_max 10.0 \
-  --od_gamma 0.9 --mask_nc 3 --lambda_delta_bg 10.0 \
-  --empty_path data/interim/GAN/Empty/2026-01-21_10-34-09-750.png \
+  --lambda_L1 10 --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_positive --delta_max 10 --delta_scale 0.7 \
+  --use_delta_supervision --lambda_delta 150 \
+  --lambda_delta_bg 2 \
+  --use_grad_loss --lambda_grad 15 \
+  --use_delta_grad_loss --lambda_delta_grad 15 \
+  --use_lap_loss --lambda_lap 15 \
+  --use_ssim_loss --lambda_ssim 1 \
+  --use_region_stats --lambda_stats 1 \
+  --lr 0.00015 --beta1 0.5 \
   --preprocess none --load_size 1024 --crop_size 1024 \
-  --n_epochs 60 --n_epochs_decay 60 \
-  --lr_G 0.0002 --lr_D 0.00005 \
   --batch_size 1 --no_flip --no_dropout \
-  --netD basic --n_layers_D 2 --ndf 32
+  --empty_dir data/interim/GAN/Empty
 
 
+  python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_Blade \
+  --name Shampoo_Blade_pix2pix_V2_detailV2 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 8 \
+  --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_positive --delta_max 10 --delta_scale 0.7 \
+  --use_delta_supervision --lambda_delta 120 \
+  --lambda_delta_bg 2 \
+  --use_grad_loss --lambda_grad 15 --use_tray_mask\
+  --use_delta_grad_loss --lambda_delta_grad 15 --tray_shift_max_px 400 \
+  --use_lap_loss --lambda_lap 15 --tray_shift_iters 1\
+  --use_ssim_loss --lambda_ssim 5 --empty_dir data/interim/GAN/Empty \
+  --use_region_stats --lambda_stats 5 --batch_size 1 --no_flip --no_dropout\
+  --use_soft_mask --preprocess none --load_size 1024 --crop_size 1024  \
+  --mask_blur_ksize 5 --lr 0.00015 --beta1 0.5\
+  --mask_noise_std 0.02 --tray_mask_autoshift\
+  --tray_mask_path data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png
+
+  
+  python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_Blade \
+  --name Shampoo_Blade_pix2pix_V2_detailV2 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 8 \
+  --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_positive --delta_max 10 --delta_scale 0.7 \
+  --use_delta_supervision --lambda_delta 120 \
+  --lambda_delta_bg 2 \
+  --use_tray_mask \
+  --use_grad_loss --lambda_grad 15 \
+  --use_delta_grad_loss --lambda_delta_grad 15 --tray_bbox_margin 2 --tray_mask_erode_px 0 \
+  --use_lap_loss --lambda_lap 15 --tray_shift_max_px 400 \
+  --use_ssim_loss --lambda_ssim 5 --lr 0.00015 --beta1 0.5 --tray_mask_autoshift\
+  --use_region_stats --lambda_stats 5 --batch_size 1 --no_flip --no_dropout\
+  --use_soft_mask --preprocess none --load_size 1024 --crop_size 1024\
+  --mask_blur_ksize 5 --mask_noise_std 0.02 --empty_dir data/interim/GAN/Empty\
+  --tray_mask_path data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png
+
+  python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_Blade \
+  --name Shampoo_Blade_pix2pix_V2_detailV3 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 8 \
+  --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_positive --delta_max 10 --delta_scale 0.7 \
+  --use_delta_supervision --lambda_delta 120 --lr 0.00015 --beta1 0.5 \
+  --lambda_delta_bg 2 --mask_blur_ksize 5 --mask_noise_std 0.02 \
+  --use_tray_mask --preprocess none --load_size 1024 --crop_size 1024 \
+  --use_grad_loss --lambda_grad 15 \
+  --use_delta_grad_loss --lambda_delta_grad 15 \
+  --use_lap_loss --lambda_lap 15 --tray_mask_autoshift --tray_bbox_margin 5 \
+  --use_ssim_loss --lambda_ssim 5 --tray_mask_dilate_px 0 --tray_obj_dilate_px 2 \
+  --use_region_stats --lambda_stats 5 --tray_nudge_iters 8 --tray_nudge_max_step 20 \
+  --batch_size 1 --no_flip --no_dropout --tray_shift_max_px 400 \
+  --use_soft_mask --empty_dir data/interim/GAN/Empty \
+  --tray_mask_path data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png
+
+python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_Blade \
+  --name Shampoo_Blade_pix2pix_V2_cleanHalo \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --norm instance \
+  --gan_mode lsgan \
+  --lambda_L1 8 \
+  --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_positive --delta_max 10 --delta_scale 0.7 \
+  --use_delta_supervision --lambda_delta 120 --lr 0.00015 --beta1 0.5 \
+  --lambda_delta_bg 2 \
+  --mask_blur_ksize 0 \
+  --mask_noise_std 0.02 \
+  --use_tray_mask --tray_mask_autoshift \
+  --tray_obj_dilate_px 5 \
+  --tray_bbox_margin 2 \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --use_grad_loss --lambda_grad 15 \
+  --use_delta_grad_loss --lambda_delta_grad 15 \
+  --use_lap_loss --lambda_lap 15 \
+  --use_ssim_loss --lambda_ssim 5 \
+  --use_region_stats --lambda_stats 5 \
+  --tray_nudge_iters 8 --tray_nudge_max_step 20 \
+  --batch_size 1 --no_flip --no_dropout --tray_shift_max_px 400 \
+  --empty_dir data/interim/GAN/Empty \
+  --tray_mask_path data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png \
+  --n_epochs 150 --n_epochs_decay 150 \
+  --num_threads 0
   
   # WITHOUT EMPTY TRAY
    python external/pix2pix/train.py \

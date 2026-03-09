@@ -9,8 +9,8 @@ from pathlib import Path
 SIZE = 1024
 OUT_COUNT = 10
 
-OBJECT_LIB = Path("data/raw/Shampoo/Cropped")
-OUT_DIR = Path("datasets/Shampoo/gen_random_masks")
+OBJECT_LIB = Path("data/raw/Shampoo_Blade/Cropped")
+OUT_DIR = Path("datasets/Shampoo_Blade/gen_random_masks")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Tray masks folder (exported from Label Studio COCO -> PNGs)

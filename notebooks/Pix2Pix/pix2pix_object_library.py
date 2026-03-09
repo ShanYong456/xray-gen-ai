@@ -283,5 +283,7 @@ python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Non-Cont
 
 python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo/result.json --out_dir data/raw/Shampoo/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo/color_palette.json
 
+python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo_Blade/result.json --out_dir data/raw/Shampoo_Blade/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo_Blade/color_palette.json
+
 
 """

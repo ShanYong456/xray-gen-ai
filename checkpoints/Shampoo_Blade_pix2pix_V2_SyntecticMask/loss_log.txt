@@ -1,0 +1,9 @@
+================ Training Loss (Mon Mar  9 11:42:59 2026) ================
+================ Training Loss (Mon Mar  9 11:46:15 2026) ================
+================ Training Loss (Mon Mar  9 11:50:22 2026) ================
+[Rank 0] (epoch: 1, iters: 100, time: 0.255, data: 0.447) , G_GAN: 0.555, G_L1: 1.474, G_delta_bg: 0.331, G_delta: 21.658, G_grad: 0.580, G_delta_grad: 0.564, G_lap: 2.611, G_ssim: 1.825, G_stats: 0.472, G_syn_tv: 0.000, G_syn_mag: 0.000, G_syn_mask_mean: 0.000, D_real: 0.341, D_fake: 0.385
+
+[Rank 0] (epoch: 1, iters: 200, time: 0.246, data: 0.234) , G_GAN: 1.008, G_L1: 1.936, G_delta_bg: 0.285, G_delta: 21.557, G_grad: 0.959, G_delta_grad: 0.832, G_lap: 7.917, G_ssim: 1.666, G_stats: 0.655, G_syn_tv: 0.000, G_syn_mag: 0.000, G_syn_mask_mean: 0.000, D_real: 0.073, D_fake: 0.048
+
+[Rank 0] (epoch: 2, iters: 60, time: 0.249, data: 0.100) , G_GAN: 1.103, G_L1: 2.070, G_delta_bg: 0.273, G_delta: 21.754, G_grad: 0.852, G_delta_grad: 0.895, G_lap: 12.344, G_ssim: 1.900, G_stats: 0.874, G_syn_tv: 0.000, G_syn_mag: 0.000, G_syn_mask_mean: 0.000, D_real: 0.122, D_fake: 0.152
+
