@@ -8,26 +8,24 @@ from . import networks
 class Pix2PixModel(BaseModel):
     """pix2pix model with OPTIONAL physics-style delta compositing on an empty tray E.
 
-    Input:  A (mask-like condition) + E (empty tray)
-    Target: B (real X-ray)
+    Input:
+      A_cond + E
+      where A_cond = [class one-hot channels, thickness channel, appearance(optional)]
 
-    Adds detail supervision so the model learns realism from real_B:
-      - delta supervision: delta_gt = OD(B) - OD(E)
-      - gradient loss on fake_B vs real_B (inside object region)
-      - gradient loss on delta_od vs delta_gt (inside object region)
-      - OPTIONAL: Laplacian loss on fake_B vs real_B (very good for internal details)
-      - OPTIONAL: SSIM loss inside object region
-      - OPTIONAL: Region stats loss (mean/std) inside object region
-      - tray mask T to restrict where changes are allowed (IMPORTANT for tray alignment)
+    Target:
+      B (real X-ray or pseudo target)
 
-    NOTE:
-    To prevent objects appearing outside the tray, we:
-      1) Clamp the object mask M := M * T
-      2) Clamp the predicted delta_od := delta_od * T
-      3) Ensure ALL losses that use object region use (M * T) consistently
+    Real paired sample:
+      - GAN + supervised losses
 
-    This requires your dataset to provide input['T'] (1 inside tray, 0 outside),
-    derived from your "empty tray mask png" and aligned to E/A/B resolution.
+    Synthetic pseudo-target sample:
+      - NO GAN / NO D update
+      - YES supervised losses if B is provided
+
+    Mask-only synthetic sample:
+      - NO GAN
+      - NO paired supervision
+      - only weak regularization
     """
 
     @staticmethod
@@ -41,7 +39,7 @@ class Pix2PixModel(BaseModel):
         parser.add_argument("--compose_eps", type=float, default=1e-6,
                             help="epsilon for log/exp stability in delta composition")
         parser.add_argument("--delta_scale", type=float, default=1.0,
-                            help="scale applied to predicted delta before adding in OD-space")
+                            help="scale applied to predicted residual delta before adding in OD-space")
 
         parser.add_argument("--delta_positive", action="store_true",
                             help="force delta_od >= 0 using softplus (recommended for X-ray attenuation).")
@@ -51,22 +49,35 @@ class Pix2PixModel(BaseModel):
         parser.add_argument("--od_gamma", type=float, default=1.0,
                             help="Gamma applied before OD: OD = -log(I^gamma + eps). <1 softens OD.")
 
-        # Mask handling
-        parser.add_argument("--mask_nc", type=int, default=3,
-                            help="How many channels in A correspond to the semantic mask (before E). "
-                                 "For one-hot shampoo+blade use 2; for RGB palette mask use 3.")
-        parser.add_argument("--mask_thr", type=float, default=0.05,
-                            help="threshold in [0,1] after unnormalizing A to detect object pixels")
-
-        # ---- NEW: optional thickness proxy channel support ----
+        # Conditioning layout
+        # Conditioning layout (current)
+        # ch0 = object mask
+        # ch1 = appearance (optional)
+        # ch2 = thickness (optional)
+        parser.add_argument("--class_nc", type=int, default=1,
+                            help="Number of mask/class channels in A. For current setup use 1.")
+        parser.add_argument("--use_appearance_channel", action="store_true",
+                            help="If set, A includes masked real-item appearance channel.")
+        parser.add_argument("--appearance_nc", type=int, default=1,
+                            help="Number of appearance channels in A. Current implementation supports 1.")
         parser.add_argument("--use_thickness_channel", action="store_true",
-                            help="If set, A is expected to include extra thickness proxy channel(s) "
-                                 "(e.g., distance transform) in addition to mask channels.")
+                            help="If set, A includes thickness proxy channel(s).")
         parser.add_argument("--thickness_nc", type=int, default=1,
-                            help="Number of thickness channels appended in A (typically 1). "
-                                 "Used only for documentation/validation; mask extraction still uses mask_nc.")
+                            help="Number of thickness channels in A.")
+        parser.add_argument("--mask_thr", type=float, default=0.05,
+                            help="threshold in [0,1] after unnormalizing class channels to detect object pixels")
 
-        # Masked L1 option (object + background identity)
+        # Physics prior from thickness
+        parser.add_argument("--use_delta_prior", action="store_true",
+                            help="Use simple class-weighted thickness prior for delta_od.")
+        parser.add_argument("--prior_shampoo", type=float, default=1.2,
+                            help="Thickness prior strength for Shampoo.")
+        parser.add_argument("--prior_blade", type=float, default=0.8,
+                            help="Thickness prior strength for Blade.")
+        parser.add_argument("--lambda_instance_delta", type=float, default=0.0,
+                            help="Extra instance-wise delta supervision weight if instance_masks are provided.")
+
+        # Masked L1 option
         parser.add_argument("--use_masked_l1", action="store_true",
                             help="use masked object L1 + background identity L1 (requires use_delta_comp).")
         parser.add_argument("--lambda_bg", type=float, default=1.5,
@@ -74,67 +85,62 @@ class Pix2PixModel(BaseModel):
 
         # Regularize delta outside mask to be ~0
         parser.add_argument("--lambda_delta_bg", type=float, default=5.0,
-                            help="Penalty weight for delta outside object mask (only used with use_delta_comp).")
+                            help="Penalty weight for delta outside object mask.")
 
-        # ---- Direct delta supervision (OD-space) ----
+        # Direct delta supervision
         parser.add_argument("--use_delta_supervision", action="store_true",
                             help="supervise delta_od with delta_gt = OD(B)-OD(E) inside mask.")
         parser.add_argument("--lambda_delta", type=float, default=50.0,
-                            help="Weight for delta supervision loss (only used with use_delta_supervision).")
+                            help="Weight for delta supervision loss.")
 
-        # ---- Tray constraint (REQUIRED for your 'empty tray mask png' restriction) ----
+        # Tray constraint
         parser.add_argument("--use_tray_mask", action="store_true",
-                            help="expect input['T'] tray mask (1 inside tray, 0 outside) and constrain composition/loss.")
+                            help="expect input['T'] tray mask (1 inside tray, 0 outside).")
 
-        # ---- Detail supervision using real_B (edge/gradient losses) ----
+        # Detail supervision
         parser.add_argument("--use_grad_loss", action="store_true",
                             help="Sobel gradient loss on fake_B vs real_B inside object region.")
         parser.add_argument("--lambda_grad", type=float, default=10.0,
-                            help="Weight for gradient loss on fake_B vs real_B (try 5~30).")
+                            help="Weight for gradient loss on fake_B vs real_B.")
 
         parser.add_argument("--use_delta_grad_loss", action="store_true",
                             help="Sobel gradient loss on delta_od vs delta_gt inside object region.")
         parser.add_argument("--lambda_delta_grad", type=float, default=10.0,
-                            help="Weight for gradient loss on delta_od vs delta_gt (try 5~30).")
+                            help="Weight for gradient loss on delta_od vs delta_gt.")
 
-        # ---- Laplacian loss ----
         parser.add_argument("--use_lap_loss", action="store_true",
-                            help="Laplacian loss on fake_B vs real_B inside object region (very effective for internal structure).")
+                            help="Laplacian loss on fake_B vs real_B inside object region.")
         parser.add_argument("--lambda_lap", type=float, default=10.0,
-                            help="Weight for Laplacian loss (try 5~30).")
+                            help="Weight for Laplacian loss.")
 
-        # ---- SSIM loss ----
         parser.add_argument("--use_ssim_loss", action="store_true",
-                            help="SSIM loss on fake_B vs real_B inside object region (stabilizes and improves structure).")
+                            help="SSIM loss on fake_B vs real_B inside object region.")
         parser.add_argument("--lambda_ssim", type=float, default=5.0,
-                            help="Weight for SSIM loss (try 1~10).")
+                            help="Weight for SSIM loss.")
 
-        # ---- Region stats loss ----
         parser.add_argument("--use_region_stats", action="store_true",
-                            help="Match mean/std of fake_B to real_B inside object region (helps attenuation realism).")
+                            help="Match mean/std of fake_B to real_B inside object region.")
         parser.add_argument("--lambda_stats", type=float, default=5.0,
-                            help="Weight for region stats loss (try 1~10).")
+                            help="Weight for region stats loss.")
 
-        # ---- Soft mask options (helps remove mask artifacts) ----
+        # Soft mask options
         parser.add_argument("--use_soft_mask", action="store_true",
                             help="Use soft mask instead of binary mask.")
         parser.add_argument("--mask_soft_beta", type=float, default=30.0,
-                            help="Soft mask sharpness. Larger = sharper mask edge.")
+                            help="Soft mask sharpness.")
 
         parser.add_argument("--mask_blur_ksize", type=int, default=0,
                             help="Gaussian blur kernel size for mask smoothing (0 disables).")
-
         parser.add_argument("--mask_blur_sigma", type=float, default=1.2,
                             help="Gaussian blur sigma for mask smoothing.")
-
         parser.add_argument("--mask_noise_std", type=float, default=0.0,
-                            help="Small noise added to mask channels during training (e.g., 0.02).")
-        
-                # ---- Synthetic-only training support ----
+                            help="Small noise added to conditioning channels during training.")
+
+        # Synthetic-only regularization
         parser.add_argument("--lambda_syn_tv", type=float, default=1.0,
-                            help="TV smoothness on delta_od for synthetic-only batches.")
+                            help="TV smoothness on delta_od for mask-only synthetic batches.")
         parser.add_argument("--lambda_syn_mag", type=float, default=0.2,
-                            help="Weak magnitude regularization on delta_od for synthetic-only batches.")
+                            help="Weak magnitude regularization on delta_od for mask-only synthetic batches.")
         parser.add_argument("--lambda_syn_mask_mean", type=float, default=0.0,
                             help="Optional weak encouragement for non-zero response inside object mask.")
 
@@ -151,10 +157,19 @@ class Pix2PixModel(BaseModel):
             "G_syn_tv", "G_syn_mag", "G_syn_mask_mean",
             "D_real", "D_fake"
         ]
-        self.visual_names = ["real_A", "fake_B", "real_B"]
+        self.visual_names = ["real_A", "fake_B"]
 
         self.model_names = ["G", "D"] if self.isTrain else ["G"]
         self.device = opt.device
+
+        self.class_nc = int(getattr(opt, "class_nc", 1))
+        self.thickness_nc = int(getattr(opt, "thickness_nc", 1))
+        self.use_thickness_channel = bool(getattr(opt, "use_thickness_channel", False))
+        self.use_appearance_channel = bool(getattr(opt, "use_appearance_channel", False))
+        self.appearance_nc = int(getattr(opt, "appearance_nc", 1))
+
+        if self.use_appearance_channel and self.appearance_nc != 1:
+            raise ValueError("Current implementation supports --appearance_nc 1 only.")
 
         self.netG = networks.define_G(
             opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
@@ -173,15 +188,17 @@ class Pix2PixModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers += [self.optimizer_G, self.optimizer_D]
 
-        # holders
         self.empty_E = None
         self.delta_raw = None
         self.delta_od = None
         self.delta_gt = None
         self.mask_M = None
         self.tray_T = None
+        self.instance_masks = None
 
-        # init loss holders
+        self.is_synthetic = False
+        self.has_real_B = False
+
         z = torch.tensor(0.0, device=self.device)
         self.loss_G_delta_bg = z.clone()
         self.loss_G_delta = z.clone()
@@ -197,15 +214,12 @@ class Pix2PixModel(BaseModel):
         self._init_kernels()
 
     def _init_kernels(self):
-        # Sobel kernels (3x3)
         kx = torch.tensor([[1, 0, -1],
                            [2, 0, -2],
                            [1, 0, -1]], dtype=torch.float32).view(1, 1, 3, 3) / 4.0
         ky = torch.tensor([[1, 2, 1],
                            [0, 0, 0],
                            [-1, -2, -1]], dtype=torch.float32).view(1, 1, 3, 3) / 4.0
-
-        # Laplacian kernel (3x3)
         kl = torch.tensor([[0, 1, 0],
                            [1, -4, 1],
                            [0, 1, 0]], dtype=torch.float32).view(1, 1, 3, 3)
@@ -237,21 +251,20 @@ class Pix2PixModel(BaseModel):
 
         A = input["A" if AtoB else "B"].to(self.device)
 
-        # add small noise to mask channels to break grid artifacts
         if self.isTrain:
             noise_std = float(getattr(self.opt, "mask_noise_std", 0.0))
             if noise_std > 0:
-                mask_nc = int(getattr(self.opt, "mask_nc", 3))
-                noise = torch.randn_like(A[:, :mask_nc]) * noise_std
-                A[:, :mask_nc] = torch.clamp(A[:, :mask_nc] + noise, -1.0, 1.0)
+                cond_nc = self.class_nc + self.thickness_nc + (
+                    self.appearance_nc if self.use_appearance_channel else 0
+                )
+                noise = torch.randn_like(A[:, :cond_nc]) * noise_std
+                A[:, :cond_nc] = torch.clamp(A[:, :cond_nc] + noise, -1.0, 1.0)
 
-        # synthetic flag
         is_synth = input.get("is_synthetic", False)
         if isinstance(is_synth, torch.Tensor):
             is_synth = bool(is_synth.flatten()[0].item())
         self.is_synthetic = bool(is_synth)
 
-        # real target may be missing for synthetic batches
         b_key = "B" if AtoB else "A"
         if b_key in input and input[b_key] is not None:
             self.real_B = input[b_key].to(self.device)
@@ -270,7 +283,6 @@ class Pix2PixModel(BaseModel):
             self.real_A = A
             self.empty_E = None
 
-        # tray mask
         if getattr(self.opt, "use_tray_mask", False):
             if "T" not in input:
                 raise KeyError("use_tray_mask set but input has no key 'T' (tray mask).")
@@ -278,31 +290,95 @@ class Pix2PixModel(BaseModel):
         else:
             self.tray_T = None
 
+        inst = input.get("instance_masks", None)
+        if inst is not None:
+            self.instance_masks = inst.to(self.device)
+        else:
+            self.instance_masks = None
+
         self.image_paths = input.get("A_paths" if AtoB else "B_paths", [])
 
     def _build_object_mask_from_A(self):
-        """Build object mask from first mask_nc channels. Supports soft masks + blur."""
-        mask_nc = int(getattr(self.opt, "mask_nc", 3))
-        A_only = self.real_A[:, :mask_nc, :, :]   # [-1,1]
-        A01 = (A_only + 1.0) * 0.5                # [0,1]
+        """
+        Build object mask.
+
+        Priority:
+        1. Use instance masks if available
+        2. Otherwise fallback to explicit object-mask channel
+        """
+        if self.instance_masks is not None:
+            inst = self.instance_masks
+
+            if inst.dim() == 4:
+                M = torch.clamp(inst.sum(dim=1, keepdim=True), 0.0, 1.0)
+            elif inst.dim() == 3:
+                M = inst.unsqueeze(1)
+            else:
+                raise RuntimeError(f"Unexpected instance_masks shape: {inst.shape}")
+
+            blur_k = int(getattr(self.opt, "mask_blur_ksize", 0))
+            blur_sigma = float(getattr(self.opt, "mask_blur_sigma", 1.2))
+
+            if blur_k > 1:
+                M = self._gaussian_blur(M, blur_k, blur_sigma)
+
+            M = torch.clamp(M, 0.0, 1.0)
+            return None, M.float()
+
+        A_mask = self.real_A[:, :1, :, :]
+        A01 = (A_mask + 1.0) * 0.5
 
         thr = float(getattr(self.opt, "mask_thr", 0.05))
-        strength = A01.sum(dim=1, keepdim=True)
 
         if getattr(self.opt, "use_soft_mask", False):
             beta = float(getattr(self.opt, "mask_soft_beta", 30.0))
-            thr_scaled = thr * mask_nc
-            M = torch.sigmoid(beta * (strength - thr_scaled))
+            M = torch.sigmoid(beta * (A01 - thr))
         else:
-            M = (strength > thr).float()
+            M = (A01 > thr).float()
 
         blur_k = int(getattr(self.opt, "mask_blur_ksize", 0))
         blur_sigma = float(getattr(self.opt, "mask_blur_sigma", 1.2))
+
         if blur_k > 1:
             M = self._gaussian_blur(M, blur_k, blur_sigma)
 
         M = torch.clamp(M, 0.0, 1.0)
-        return A_only, M
+
+        return A_mask, M
+
+    def _get_thickness_from_A(self):
+        if not self.use_thickness_channel:
+            return None
+
+        start = self.class_nc
+        if self.use_appearance_channel:
+            start += self.appearance_nc
+        end = start + self.thickness_nc
+
+        if self.real_A.shape[1] < end:
+            return None
+
+        th = self.real_A[:, start:end, :, :]
+        th = (th + 1.0) * 0.5
+        if th.shape[1] > 1:
+            th = th.mean(dim=1, keepdim=True)
+        return torch.clamp(th, 0.0, 1.0)
+
+    def _get_appearance_from_A(self):
+        if not self.use_appearance_channel:
+            return None
+
+        start = self.class_nc
+        end = start + self.appearance_nc
+
+        if self.real_A.shape[1] < end:
+            return None
+
+        app = self.real_A[:, start:end, :, :]
+        app = (app + 1.0) * 0.5
+        if app.shape[1] > 1:
+            app = app.mean(dim=1, keepdim=True)
+        return torch.clamp(app, 0.0, 1.0)
 
     def _expand_like(self, mask_1ch: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
         if mask_1ch is None:
@@ -343,6 +419,49 @@ class Pix2PixModel(BaseModel):
         )
         return ssim
 
+    def _tv_loss(self, x: torch.Tensor) -> torch.Tensor:
+        dx = torch.abs(x[:, :, :, 1:] - x[:, :, :, :-1]).mean()
+        dy = torch.abs(x[:, :, 1:, :] - x[:, :, :-1, :]).mean()
+        return dx + dy
+
+    def _build_delta_prior(self):
+        """
+        Disabled for current conditioning layout:
+        ch0 = object mask
+        ch1 = appearance
+        ch2 = thickness
+
+        The old class-based prior assumed separate Shampoo/Blade channels,
+        which no longer matches the dataset.
+        
+        
+        Simple class-weighted thickness prior.
+        ch0 = Shampoo
+        ch1 = Blade
+        
+        if not bool(getattr(self.opt, "use_delta_prior", False)):
+            return None
+        if not self.use_thickness_channel:
+            return None
+
+        A_cls = self.real_A[:, :self.class_nc, :, :]
+        A_cls01 = torch.clamp((A_cls + 1.0) * 0.5, 0.0, 1.0)
+        thickness = self._get_thickness_from_A()
+        if thickness is None:
+            return None
+
+        shampoo = A_cls01[:, 0:1, :, :] if self.class_nc >= 1 else 0.0
+        blade = A_cls01[:, 1:2, :, :] if self.class_nc >= 2 else 0.0
+
+        k_shampoo = float(getattr(self.opt, "prior_shampoo", 1.2))
+        k_blade = float(getattr(self.opt, "prior_blade", 0.8))
+
+        prior_1ch = thickness * (k_shampoo * shampoo + k_blade * blade)
+        prior_3ch = prior_1ch.repeat(1, 3, 1, 1)
+        return prior_3ch
+        """
+        return None
+
     def forward(self):
         if not getattr(self.opt, "use_delta_comp", False):
             self.fake_B = self.netG(self.real_A)
@@ -352,10 +471,8 @@ class Pix2PixModel(BaseModel):
             self.mask_M = None
             return
 
-        # predict delta in OD-space (raw)
         self.delta_raw = self.netG(self.real_A)
 
-        # build object mask from A, then HARD restrict to tray region
         _, M = self._build_object_mask_from_A()
         if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
             M = M * self.tray_T
@@ -365,56 +482,74 @@ class Pix2PixModel(BaseModel):
         delta_scale = float(getattr(self.opt, "delta_scale", 1.0))
         delta_max = float(getattr(self.opt, "delta_max", 6.0))
         delta_positive = bool(getattr(self.opt, "delta_positive", False))
-
-        # empty tray intensity -> OD
-        E01 = torch.clamp((self.empty_E + 1.0) * 0.5, 0.0, 1.0)
         od_gamma = float(getattr(self.opt, "od_gamma", 1.0))
+
+        # Empty tray -> intensity [0,1] -> OD
+        E01 = torch.clamp((self.empty_E + 1.0) * 0.5, 0.0, 1.0)
         if od_gamma != 1.0:
             E01 = torch.pow(E01, od_gamma)
         OD_E = -torch.log(E01 + eps)
 
-        # delta constraint
+        # Generator residual
         if delta_positive:
-            delta_od = F.softplus(self.delta_raw)
+            delta_res = F.softplus(self.delta_raw)
         else:
-            delta_od = self.delta_raw
+            delta_res = self.delta_raw
 
-        delta_od = delta_od * delta_scale
+        delta_res = delta_res * delta_scale
+
+        # Optional physics prior from thickness/classes
+        delta_prior = self._build_delta_prior()
+        if delta_prior is not None:
+            delta_od = delta_prior + delta_res
+        else:
+            delta_od = delta_res
+
+        # Safer delta range control
         if delta_positive:
             delta_od = torch.clamp(delta_od, 0.0, delta_max)
+        else:
+            # allow some brightening if needed, but prevent runaway values
+            delta_od = torch.clamp(delta_od, -delta_max, delta_max)
 
-        # VERY IMPORTANT: enforce tray constraint on delta itself
+        # Restrict delta to tray if tray mask is used
         if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
             delta_od = delta_od * self._expand_like(self.tray_T, delta_od)
 
         self.delta_od = delta_od
 
-        # tray mask used for composition
+        # Expand masks to match channels
         T = self.tray_T if (getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None) else torch.ones_like(M)
         M_exp = self._expand_like(M, delta_od)
         T_exp = self._expand_like(T, delta_od)
 
-        # compose ONLY inside tray & object region
-        OD_pred = OD_E + (T_exp * M_exp) * delta_od
+        # Compose only inside object mask and tray
+        compose_mask = T_exp * M_exp
+        OD_pred = OD_E + compose_mask * delta_od
 
+        # Back to intensity
         I_pred = torch.exp(-OD_pred)
         I_pred = torch.clamp(I_pred, 0.0, 1.0)
 
-        # outside tray: force back to empty tray
+        # Outside tray, keep exact empty tray
         if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
             I_pred = T_exp * I_pred + (1.0 - T_exp) * E01
 
         self.fake_B = I_pred * 2.0 - 1.0
 
-        # delta_gt for supervision (OD-space)
+        # Optional GT delta supervision
         if getattr(self.opt, "use_delta_supervision", False) and self.has_real_B:
             B01 = torch.clamp((self.real_B + 1.0) * 0.5, 0.0, 1.0)
             if od_gamma != 1.0:
                 B01 = torch.pow(B01, od_gamma)
             OD_B = -torch.log(B01 + eps)
+
             delta_gt = OD_B - OD_E
+
             if delta_positive:
                 delta_gt = torch.clamp(delta_gt, 0.0, delta_max)
+            else:
+                delta_gt = torch.clamp(delta_gt, -delta_max, delta_max)
 
             if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
                 delta_gt = delta_gt * self._expand_like(self.tray_T, delta_gt)
@@ -422,11 +557,6 @@ class Pix2PixModel(BaseModel):
             self.delta_gt = delta_gt
         else:
             self.delta_gt = None
-    
-    def _tv_loss(self, x: torch.Tensor) -> torch.Tensor:
-        dx = torch.abs(x[:, :, :, 1:] - x[:, :, :, :-1]).mean()
-        dy = torch.abs(x[:, :, 1:, :] - x[:, :, :-1, :]).mean()
-        return dx + dy
 
     def backward_D(self):
         if self.is_synthetic or (not self.has_real_B):
@@ -457,7 +587,6 @@ class Pix2PixModel(BaseModel):
         else:
             self.loss_G_GAN = z.clone()
 
-        z = torch.tensor(0.0, device=self.device)
         self.loss_G_delta_bg = z.clone()
         self.loss_G_delta = z.clone()
         self.loss_G_grad = z.clone()
@@ -469,18 +598,14 @@ class Pix2PixModel(BaseModel):
         self.loss_G_syn_mag = z.clone()
         self.loss_G_syn_mask_mean = z.clone()
 
-        # build object region, then restrict to tray
         _, M_obj_1 = self._build_object_mask_from_A()
         if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
             M_obj_1 = M_obj_1 * self.tray_T
 
         T_1 = self.tray_T if (getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None) else torch.ones_like(M_obj_1)
-
         M_obj = self._expand_like(M_obj_1, self.fake_B)
         T = self._expand_like(T_1, self.fake_B)
 
-        # ---- L1 loss ----
-                # ---- L1 loss ----
         if self.has_real_B:
             if getattr(self.opt, "use_delta_comp", False) and getattr(self.opt, "use_masked_l1", False):
                 eps = 1e-6
@@ -497,13 +622,6 @@ class Pix2PixModel(BaseModel):
 
                 lambda_bg = float(getattr(self.opt, "lambda_bg", 1.5))
                 self.loss_G_L1 = (obj_l1 + lambda_bg * bg_l1) * self.opt.lambda_L1
-
-                lam_delta_bg = float(getattr(self.opt, "lambda_delta_bg", 5.0))
-                if lam_delta_bg > 0.0 and self.delta_od is not None and self.mask_M is not None:
-                    Mch = self._expand_like(self.mask_M, self.delta_od)
-                    Tch = self._expand_like(T_1, self.delta_od)
-                    inside_bg = (1.0 - Mch) * Tch
-                    self.loss_G_delta_bg = torch.mean(torch.abs(self.delta_od) * inside_bg) * lam_delta_bg
             else:
                 if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
                     eps = 1e-6
@@ -515,14 +633,13 @@ class Pix2PixModel(BaseModel):
         else:
             self.loss_G_L1 = z.clone()
 
-            lam_delta_bg = float(getattr(self.opt, "lambda_delta_bg", 5.0))
-            if lam_delta_bg > 0.0 and self.delta_od is not None and self.mask_M is not None:
-                Mch = self._expand_like(self.mask_M, self.delta_od)
-                Tch = self._expand_like(T_1, self.delta_od)
-                inside_bg = (1.0 - Mch) * Tch
-                self.loss_G_delta_bg = torch.mean(torch.abs(self.delta_od) * inside_bg) * lam_delta_bg
+        lam_delta_bg = float(getattr(self.opt, "lambda_delta_bg", 5.0))
+        if lam_delta_bg > 0.0 and self.delta_od is not None and self.mask_M is not None:
+            Mch = self._expand_like(self.mask_M, self.delta_od)
+            Tch = self._expand_like(T_1, self.delta_od)
+            inside_bg = (1.0 - Mch) * Tch
+            self.loss_G_delta_bg = torch.mean(torch.abs(self.delta_od) * inside_bg) * lam_delta_bg
 
-        # ---- delta supervision loss (OD) ----
         if getattr(self.opt, "use_delta_comp", False) and getattr(self.opt, "use_delta_supervision", False):
             if self.delta_gt is not None and self.delta_od is not None:
                 lam_delta = float(getattr(self.opt, "lambda_delta", 50.0))
@@ -534,7 +651,31 @@ class Pix2PixModel(BaseModel):
                 den = torch.sum(region) + eps
                 self.loss_G_delta = lam_delta * (num / den)
 
-        # ---- gradient loss on image ----
+                lam_inst = float(getattr(self.opt, "lambda_instance_delta", 0.0))
+                if lam_inst > 0.0 and self.instance_masks is not None and self.instance_masks.numel() > 0:
+                    inst_losses = []
+                    if self.instance_masks.dim() == 4:
+                        Bn, N, H, W = self.instance_masks.shape
+                        for i in range(N):
+                            Mi = self.instance_masks[:, i:i+1, :, :]
+                            if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
+                                Mi = Mi * self.tray_T
+                            region_i = self._expand_like(Mi, self.delta_od)
+                            den_i = torch.sum(region_i) + eps
+                            if den_i.item() <= 1e-6:
+                                continue
+                            li = torch.sum(torch.abs(self.delta_od - self.delta_gt) * region_i) / den_i
+                            inst_losses.append(li)
+                    elif self.instance_masks.dim() == 3:
+                        Mi = self.instance_masks.unsqueeze(1)
+                        region_i = self._expand_like(Mi, self.delta_od)
+                        den_i = torch.sum(region_i) + eps
+                        if den_i.item() > 1e-6:
+                            inst_losses.append(torch.sum(torch.abs(self.delta_od - self.delta_gt) * region_i) / den_i)
+
+                    if len(inst_losses) > 0:
+                        self.loss_G_delta = self.loss_G_delta + lam_inst * torch.stack(inst_losses).mean()
+
         if self.has_real_B and getattr(self.opt, "use_grad_loss", False):
             lam_grad = float(getattr(self.opt, "lambda_grad", 10.0))
             eps = 1e-6
@@ -545,19 +686,16 @@ class Pix2PixModel(BaseModel):
             den = torch.sum(region) + eps
             self.loss_G_grad = lam_grad * (num / den)
 
-        # ---- gradient loss on delta ----
-        if getattr(self.opt, "use_delta_grad_loss", False):
-            if self.delta_gt is not None and self.delta_od is not None:
-                lam_dg = float(getattr(self.opt, "lambda_delta_grad", 10.0))
-                eps = 1e-6
-                g_d = self._sobel_mag(self.delta_od)
-                g_gt = self._sobel_mag(self.delta_gt)
-                region = self._expand_like(M_obj_1, self.delta_od) * self._expand_like(T_1, self.delta_od)
-                num = torch.sum(torch.abs(g_d - g_gt) * region)
-                den = torch.sum(region) + eps
-                self.loss_G_delta_grad = lam_dg * (num / den)
+        if self.delta_gt is not None and self.delta_od is not None and getattr(self.opt, "use_delta_grad_loss", False):
+            lam_dg = float(getattr(self.opt, "lambda_delta_grad", 10.0))
+            eps = 1e-6
+            g_d = self._sobel_mag(self.delta_od)
+            g_gt = self._sobel_mag(self.delta_gt)
+            region = self._expand_like(M_obj_1, self.delta_od) * self._expand_like(T_1, self.delta_od)
+            num = torch.sum(torch.abs(g_d - g_gt) * region)
+            den = torch.sum(region) + eps
+            self.loss_G_delta_grad = lam_dg * (num / den)
 
-        # ---- Laplacian loss on image ----
         if self.has_real_B and getattr(self.opt, "use_lap_loss", False):
             lam_lap = float(getattr(self.opt, "lambda_lap", 10.0))
             eps = 1e-6
@@ -568,7 +706,6 @@ class Pix2PixModel(BaseModel):
             den = torch.sum(region) + eps
             self.loss_G_lap = lam_lap * (num / den)
 
-        # ---- SSIM loss ----
         if self.has_real_B and getattr(self.opt, "use_ssim_loss", False):
             lam_ssim = float(getattr(self.opt, "lambda_ssim", 5.0))
             eps = 1e-6
@@ -580,7 +717,6 @@ class Pix2PixModel(BaseModel):
             den = torch.sum(region) + eps
             self.loss_G_ssim = lam_ssim * (num / den)
 
-        # ---- Region stats loss ----
         if self.has_real_B and getattr(self.opt, "use_region_stats", False):
             lam_stats = float(getattr(self.opt, "lambda_stats", 5.0))
             eps = 1e-6
@@ -600,30 +736,25 @@ class Pix2PixModel(BaseModel):
             self.loss_G_stats = lam_stats * (
                 torch.mean(torch.abs(f_mean - r_mean)) + torch.mean(torch.abs(f_std - r_std))
             )
-        
-        # ---- Synthetic-only regularization ----
-        if self.is_synthetic or (not self.has_real_B):
-            if self.delta_od is not None:
-                lam_tv = float(getattr(self.opt, "lambda_syn_tv", 1.0))
-                lam_mag = float(getattr(self.opt, "lambda_syn_mag", 0.2))
-                lam_mask_mean = float(getattr(self.opt, "lambda_syn_mask_mean", 0.0))
 
-                Mch = self._expand_like(M_obj_1, self.delta_od)
-                Tch = self._expand_like(T_1, self.delta_od)
-                region = Mch * Tch
-                eps = 1e-6
+        if (not self.has_real_B) and self.delta_od is not None:
+            lam_tv = float(getattr(self.opt, "lambda_syn_tv", 1.0))
+            lam_mag = float(getattr(self.opt, "lambda_syn_mag", 0.2))
+            lam_mask_mean = float(getattr(self.opt, "lambda_syn_mask_mean", 0.0))
 
-                # smooth but not noisy inside object region
-                self.loss_G_syn_tv = lam_tv * self._tv_loss(self.delta_od * region)
+            Mch = self._expand_like(M_obj_1, self.delta_od)
+            Tch = self._expand_like(T_1, self.delta_od)
+            region = Mch * Tch
+            eps = 1e-6
 
-                # weak magnitude control so synthetic batches do not explode
-                reg_den = torch.sum(region) + eps
-                self.loss_G_syn_mag = lam_mag * (torch.sum(torch.abs(self.delta_od) * region) / reg_den)
+            self.loss_G_syn_tv = lam_tv * self._tv_loss(self.delta_od * region)
 
-                # optional weak anti-collapse term: encourage some non-zero response inside mask
-                if lam_mask_mean > 0.0:
-                    mean_inside = torch.sum(torch.abs(self.delta_od) * region) / reg_den
-                    self.loss_G_syn_mask_mean = lam_mask_mean * torch.relu(0.05 - mean_inside)
+            reg_den = torch.sum(region) + eps
+            self.loss_G_syn_mag = lam_mag * (torch.sum(torch.abs(self.delta_od) * region) / reg_den)
+
+            if lam_mask_mean > 0.0:
+                mean_inside = torch.sum(torch.abs(self.delta_od) * region) / reg_den
+                self.loss_G_syn_mask_mean = lam_mask_mean * torch.relu(0.05 - mean_inside)
 
         self.loss_G = (
             self.loss_G_GAN
@@ -644,7 +775,6 @@ class Pix2PixModel(BaseModel):
     def optimize_parameters(self):
         self.forward()
 
-        # D: only for real paired samples
         if (not self.is_synthetic) and self.has_real_B:
             self.set_requires_grad(self.netD, True)
             self.optimizer_D.zero_grad()
@@ -656,8 +786,27 @@ class Pix2PixModel(BaseModel):
             self.loss_D_real = z.clone()
             self.loss_D = z.clone()
 
-        # G: always train
         self.set_requires_grad(self.netD, False)
         self.optimizer_G.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
+
+    def get_current_visuals(self):
+        visuals = {}
+
+        if hasattr(self, "real_A") and self.real_A is not None:
+            visuals["real_A"] = self.real_A
+
+        if hasattr(self, "fake_B") and self.fake_B is not None:
+            visuals["fake_B"] = self.fake_B
+
+        if hasattr(self, "real_B") and self.real_B is not None:
+            visuals["real_B"] = self.real_B
+
+        if hasattr(self, "empty_E") and self.empty_E is not None:
+            visuals["E"] = self.empty_E
+
+        if hasattr(self, "tray_T") and self.tray_T is not None:
+            visuals["T"] = self.tray_T
+
+        return visuals

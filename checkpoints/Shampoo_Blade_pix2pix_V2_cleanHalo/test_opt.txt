@@ -4,6 +4,7 @@
           checkpoints_dir: ./checkpoints                 
               compose_eps: 1e-06                         
                 crop_size: 1024                          	[default: 256]
+               cutout_dir:                               
                  dataroot: datasets/_gen_test            	[default: None]
              dataset_mode: aligned                       
                 delta_max: 10.0                          	[default: 6.0]
@@ -27,6 +28,9 @@
                lambda_lap: 10.0                          
               lambda_ssim: 5.0                           
              lambda_stats: 5.0                           
+           lambda_syn_mag: 0.2                           
+     lambda_syn_mask_mean: 0.0                           
+            lambda_syn_tv: 1.0                           
                 load_iter: 0                             	[default: 0]
                 load_size: 1024                          	[default: 256]
           mask_blur_ksize: 0                             
@@ -55,6 +59,15 @@
               results_dir: ./results/                    
            serial_batches: False                         
                    suffix:                               
+      synthetic_max_items: 3                             
+      synthetic_min_items: 1                             
+           synthetic_mode: random_mask                   
+     synthetic_no_overlap: False                         
+           synthetic_prob: 0.0                           
+        synthetic_rot_max: 360.0                         
+        synthetic_rot_min: 0.0                           
+      synthetic_scale_max: 1.4                           
+      synthetic_scale_min: 0.6                           
              thickness_nc: 1                             
          tray_bbox_margin: 2                             
          tray_cc_close_px: 2                             

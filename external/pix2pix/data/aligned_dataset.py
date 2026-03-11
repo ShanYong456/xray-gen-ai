@@ -15,13 +15,18 @@ class AlignedDataset(BaseDataset):
     Paired {A,B} dataset. Optional E (empty tray) for delta compositing.
     Optional T (tray mask) to restrict generation inside tray.
 
-    Also supports synthetic mask-only samples for mixed training:
-      - real paired sample: returns A, B, (E), (T), is_synthetic=False
-      - synthetic sample:   returns A,    (E), (T), is_synthetic=True
+    CURRENT CONDITIONING LAYOUT:
+      A is returned as conditioning tensor:
+          ch0 = binary object mask
+          ch1 = masked object grayscale appearance from B
+          ch2 = thickness / distance transform (if enabled)
 
-    IMPORTANT:
-      - Synthetic samples currently assume batch_size=1, because some samples
-        do not include key "B".
+      With E concatenated later in model:
+          total input_nc = cond_nc + 3
+
+      Example:
+          cond_nc = 3  -> [mask, appearance, thickness]
+          total input_nc = 6 after concatenating E
     """
 
     @staticmethod
@@ -92,31 +97,36 @@ class AlignedDataset(BaseDataset):
             help="Morph close px for tray mask cleanup (fills small holes). 0 disables.",
         )
 
-        # synthetic mask-only branch
+        parser.add_argument(
+            "--return_instance_masks",
+            action="store_true",
+            help="Return connected-component instance masks for instance-wise supervision.",
+        )
+
         parser.add_argument(
             "--synthetic_prob",
             type=float,
             default=0.0,
-            help="Probability of returning a synthetic mask-only sample during training.",
+            help="Probability of returning a synthetic sample during training.",
         )
         parser.add_argument(
             "--synthetic_mode",
             type=str,
             default="random_mask",
             choices=["random_mask", "paste"],
-            help="How to generate synthetic mask-only A samples.",
+            help="How to generate synthetic A samples.",
         )
         parser.add_argument(
             "--synthetic_min_items",
             type=int,
             default=1,
-            help="Minimum number of objects in synthetic mask generation.",
+            help="Minimum number of objects in synthetic generation.",
         )
         parser.add_argument(
             "--synthetic_max_items",
             type=int,
             default=3,
-            help="Maximum number of objects in synthetic mask generation.",
+            help="Maximum number of objects in synthetic generation.",
         )
         parser.add_argument(
             "--synthetic_scale_min",
@@ -145,13 +155,25 @@ class AlignedDataset(BaseDataset):
         parser.add_argument(
             "--synthetic_no_overlap",
             action="store_true",
-            help="Disallow overlap in synthetic mask generation.",
+            help="Disallow overlap in synthetic generation.",
+        )
+        parser.add_argument(
+            "--synthetic_same_class_prob",
+            type=float,
+            default=0.0,
+            help="Probability that all synthetic objects in a sample come from the same class.",
         )
         parser.add_argument(
             "--cutout_dir",
             type=str,
             default="",
             help="Folder containing colored object cutouts for synthetic generation.",
+        )
+
+        parser.add_argument(
+            "--disable_test_appearance",
+            action="store_true",
+            help="During test, do not extract appearance from B; appearance channel becomes zero."
         )
         return parser
 
@@ -172,20 +194,26 @@ class AlignedDataset(BaseDataset):
         self.shift_reduce_count = 0
         self.shift_reduce_by_iters = []
 
-        # synthetic branch
+        self.class_nc = int(getattr(self.opt, "class_nc", 2))
+        self.thickness_nc = int(getattr(self.opt, "thickness_nc", 1))
+        self.use_thickness_channel = bool(getattr(self.opt, "use_thickness_channel", False))
+        self.use_appearance_channel = bool(getattr(self.opt, "use_appearance_channel", False))
+        self.appearance_nc = int(getattr(self.opt, "appearance_nc", 1))
+        self.return_instance_masks = bool(getattr(self.opt, "return_instance_masks", False))
+
+        if self.use_appearance_channel and self.appearance_nc != 1:
+            raise ValueError("Current implementation supports --appearance_nc 1 only.")
+
         self.synthetic_prob = float(getattr(self.opt, "synthetic_prob", 0.0))
         self.synthetic_mode = str(getattr(self.opt, "synthetic_mode", "random_mask"))
         self.synthetic_enabled = self.synthetic_prob > 0.0 and getattr(self.opt, "phase", "") == "train"
 
         self.cutout_items = []
-        if self.synthetic_enabled:
-            cutout_dir = str(getattr(self.opt, "cutout_dir", "")).strip()
-            if not cutout_dir:
-                raise ValueError("synthetic_prob > 0 but --cutout_dir is empty.")
-            self.cutout_items = self._load_cutouts(Path(cutout_dir))
+        self.pseudo_object_lib = []
 
         self.use_tray_mask = bool(getattr(self.opt, "use_tray_mask", False))
         self.tray_mask_img = None
+
         if self.use_tray_mask:
             tray_mask_path = getattr(self.opt, "tray_mask_path", "")
             if not tray_mask_path:
@@ -209,11 +237,130 @@ class AlignedDataset(BaseDataset):
                 f"tray_bbox_margin={int(getattr(self.opt, 'tray_bbox_margin', 2))}"
             )
 
+        if self.synthetic_enabled:
+            cutout_dir = str(getattr(self.opt, "cutout_dir", "")).strip()
+            if not cutout_dir:
+                raise ValueError("synthetic_prob > 0 but --cutout_dir is empty.")
+            self.cutout_items = self._load_cutouts(Path(cutout_dir))
+
+        if self.synthetic_enabled and bool(getattr(self.opt, "use_delta_comp", False)):
+            self.pseudo_object_lib = self._build_pseudo_object_library(max_items=500)
+            print(f"[synthetic-pseudo] built {len(self.pseudo_object_lib)} pseudo object entries")
+
+    # -------------------------
+    # Palette helpers
+    # -------------------------
+    def _train_id_to_rgb(self, train_id: int):
+        if int(train_id) == 1:
+            return np.array([0, 255, 0], dtype=np.uint8)   # Shampoo
+        if int(train_id) == 2:
+            return np.array([0, 0, 255], dtype=np.uint8)   # Blade
+        return np.array([0, 0, 0], dtype=np.uint8)
+
+    def _rgb_to_train_masks(self, A_rgb: np.ndarray):
+        shampoo_rgb = np.array([0, 255, 0], dtype=np.uint8)
+        blade_rgb = np.array([0, 0, 255], dtype=np.uint8)
+
+        shampoo = np.all(A_rgb == shampoo_rgb[None, None, :], axis=2).astype(np.uint8)
+        blade = np.all(A_rgb == blade_rgb[None, None, :], axis=2).astype(np.uint8)
+        return shampoo, blade
+
+    def _build_condition_preview_rgb(self, B_img: Image.Image, A_img: Image.Image) -> Image.Image:
+        """
+        Build a 3-channel grayscale preview that preserves the real object tone
+        from B inside the object region.
+        """
+        B_gray = np.array(B_img.convert("L")).astype(np.float32) / 255.0
+        A = np.array(A_img).astype(np.uint8)
+        shampoo, blade = self._rgb_to_train_masks(A)
+        obj = ((shampoo > 0) | (blade > 0)).astype(np.uint8)
+
+        vis = np.zeros_like(B_gray, dtype=np.float32)
+        vis[obj > 0] = B_gray[obj > 0]
+
+        vis_u8 = np.clip(vis * 255.0, 0, 255).astype(np.uint8)
+        vis_rgb = np.stack([vis_u8, vis_u8, vis_u8], axis=2)
+        return Image.fromarray(vis_rgb, mode="RGB")
+
+    def _extract_appearance_from_B(self, B_img: Image.Image, A_img: Image.Image) -> Image.Image:
+        """
+        Build a 1-channel appearance map from the real/pseudo target image B.
+        Only keep values inside the object mask so the model gets item interior cues
+        without leaking the full tray background.
+        """
+        B_gray = np.array(B_img.convert("L")).astype(np.float32) / 255.0
+        A = np.array(A_img).astype(np.uint8)
+        shampoo, blade = self._rgb_to_train_masks(A)
+        obj = ((shampoo > 0) | (blade > 0)).astype(np.float32)
+
+        app = B_gray * obj
+        return Image.fromarray(np.clip(app * 255.0, 0, 255).astype(np.uint8), mode="L")
+
+    def _extract_object_grayscale_from_B(self, B_img: Image.Image, A_img: Image.Image) -> Image.Image:
+        B_gray = np.array(B_img.convert("L")).astype(np.float32) / 255.0
+        A = np.array(A_img).astype(np.uint8)
+        shampoo, blade = self._rgb_to_train_masks(A)
+        obj = ((shampoo > 0) | (blade > 0)).astype(np.float32)
+
+        obj_gray = B_gray * obj
+        return Image.fromarray(np.clip(obj_gray * 255.0, 0, 255).astype(np.uint8), mode="L")
+
+    def _rgbmask_to_condition_tensor(self, A_img: Image.Image, app_img: Image.Image = None):
+        A = np.array(A_img).astype(np.uint8)
+        shampoo, blade = self._rgb_to_train_masks(A)
+        obj = ((shampoo > 0) | (blade > 0)).astype(np.uint8)
+
+        chs = []
+
+        # 1) binary object mask
+        obj_mask = obj.astype(np.float32)
+        chs.append(obj_mask)
+
+        # 2) real object grayscale appearance
+        if app_img is None:
+            obj_gray = np.zeros_like(obj_mask, dtype=np.float32)
+        else:
+            obj_gray = np.array(app_img.convert("L")).astype(np.float32) / 255.0
+            obj_gray = obj_gray * obj_mask
+        chs.append(obj_gray)
+
+        # 3) thickness / distance transform
+        if self.use_thickness_channel:
+            if obj.sum() > 0:
+                dist = cv2.distanceTransform(obj, cv2.DIST_L2, 5).astype(np.float32)
+                if dist.max() > 0:
+                    dist = dist / (dist.max() + 1e-6)
+            else:
+                dist = np.zeros_like(obj_mask, dtype=np.float32)
+            chs.append(dist)
+
+        cond = np.stack(chs, axis=0)
+        cond = cond * 2.0 - 1.0
+        return torch.from_numpy(cond).float()
+
+    def _extract_instance_masks_tensor(self, A_img: Image.Image):
+        A = np.array(A_img).astype(np.uint8)
+        shampoo, blade = self._rgb_to_train_masks(A)
+        obj = ((shampoo > 0) | (blade > 0)).astype(np.uint8)
+
+        num, labels, stats, _ = cv2.connectedComponentsWithStats(obj, connectivity=8)
+        insts = []
+        for k in range(1, num):
+            area = int(stats[k, cv2.CC_STAT_AREA])
+            if area < 20:
+                continue
+            mk = (labels == k).astype(np.float32)
+            insts.append(torch.from_numpy(mk))
+
+        if len(insts) == 0:
+            return torch.zeros((0, obj.shape[0], obj.shape[1]), dtype=torch.float32)
+
+        return torch.stack(insts, dim=0)
+
     # -------------------------
     # Synthetic helpers
     # -------------------------
     def _infer_train_id_from_cutout_bgr(self, cut_bgr: np.ndarray) -> int:
-        # Adjust this palette if you change dataset classes/colors
         palette = {
             0: (0, 0, 0),
             1: (0, 255, 0),   # Shampoo
@@ -323,6 +470,22 @@ class AlignedDataset(BaseDataset):
         x1, x2 = xs.min(), xs.max() + 1
         return clean[y1:y2, x1:x2].copy()
 
+    def _sample_cutout_item(self, chosen_train_id=None):
+        if chosen_train_id is None:
+            return self.cutout_items[np.random.randint(len(self.cutout_items))]
+        cands = [it for it in self.cutout_items if int(it["train_id"]) == int(chosen_train_id)]
+        if len(cands) == 0:
+            return self.cutout_items[np.random.randint(len(self.cutout_items))]
+        return cands[np.random.randint(len(cands))]
+
+    def _sample_pseudo_object(self, chosen_train_id=None):
+        if chosen_train_id is None:
+            return self.pseudo_object_lib[np.random.randint(len(self.pseudo_object_lib))]
+        cands = [it for it in self.pseudo_object_lib if int(it["train_id"]) == int(chosen_train_id)]
+        if len(cands) == 0:
+            return self.pseudo_object_lib[np.random.randint(len(self.pseudo_object_lib))]
+        return cands[np.random.randint(len(cands))]
+
     def _build_synthetic_A_img(self, size_hw, T_img: Image.Image):
         H, W = size_hw
         T = self._get_tray_bin(T_img).astype(bool)
@@ -335,9 +498,16 @@ class AlignedDataset(BaseDataset):
         no_overlap = bool(getattr(self.opt, "synthetic_no_overlap", False))
         n_obj = np.random.randint(n_min, n_max + 1)
 
+        same_class_prob = float(getattr(self.opt, "synthetic_same_class_prob", 0.0))
+        chosen_train_id = None
+        if np.random.rand() < same_class_prob:
+            tids = sorted(list({int(it["train_id"]) for it in self.cutout_items}))
+            if len(tids) > 0:
+                chosen_train_id = int(np.random.choice(tids))
+
         tries_per_obj = 300
         for _ in range(n_obj):
-            item = self.cutout_items[np.random.randint(len(self.cutout_items))]
+            item = self._sample_cutout_item(chosen_train_id=chosen_train_id)
             cut = self._transform_cutout(item["bgr"])
             if cut is None:
                 continue
@@ -347,8 +517,6 @@ class AlignedDataset(BaseDataset):
                 continue
 
             obj_mask = np.any(cut > 0, axis=2)
-            placed = False
-
             for _ in range(tries_per_obj):
                 x = np.random.randint(0, W - w + 1)
                 y = np.random.randint(0, H - h + 1)
@@ -364,13 +532,191 @@ class AlignedDataset(BaseDataset):
                 region[obj_mask] = cut[obj_mask]
                 canvas[y:y + h, x:x + w] = region
                 occ[y:y + h, x:x + w][obj_mask] = True
-                placed = True
                 break
 
-            if not placed:
+        return Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
+
+    def _build_pseudo_object_library(self, max_items=500):
+        lib = []
+        eps = 1e-6
+        gamma = 1.0
+
+        for AB_path in self.AB_paths[:max_items]:
+            try:
+                AB = Image.open(AB_path).convert("RGB")
+            except Exception:
                 continue
 
-        return Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
+            w, h = AB.size
+            w2 = w // 2
+            A_img = AB.crop((0, 0, w2, h))
+            B_img = AB.crop((w2, 0, w, h))
+
+            try:
+                E_img, _ = self._load_empty_E(AB_path)
+            except Exception:
+                continue
+
+            if E_img.size != A_img.size:
+                E_img = E_img.resize(A_img.size, resample=Image.BICUBIC)
+
+            A_np = np.array(A_img)
+            B_np = np.array(B_img)
+            E_np = np.array(E_img)
+
+            M = self._mask_from_Aimg(A_img).astype(np.uint8)
+            ys, xs = np.where(M > 0)
+            if len(xs) == 0:
+                continue
+
+            x1, x2 = xs.min(), xs.max() + 1
+            y1, y2 = ys.min(), ys.max() + 1
+            M_crop = M[y1:y2, x1:x2].copy()
+            if M_crop.sum() < 50:
+                continue
+
+            OD_B = self._rgb_to_od(B_np, eps=eps, gamma=gamma)
+            OD_E = self._rgb_to_od(E_np, eps=eps, gamma=gamma)
+            delta = np.maximum(OD_B - OD_E, 0.0)
+
+            delta_crop = delta[y1:y2, x1:x2, :].copy()
+            delta_crop[M_crop == 0] = 0.0
+
+            A_crop = A_np[y1:y2, x1:x2]
+            train_id = self._infer_train_id_from_cutout_bgr(cv2.cvtColor(A_crop, cv2.COLOR_RGB2BGR))
+
+            lib.append(
+                {
+                    "mask": M_crop,
+                    "delta": delta_crop,
+                    "train_id": train_id,
+                    "path": str(AB_path),
+                }
+            )
+
+        return lib
+
+    def _transform_pseudo_object(self, obj):
+        mask = obj["mask"].astype(np.uint8) * 255
+        delta = obj["delta"].astype(np.float32)
+
+        s = np.random.uniform(
+            float(getattr(self.opt, "synthetic_scale_min", 0.6)),
+            float(getattr(self.opt, "synthetic_scale_max", 1.4)),
+        )
+        angle = np.random.uniform(
+            float(getattr(self.opt, "synthetic_rot_min", 0.0)),
+            float(getattr(self.opt, "synthetic_rot_max", 360.0)),
+        )
+
+        h, w = mask.shape[:2]
+        new_w = max(2, int(round(w * s)))
+        new_h = max(2, int(round(h * s)))
+
+        mask_r = cv2.resize(mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
+        delta_r = cv2.resize(delta, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+        M = cv2.getRotationMatrix2D((new_w / 2, new_h / 2), angle, 1.0)
+
+        cos = abs(M[0, 0])
+        sin = abs(M[0, 1])
+        rot_w = int(new_h * sin + new_w * cos)
+        rot_h = int(new_h * cos + new_w * sin)
+        M[0, 2] += (rot_w / 2) - new_w / 2
+        M[1, 2] += (rot_h / 2) - new_h / 2
+
+        mask_t = cv2.warpAffine(mask_r, M, (rot_w, rot_h), flags=cv2.INTER_NEAREST, borderValue=0)
+        delta_t = cv2.warpAffine(delta_r, M, (rot_w, rot_h), flags=cv2.INTER_LINEAR, borderValue=0)
+
+        mask_t = (mask_t > 127).astype(np.uint8)
+        if mask_t.sum() < 20:
+            return None
+
+        ys, xs = np.where(mask_t > 0)
+        x1, x2 = xs.min(), xs.max() + 1
+        y1, y2 = ys.min(), ys.max() + 1
+
+        mask_t = mask_t[y1:y2, x1:x2]
+        delta_t = delta_t[y1:y2, x1:x2, :]
+        delta_t[mask_t == 0] = 0.0
+
+        return {"mask": mask_t, "delta": delta_t, "train_id": obj["train_id"]}
+
+
+    def _build_synthetic_A_and_Bpseudo(self, size_hw, T_img: Image.Image, E_img: Image.Image):
+        H, W = size_hw
+        T = self._get_tray_bin(T_img).astype(bool)
+
+        E_np = np.array(E_img).astype(np.uint8)
+        OD_E = self._rgb_to_od(E_np)
+
+        canvas_A = np.zeros((H, W, 3), dtype=np.uint8)
+        occ = np.zeros((H, W), dtype=bool)
+        OD_total = OD_E.copy()
+
+        n_min = int(getattr(self.opt, "synthetic_min_items", 1))
+        n_max = int(getattr(self.opt, "synthetic_max_items", 3))
+        no_overlap = bool(getattr(self.opt, "synthetic_no_overlap", False))
+        n_obj = np.random.randint(n_min, n_max + 1)
+
+        same_class_prob = float(getattr(self.opt, "synthetic_same_class_prob", 0.0))
+        chosen_train_id = None
+        if np.random.rand() < same_class_prob and len(self.pseudo_object_lib) > 0:
+            tids = sorted(list({int(it["train_id"]) for it in self.pseudo_object_lib}))
+            if len(tids) > 0:
+                chosen_train_id = int(np.random.choice(tids))
+
+        if len(self.pseudo_object_lib) == 0:
+            A_img = self._build_synthetic_A_img(size_hw, T_img)
+            return A_img, E_img.copy()
+
+        tries_per_obj = 300
+        for _ in range(n_obj):
+            obj = self._sample_pseudo_object(chosen_train_id=chosen_train_id)
+            transformed = self._transform_pseudo_object(obj)
+            if transformed is None:
+                continue
+
+            mask = transformed["mask"]
+            delta = transformed["delta"]
+            train_id = transformed["train_id"]
+
+            h, w = mask.shape[:2]
+            if h >= H or w >= W:
+                continue
+
+            for _ in range(tries_per_obj):
+                x = np.random.randint(0, W - w + 1)
+                y = np.random.randint(0, H - h + 1)
+
+                tray_region = T[y:y + h, x:x + w]
+                if not np.all(tray_region[mask > 0]):
+                    continue
+
+                if no_overlap and np.any(occ[y:y + h, x:x + w] & (mask > 0)):
+                    continue
+
+                color_rgb = self._train_id_to_rgb(int(train_id))
+
+                region_A = canvas_A[y:y + h, x:x + w]
+                region_A[mask > 0] = color_rgb
+                canvas_A[y:y + h, x:x + w] = region_A
+
+                region_OD = OD_total[y:y + h, x:x + w]
+                for c in range(3):
+                    region_OD[..., c][mask > 0] += delta[..., c][mask > 0]
+                OD_total[y:y + h, x:x + w] = region_OD
+
+                occ[y:y + h, x:x + w][mask > 0] = True
+                break
+
+        B_pseudo = self._od_to_rgb(OD_total)
+        outside = ~T
+        B_pseudo[outside] = E_np[outside]
+
+        A_img = Image.fromarray(canvas_A)
+        B_img = Image.fromarray(B_pseudo)
+        return A_img, B_img
 
     # -------------------------
     # Basic helpers
@@ -382,11 +728,31 @@ class AlignedDataset(BaseDataset):
         arr = np.array(img.convert("L"))
         return (arr > thr255).astype(np.uint8)
 
-    def _mask_from_Aimg(self, A_img: Image.Image) -> np.ndarray:
-        A = np.array(A_img)
+    def _mask_from_Aimg(self, A_img) -> np.ndarray:
+        if isinstance(A_img, Image.Image):
+            A = np.array(A_img)
+        elif torch.is_tensor(A_img):
+            A = A_img.detach().cpu().numpy()
+            if A.ndim == 3:
+                A = np.transpose(A, (1, 2, 0))
+        else:
+            A = np.array(A_img)
+
         if A.ndim == 2:
             return (A > 0)
         return np.any(A > 0, axis=2)
+
+    def _rgb_to_od(self, img_rgb: np.ndarray, eps: float = 1e-6, gamma: float = 1.0) -> np.ndarray:
+        x = img_rgb.astype(np.float32) / 255.0
+        x = np.clip(x, 0.0, 1.0)
+        if gamma != 1.0:
+            x = np.power(x, gamma)
+        return -np.log(x + eps)
+
+    def _od_to_rgb(self, od: np.ndarray) -> np.ndarray:
+        x = np.exp(-od)
+        x = np.clip(x, 0.0, 1.0)
+        return (x * 255.0).round().astype(np.uint8)
 
     def _shift_np(self, arr: np.ndarray, dx: int, dy: int, fill=0) -> np.ndarray:
         H, W = arr.shape[:2]
@@ -479,7 +845,7 @@ class AlignedDataset(BaseDataset):
         return T
 
     # -------------------------
-    # Shift logic: bbox shift + pixel-level nudge
+    # Shift logic
     # -------------------------
     def _bbox_shift_into_tray(self, M: np.ndarray, T: np.ndarray, margin: int):
         obj_bb = self._bbox_from_binary(M)
@@ -617,15 +983,8 @@ class AlignedDataset(BaseDataset):
     # -------------------------
     # Move object in B using E as background
     # -------------------------
-    def _move_object_in_B_with_shift(
-        self,
-        B_img: Image.Image,
-        E_img: Image.Image,
-        M_old: np.ndarray,
-        dx: int,
-        dy: int,
-        T: np.ndarray = None,
-    ):
+    def _move_object_in_B_with_shift(self, B_img: Image.Image, E_img: Image.Image,
+                                     M_old: np.ndarray, dx: int, dy: int, T: np.ndarray = None):
         B = np.array(B_img).astype(np.uint8)
         E = np.array(E_img).astype(np.uint8)
 
@@ -731,7 +1090,6 @@ class AlignedDataset(BaseDataset):
         if feather_px > 0:
             k = 2 * feather_px + 1
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-
             M_erode = cv2.erode(M_obj_shift, kernel, iterations=1)
             M_blur = cv2.GaussianBlur(M_obj_shift.astype(np.float32), (0, 0), sigmaX=1.2, sigmaY=1.2)
             M_blur = np.clip(M_blur, 0.0, 1.0)
@@ -866,13 +1224,11 @@ class AlignedDataset(BaseDataset):
         A_img = AB.crop((0, 0, w2, h))
         B_img = AB.crop((w2, 0, w, h))
 
-        use_synth = False
-        if self.synthetic_enabled and (np.random.rand() < self.synthetic_prob):
-            use_synth = True
+        use_synth = self.synthetic_enabled and (np.random.rand() < self.synthetic_prob)
 
         E_img = None
         loaded_from_dir = False
-        if getattr(self.opt, "use_delta_comp", False):
+        if bool(getattr(self.opt, "use_delta_comp", False)):
             try:
                 E_img, loaded_from_dir = self._load_empty_E(AB_path)
             except FileNotFoundError as exc:
@@ -891,42 +1247,72 @@ class AlignedDataset(BaseDataset):
             if self.force_gray_rgb:
                 E_img = self._to_gray_rgb(E_img)
 
-        # prepare tray image once
         T_img = None
         T_bin = None
         if self.use_tray_mask:
             T_img = self._load_tray_T(A_img.size)
             T_bin = self._get_tray_bin(T_img)
 
-        # synthetic branch replaces A only; no real B supervision
+        dx = dy = 0
+
         if use_synth:
             if not self.use_tray_mask:
                 raise RuntimeError("Synthetic mode currently requires --use_tray_mask.")
-            A_img = self._build_synthetic_A_img((A_img.size[1], A_img.size[0]), T_img)
+            if E_img is None:
+                raise RuntimeError("Synthetic pseudo-target mode requires E_img.")
 
-        # autoshift / paired B shift only for real samples
-        dx = dy = 0
-        if self.use_tray_mask and (not use_synth):
-            A_old = A_img
-            dx, dy = self._compute_autoshift(A_img, T_img)
+            A_img, B_img = self._build_synthetic_A_and_Bpseudo(
+                (A_img.size[1], A_img.size[0]), T_img, E_img
+            )
+        else:
+            if self.use_tray_mask:
+                A_old = A_img
+                dx, dy = self._compute_autoshift(A_img, T_img)
 
-            if dx != 0 or dy != 0:
-                A_img = self._shift_pil_rgb(A_img, dx, dy)
-                if E_img is not None:
-                    M_old = self._mask_from_Aimg(A_old).astype(np.uint8)
-                    B_img = self._move_object_in_B_with_shift(B_img, E_img, M_old, dx, dy, T=T_bin)
+                if dx != 0 or dy != 0:
+                    A_img = self._shift_pil_rgb(A_img, dx, dy)
+                    if E_img is not None:
+                        M_old = self._mask_from_Aimg(A_old).astype(np.uint8)
+                        B_img = self._move_object_in_B_with_shift(B_img, E_img, M_old, dx, dy, T=T_bin)
 
         if self.force_gray_rgb:
             B_img = self._to_gray_rgb(B_img)
 
         transform_params = get_params(self.opt, A_img.size)
-        A_transform = get_transform(self.opt, transform_params, grayscale=(self.input_nc == 1))
         B_transform = get_transform(self.opt, transform_params, grayscale=(self.output_nc == 1))
 
-        A = A_transform(A_img)
-        B = None if use_synth else B_transform(B_img)
+        # Honest-test option:
+        # during test, do not leak B appearance into A if --disable_test_appearance is set
+        disable_test_appearance = bool(getattr(self.opt, "disable_test_appearance", False))
+        use_app = self.use_appearance_channel and not (
+            getattr(self.opt, "phase", "") == "test" and disable_test_appearance
+        )
 
-        # Tray tensor T (1,H,W) in {0,1}
+        if use_app:
+            obj_img = self._extract_object_grayscale_from_B(B_img, A_img)
+        else:
+            mask = (A_img.sum(axis=2) > 0).astype(np.float32)
+
+            noise = np.random.normal(0.5, 0.15, mask.shape).astype(np.float32)
+            noise = np.clip(noise, 0.2, 0.8)
+
+            # smooth the noise so it looks like realistic attenuation
+            noise = cv2.GaussianBlur(noise, (21,21), 5)
+
+            obj_img = noise * mask
+
+        A = self._rgbmask_to_condition_tensor(A_img, app_img=obj_img)
+
+        # grayscale preview that looks like the real object tone
+        A_vis_img = self._build_condition_preview_rgb(B_img, A_img)
+
+        B = B_transform(B_img)
+        A_vis = B_transform(A_vis_img)
+
+        instance_masks = None
+        if self.return_instance_masks:
+            instance_masks = self._extract_instance_masks_tensor(A_img)
+
         T = None
         if self.use_tray_mask:
             T_transform = get_transform(self.opt, transform_params, grayscale=True)
@@ -942,7 +1328,7 @@ class AlignedDataset(BaseDataset):
                 T01 = T01[:1]
             T = T01
 
-        if getattr(self.opt, "use_delta_comp", False):
+        if bool(getattr(self.opt, "use_delta_comp", False)):
             using_global_empty = (not loaded_from_dir) and bool(getattr(self.opt, "empty_path", ""))
             if self.match_empty_to_B and using_global_empty and (E_img is not None) and (not use_synth):
                 obj_mask = self._mask_from_Aimg(A_img)
@@ -954,10 +1340,11 @@ class AlignedDataset(BaseDataset):
                 msg = (
                     f"[debug] {Path(AB_path).name} | synth={use_synth} | shift(dx,dy)=({dx},{dy}) | "
                     f"A(min,max)=({A.min().item():.3f},{A.max().item():.3f}) "
+                    f"B(min,max)=({B.min().item():.3f},{B.max().item():.3f}) "
                     f"E(min,max)=({E.min().item():.3f},{E.max().item():.3f})"
                 )
-                if not use_synth:
-                    msg += f" B(min,max)=({B.min().item():.3f},{B.max().item():.3f})"
+                if instance_masks is not None:
+                    msg += f" Ninst={int(instance_masks.shape[0])}"
                 if T is not None:
                     msg += f" T(min,max)=({T.min().item():.3f},{T.max().item():.3f})"
                 print(msg)
@@ -972,27 +1359,31 @@ class AlignedDataset(BaseDataset):
 
             out = {
                 "A": A,
+                "A_vis": A_vis,
+                "B": B,
                 "E": E,
                 "A_paths": AB_path,
+                "B_paths": AB_path,
                 "is_synthetic": use_synth,
             }
-            if not use_synth:
-                out["B"] = B
-                out["B_paths"] = AB_path
             if T is not None:
                 out["T"] = T
+            if instance_masks is not None:
+                out["instance_masks"] = instance_masks
             return out
 
         out = {
             "A": A,
+            "A_vis": A_vis,
+            "B": B,
             "A_paths": AB_path,
+            "B_paths": AB_path,
             "is_synthetic": use_synth,
         }
-        if not use_synth:
-            out["B"] = B
-            out["B_paths"] = AB_path
         if T is not None:
             out["T"] = T
+        if instance_masks is not None:
+            out["instance_masks"] = instance_masks
         return out
 
     def __len__(self):

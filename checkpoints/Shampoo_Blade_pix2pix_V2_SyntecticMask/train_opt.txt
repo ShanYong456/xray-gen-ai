@@ -29,12 +29,12 @@
           lambda_delta_bg: 2.0                           	[default: 5.0]
         lambda_delta_grad: 15.0                          	[default: 10.0]
               lambda_grad: 15.0                          	[default: 10.0]
-               lambda_lap: 15.0                          	[default: 10.0]
-              lambda_ssim: 5.0                           
-             lambda_stats: 5.0                           
-           lambda_syn_mag: 0.2                           
+               lambda_lap: 8.0                           	[default: 10.0]
+              lambda_ssim: 2.0                           	[default: 5.0]
+             lambda_stats: 2.0                           	[default: 5.0]
+           lambda_syn_mag: 0.05                          	[default: 0.2]
      lambda_syn_mask_mean: 0.0                           
-            lambda_syn_tv: 1.0                           
+            lambda_syn_tv: 0.2                           	[default: 1.0]
                 load_iter: 0                             	[default: 0]
                 load_size: 1024                          	[default: 286]
                        lr: 0.00015                       	[default: 0.0002]
@@ -45,7 +45,7 @@
           mask_blur_ksize: 0                             
           mask_blur_sigma: 1.2                           
                   mask_nc: 3                             
-           mask_noise_std: 0.02                          	[default: 0.0]
+           mask_noise_std: 0.0                           
            mask_soft_beta: 30.0                          
                  mask_thr: 0.05                          
          max_dataset_size: inf                           
@@ -58,8 +58,8 @@
                      netD: basic                         
                      netG: unet_256                      
                       ngf: 64                            
-               no_dropout: True                          	[default: False]
-                  no_flip: True                          	[default: False]
+               no_dropout: False                         
+                  no_flip: False                         
                   no_html: False                         
                      norm: instance                      	[default: batch]
               num_threads: 0                             	[default: 4]
@@ -74,20 +74,20 @@
          save_latest_freq: 5000                          
            serial_batches: False                         
                    suffix:                               
-      synthetic_max_items: 3                             
+      synthetic_max_items: 2                             	[default: 3]
       synthetic_min_items: 1                             
            synthetic_mode: random_mask                   
-     synthetic_no_overlap: False                         
-           synthetic_prob: 0.25                          	[default: 0.0]
-        synthetic_rot_max: 360.0                         
+     synthetic_no_overlap: True                          	[default: False]
+           synthetic_prob: 0.15                          	[default: 0.0]
+        synthetic_rot_max: 25.0                          	[default: 360.0]
         synthetic_rot_min: 0.0                           
-      synthetic_scale_max: 1.4                           
-      synthetic_scale_min: 0.6                           
+      synthetic_scale_max: 1.15                          	[default: 1.4]
+      synthetic_scale_min: 0.85                          	[default: 0.6]
              thickness_nc: 1                             
          tray_bbox_margin: 2                             
          tray_cc_close_px: 2                             
       tray_mask_autoshift: True                          	[default: False]
-      tray_mask_dilate_px: 0                             
+      tray_mask_dilate_px: 3                             	[default: 0]
          tray_mask_invert: False                         
            tray_mask_path: data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png	[default: ]
             tray_mask_thr: 0.5                           
