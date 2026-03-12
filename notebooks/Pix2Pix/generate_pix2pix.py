@@ -17,7 +17,7 @@ except ImportError:
 # =========================
 SIZE = 1024  # must match your training load_size/crop_size
 #MODEL_NAME = "contraband_metal_pix2pix_phys_fixDull_v4"   # your pix2pix --name
-MODEL_NAME = "Shampoo_Blade_pix2pix_AppearanceV3"       # your pix2pix --name
+MODEL_NAME = "Shampoo_pix2pix_StructCond_V2"       # your pix2pix --name
 PIX2PIX_DIR = Path("external/pix2pix")
 
 # =========================
@@ -30,14 +30,14 @@ TRAY_MASK_DIR = Path("data/interim/GAN/Empty_Tray_mask/Mask")
 #Contraband Metal
 #CUTOUT_DIR = Path("data/raw/Contraband/Metal/Cropped")
 #Non-Contraband
-CUTOUT_DIR = Path("data/raw/Shampoo_Blade/Cropped")
+CUTOUT_DIR = Path("data/raw/Shampoo/Cropped")
 
-# For random mask generation
-RAND_N_MIN, RAND_N_MAX = 1, 3
+# For random mask generation (match V2 training closer)
+RAND_N_MIN, RAND_N_MAX = 1, 2
 RAND_MAX_TRIES_PER_OBJ = 300
 RAND_ALLOW_OVERLAP = False
-RAND_SCALE_MIN, RAND_SCALE_MAX = 0.6, 1.4
-RAND_ROT_MIN, RAND_ROT_MAX = 0.0, 360.0
+RAND_SCALE_MIN, RAND_SCALE_MAX = 0.75, 1.25
+RAND_ROT_MIN, RAND_ROT_MAX = 0.0, 45.0
 
 # IMPORTANT:
 # Build the canvas in RGB (model conditioning), then convert to BGR ONLY when saving with cv2.imwrite().
@@ -935,7 +935,23 @@ def run_pix2pix_test(
     mask_soft_beta: float = 30.0,
     disable_test_appearance: bool = False,
 ):
-    input_nc = 6 if use_delta_comp else 3
+    """
+    IMPORTANT:
+    This version is for checkpoint:
+        Shampoo_pix2pix_StructCond_V2
+
+    V2 was trained with:
+        mask + edge + thickness + coord_x + coord_y + appearance + empty_E(3)
+
+    So:
+        input_nc = 9 when use_delta_comp=True
+    """
+
+    if use_delta_comp:
+        input_nc = 9
+    else:
+        # mask + edge + thickness + coord_x + coord_y + appearance
+        input_nc = 6
 
     cmd = [
         "python", str(PIX2PIX_DIR / "test.py"),
@@ -956,17 +972,19 @@ def run_pix2pix_test(
         f"--epoch={epoch}",
         "--eval",
         "--class_nc=1",
-        "--appearance_nc=1",
         "--thickness_nc=1",
-        "--use_appearance_channel",
+        "--appearance_nc=1",
         "--use_thickness_channel",
+        "--use_edge_channel",
+        "--use_coord_channels",
+        "--use_appearance_channel",
     ]
 
     if use_delta_comp:
         cmd += [
             "--use_delta_comp",
             "--delta_positive",
-            "--delta_scale", "0.35",
+            "--delta_scale", "0.8",
             "--delta_max", "3",
             "--use_tray_mask",
             "--tray_mask_path=data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png",
@@ -1062,12 +1080,12 @@ def main():
     ap.add_argument("--tray_mask_dir", type=str, default=str(TRAY_MASK_DIR))
     ap.add_argument("--cutout_dir", type=str, default=str(CUTOUT_DIR))
     ap.add_argument("--rand_n_min", type=int, default=1)
-    ap.add_argument("--rand_n_max", type=int, default=3)
+    ap.add_argument("--rand_n_max", type=int, default=2)
     ap.add_argument("--rand_max_tries_per_obj", type=int, default=300)
-    ap.add_argument("--rand_scale_min", type=float, default=0.6)
-    ap.add_argument("--rand_scale_max", type=float, default=1.4)
+    ap.add_argument("--rand_scale_min", type=float, default=0.75)
+    ap.add_argument("--rand_scale_max", type=float, default=1.25)
     ap.add_argument("--rand_rot_min", type=float, default=0.0)
-    ap.add_argument("--rand_rot_max", type=float, default=360.0)
+    ap.add_argument("--rand_rot_max", type=float, default=45.0)
 
     # allow disabling display mapper if checkpoint doesn't have it
     ap.add_argument("--no_use_display_mapper", action="store_false", dest="use_display_mapper",
@@ -1612,11 +1630,11 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
     --count 2,1
 
     GUIDED
-   python notebooks/Pix2Pix/generate_pix2pix.py \
+python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode random_mask \
-  --images_dir data/raw/Shampoo_Blade \
-  --coco_json data/raw/Shampoo_Blade/result.json \
-  --seed 1 \
+  --images_dir data/raw/Shampoo \
+  --coco_json data/raw/Shampoo/result.json \
+  --seed 223 \
   --out_dataset datasets/_gen_test \
   --epoch latest \
   --norm instance \
@@ -1624,15 +1642,21 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --empty_dir data/interim/GAN/Empty \
   --tray_mask_dir data/interim/GAN/Empty_Tray_mask/Mask \
   --no_overlap \
-  --classes Shampoo,Blade \
-  --count 2,1
+  --classes Shampoo \
+  --count 2 \
+  --rand_n_min 1 \
+  --rand_n_max 2 \
+  --rand_scale_min 0.75 \
+  --rand_scale_max 1.25 \
+  --rand_rot_min 0 \
+  --rand_rot_max 45
 
   NONGUIDED
-  python notebooks/Pix2Pix/generate_pix2pix.py \
+python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode random_mask \
-  --images_dir data/raw/Shampoo_Blade \
-  --coco_json data/raw/Shampoo_Blade/result.json \
-  --seed 158 \
+  --images_dir data/raw/Shampoo \
+  --coco_json data/raw/Shampoo/result.json \
+  --seed 222 \
   --out_dataset datasets/_gen_test \
   --epoch latest \
   --norm instance \
@@ -1640,9 +1664,15 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --empty_dir data/interim/GAN/Empty \
   --tray_mask_dir data/interim/GAN/Empty_Tray_mask/Mask \
   --no_overlap \
-  --classes Shampoo,Blade \
-  --count 2,1 \
-  --disable_test_appearance
+  --classes Shampoo \
+  --count 2 \
+  --rand_n_min 1 \
+  --rand_n_max 2 \
+  --rand_scale_min 0.75 \
+  --rand_scale_max 1.25 \
+  --rand_rot_min 0 --disable_test_appearance\
+  --rand_rot_max 45
+
 
   To print out classes that you have:
   python - <<'PY'

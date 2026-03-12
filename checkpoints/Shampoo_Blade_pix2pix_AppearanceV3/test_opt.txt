@@ -1,4 +1,5 @@
 ----------------- Options ---------------
+       appearance_dropout: 0.5                           
             appearance_nc: 1                             
              aspect_ratio: 1.0                           
                batch_size: 1                             
@@ -13,7 +14,7 @@
            delta_positive: True                          	[default: False]
               delta_scale: 0.35                          	[default: 1.0]
                 direction: AtoB                          
-  disable_test_appearance: True                          	[default: False]
+  disable_test_appearance: False                         
           display_winsize: 256                           
                 empty_dir: datasets/_gen_test/empty_for_test	[default: ]
                empty_path:                               

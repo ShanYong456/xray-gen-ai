@@ -422,6 +422,59 @@ python external/pix2pix/train.py \
   --batch_size 1 --lr 0.0001 --beta1 0.5 \
   --n_epochs 150 --n_epochs_decay 150 --num_threads 0
 
+
+  python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo \
+  --name Shampoo_pix2pix_StructCond_V1 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 8 --output_nc 3 --class_nc 1 --thickness_nc 1 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels --return_instance_masks \
+  --netG unet_256 --norm instance --gan_mode lsgan \
+  --lambda_L1 7 --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_positive --delta_max 3 --delta_scale 0.8 \
+  --use_delta_supervision --lambda_delta 120 --lambda_instance_delta 8 --lambda_delta_bg 2 \
+  --use_grad_loss --lambda_grad 12 --use_delta_grad_loss --lambda_delta_grad 14 \
+  --use_lap_loss --lambda_lap 8 --use_ssim_loss --lambda_ssim 1.5 --use_region_stats --lambda_stats 2 \
+  --use_tray_mask --tray_mask_autoshift --tray_obj_dilate_px 5 --tray_bbox_margin 2 --tray_mask_dilate_px 3 \
+  --tray_nudge_iters 8 --tray_nudge_max_step 20 --tray_shift_max_px 400 \
+  --synthetic_prob 0.35 --synthetic_same_class_prob 0.6 --synthetic_no_overlap \
+  --synthetic_min_items 1 --synthetic_max_items 2 \
+  --synthetic_scale_min 0.75 --synthetic_scale_max 1.25 --synthetic_rot_max 45 \
+  --lambda_syn_tv 0.15 --lambda_syn_mag 0.04 \
+  --empty_dir data/interim/GAN/Empty \
+  --tray_mask_path data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png \
+  --cutout_dir data/raw/Shampoo/Cropped \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --batch_size 1 --lr 0.0001 --beta1 0.5 \
+  --n_epochs 150 --n_epochs_decay 150 --num_threads 0
+
+ python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo \
+  --name Shampoo_pix2pix_StructCond_V2 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 9 --output_nc 3 --class_nc 1 --thickness_nc 1 --appearance_nc 1 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels --use_appearance_channel --return_instance_masks \
+  --netG unet_256 --norm instance --gan_mode lsgan \
+  --lambda_L1 7 --use_masked_l1 --lambda_bg 1.5 \
+  --use_delta_comp --delta_positive --delta_max 3 --delta_scale 0.8 \
+  --use_delta_supervision --lambda_delta 120 --lambda_instance_delta 8 --lambda_delta_bg 2 \
+  --use_grad_loss --lambda_grad 12 --use_delta_grad_loss --lambda_delta_grad 14 \
+  --use_lap_loss --lambda_lap 8 --use_ssim_loss --lambda_ssim 1.5 --use_region_stats --lambda_stats 2 \
+  --use_tray_mask --tray_mask_autoshift --tray_obj_dilate_px 5 --tray_bbox_margin 2 --tray_mask_dilate_px 3 \
+  --tray_nudge_iters 8 --tray_nudge_max_step 20 --tray_shift_max_px 400 \
+  --synthetic_prob 0.10 --synthetic_same_class_prob 0.6 --synthetic_no_overlap \
+  --synthetic_min_items 1 --synthetic_max_items 2 \
+  --synthetic_scale_min 0.75 --synthetic_scale_max 1.25 --synthetic_rot_max 45 \
+  --appearance_dropout 0.6 \
+  --lambda_syn_tv 0.15 --lambda_syn_mag 0.04 \
+  --empty_dir data/interim/GAN/Empty \
+  --tray_mask_path data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png \
+  --cutout_dir data/raw/Shampoo/Cropped \
+  --pretrained_netG checkpoints/Shampoo_pix2pix_StructCond_V1/latest_net_G.pth \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --batch_size 1 --lr 0.00005 --beta1 0.5 \
+  --n_epochs 80 --n_epochs_decay 80 --num_threads 0
+
   
   # WITHOUT EMPTY TRAY
    python external/pix2pix/train.py \

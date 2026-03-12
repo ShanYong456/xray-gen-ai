@@ -175,6 +175,28 @@ class AlignedDataset(BaseDataset):
             action="store_true",
             help="During test, do not extract appearance from B; appearance channel becomes zero."
         )
+        parser.add_argument(
+            "--appearance_dropout",
+            type=float,
+            default=0.5,
+            help="Probability of removing appearance channel during training."
+        )
+        parser.add_argument(
+            "--use_edge_channel",
+            action="store_true",
+            help="Add 1-channel object edge map to conditioning.",
+        )
+        parser.add_argument(
+            "--edge_dilate_px",
+            type=int,
+            default=1,
+            help="Edge thickness control in pixels.",
+        )
+        parser.add_argument(
+            "--use_coord_channels",
+            action="store_true",
+            help="Add 2-channel normalized object-local coord maps (x,y).",
+        )
         return parser
 
     def __init__(self, opt):
@@ -200,6 +222,8 @@ class AlignedDataset(BaseDataset):
         self.use_appearance_channel = bool(getattr(self.opt, "use_appearance_channel", False))
         self.appearance_nc = int(getattr(self.opt, "appearance_nc", 1))
         self.return_instance_masks = bool(getattr(self.opt, "return_instance_masks", False))
+        self.use_edge_channel = bool(getattr(self.opt, "use_edge_channel", False))
+        self.use_coord_channels = bool(getattr(self.opt, "use_coord_channels", False))
 
         if self.use_appearance_channel and self.appearance_nc != 1:
             raise ValueError("Current implementation supports --appearance_nc 1 only.")
@@ -316,13 +340,10 @@ class AlignedDataset(BaseDataset):
         obj_mask = obj.astype(np.float32)
         chs.append(obj_mask)
 
-        # 2) real object grayscale appearance
-        if app_img is None:
-            obj_gray = np.zeros_like(obj_mask, dtype=np.float32)
-        else:
-            obj_gray = np.array(app_img.convert("L")).astype(np.float32) / 255.0
-            obj_gray = obj_gray * obj_mask
-        chs.append(obj_gray)
+        # 2) edge map
+        if self.use_edge_channel:
+            edge = self._make_edge_map(obj)
+            chs.append(edge)
 
         # 3) thickness / distance transform
         if self.use_thickness_channel:
@@ -334,9 +355,23 @@ class AlignedDataset(BaseDataset):
                 dist = np.zeros_like(obj_mask, dtype=np.float32)
             chs.append(dist)
 
+        # 4) coord channels
+        if self.use_coord_channels:
+            coord_x, coord_y = self._make_coord_maps(obj)
+            chs.append(coord_x)
+            chs.append(coord_y)
+        
+        # 5) appearance channel
+        if self.use_appearance_channel:
+            if app_img is not None:
+                app = np.array(app_img).astype(np.float32) / 255.0
+            else:
+                app = np.zeros_like(obj_mask, dtype=np.float32)
+            chs.append(app)
+
         cond = np.stack(chs, axis=0)
         cond = cond * 2.0 - 1.0
-        return torch.from_numpy(cond).float()
+        return torch.from_numpy(cond).float(), chs
 
     def _extract_instance_masks_tensor(self, A_img: Image.Image):
         A = np.array(A_img).astype(np.uint8)
@@ -360,6 +395,128 @@ class AlignedDataset(BaseDataset):
     # -------------------------
     # Synthetic helpers
     # -------------------------
+
+    def _apply_shared_geom_to_mask_rgb(self, img: Image.Image, params):
+        """
+        Apply the same resize/crop/flip geometry as B, but preserve label colors.
+        Uses NEAREST interpolation so exact palette values remain unchanged.
+        """
+        ow, oh = img.size
+
+        if self.opt.preprocess in ["resize", "resize_and_crop"]:
+            img = img.resize((self.opt.load_size, self.opt.load_size), resample=Image.NEAREST)
+
+        elif self.opt.preprocess in ["scale_width", "scale_width_and_crop"]:
+            if ow != self.opt.load_size:
+                new_w = self.opt.load_size
+                new_h = int(round(self.opt.load_size * oh / ow))
+                img = img.resize((new_w, new_h), resample=Image.NEAREST)
+
+        elif self.opt.preprocess in ["scale_shortside", "scale_shortside_and_crop"]:
+            short = min(ow, oh)
+            if short != self.opt.load_size:
+                scale = float(self.opt.load_size) / float(short)
+                new_w = int(round(ow * scale))
+                new_h = int(round(oh * scale))
+                img = img.resize((new_w, new_h), resample=Image.NEAREST)
+
+        if "crop" in self.opt.preprocess:
+            x, y = params["crop_pos"]
+            tw = self.opt.crop_size
+            th = self.opt.crop_size
+            img = img.crop((x, y, x + tw, y + th))
+
+        if not self.opt.no_flip and params["flip"]:
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+
+        return img
+
+
+
+    def _make_edge_map(self, obj: np.ndarray) -> np.ndarray:
+        """
+        1-channel binary-ish edge map from object mask.
+        """
+        obj = obj.astype(np.uint8)
+        if obj.sum() == 0:
+            return np.zeros_like(obj, dtype=np.float32)
+
+        px = int(getattr(self.opt, "edge_dilate_px", 1))
+        k = max(1, 2 * px + 1)
+        kernel = np.ones((k, k), np.uint8)
+
+        dil = cv2.dilate(obj, kernel, iterations=1)
+        ero = cv2.erode(obj, kernel, iterations=1)
+        edge = (dil - ero) > 0
+        edge = edge.astype(np.float32) * obj.astype(np.float32)
+        return edge
+
+    def _make_coord_maps(self, obj: np.ndarray):
+        """
+        2 channels:
+          coord_x in [0,1] inside object bbox
+          coord_y in [0,1] inside object bbox
+        Outside object = 0
+        """
+        obj = obj.astype(np.uint8)
+        H, W = obj.shape[:2]
+
+        coord_x = np.zeros((H, W), dtype=np.float32)
+        coord_y = np.zeros((H, W), dtype=np.float32)
+
+        ys, xs = np.where(obj > 0)
+        if len(xs) == 0:
+            return coord_x, coord_y
+
+        x0, x1 = xs.min(), xs.max()
+        y0, y1 = ys.min(), ys.max()
+
+        bw = max(1, x1 - x0)
+        bh = max(1, y1 - y0)
+
+        xx = np.arange(W, dtype=np.float32)
+        yy = np.arange(H, dtype=np.float32)
+
+        x_norm = (xx - float(x0)) / float(bw)
+        y_norm = (yy - float(y0)) / float(bh)
+
+        x_norm = np.clip(x_norm, 0.0, 1.0)
+        y_norm = np.clip(y_norm, 0.0, 1.0)
+
+        coord_x_full = np.tile(x_norm[None, :], (H, 1))
+        coord_y_full = np.tile(y_norm[:, None], (1, W))
+
+        objf = obj.astype(np.float32)
+        coord_x = coord_x_full * objf
+        coord_y = coord_y_full * objf
+
+        return coord_x, coord_y
+
+    def _build_condition_vis_from_channels(self, cond_chs):
+        """
+        Build preview RGB from first 3 condition channels if available.
+        """
+        if len(cond_chs) == 0:
+            raise ValueError("cond_chs is empty")
+
+        H, W = cond_chs[0].shape[:2]
+        vis = np.zeros((H, W, 3), dtype=np.uint8)
+
+        for c in range(min(3, len(cond_chs))):
+            ch = np.clip(cond_chs[c], 0.0, 1.0)
+            vis[..., c] = (ch * 255.0).astype(np.uint8)
+
+        return Image.fromarray(vis, mode="RGB")
+    def _zero_appearance_img(self, A_img: Image.Image) -> Image.Image:
+        """
+        Honest unguided appearance:
+        return an all-zero 1-channel image.
+        This avoids teaching the network that a blurry fake blob = valid appearance cue.
+        """
+        A = np.array(A_img)
+        H, W = A.shape[:2]
+        return Image.fromarray(np.zeros((H, W), dtype=np.uint8), mode="L")
+    
     def _infer_train_id_from_cutout_bgr(self, cut_bgr: np.ndarray) -> int:
         palette = {
             0: (0, 0, 0),
@@ -984,7 +1141,21 @@ class AlignedDataset(BaseDataset):
     # Move object in B using E as background
     # -------------------------
     def _move_object_in_B_with_shift(self, B_img: Image.Image, E_img: Image.Image,
-                                     M_old: np.ndarray, dx: int, dy: int, T: np.ndarray = None):
+                                 M_old: np.ndarray, dx: int, dy: int, T: np.ndarray = None):
+        """
+        Move object in B by shifting its OD delta relative to E.
+
+        This is much safer than raw pixel cut-paste for X-ray because:
+        B ~= exp(-(OD_E + delta_obj))
+        so we should shift delta_obj, not RGB intensities.
+
+        Inputs:
+        B_img : real target image
+        E_img : empty tray image aligned to B
+        M_old : object mask at ORIGINAL position
+        dx,dy : desired shift
+        T     : tray mask (optional)
+        """
         B = np.array(B_img).astype(np.uint8)
         E = np.array(E_img).astype(np.uint8)
 
@@ -992,16 +1163,18 @@ class AlignedDataset(BaseDataset):
         if M_old.ndim != 2:
             raise ValueError("M_old must be HxW")
 
+        # optional dilation so moved target matches training mask support better
         dil = int(getattr(self.opt, "tray_obj_dilate_px", 0))
         if dil > 0:
-            M_paste = self._dilate_bin(M_old, dil)
+            M_obj = self._dilate_bin(M_old, dil)
         else:
-            M_paste = M_old.copy()
+            M_obj = M_old.copy()
 
-        dx_final, dy_final = self._clamp_shift_to_image(M_paste, int(dx), int(dy))
+        dx_final, dy_final = self._clamp_shift_to_image(M_obj, int(dx), int(dy))
 
+        # If tray mask is provided, reduce shift if shifted mask spills outside tray
         if T is not None:
-            M_shifted = self._shift_np(M_paste, dx_final, dy_final, fill=0)
+            M_shifted = self._shift_np(M_obj, dx_final, dy_final, fill=0)
             outside_tray = (M_shifted == 1) & (T == 0)
 
             if outside_tray.sum() > 0:
@@ -1028,8 +1201,8 @@ class AlignedDataset(BaseDataset):
 
                     scored = []
                     for cand_dx, cand_dy in candidates:
-                        cand_dx, cand_dy = self._clamp_shift_to_image(M_paste, cand_dx, cand_dy)
-                        M_cand = self._shift_np(M_paste, cand_dx, cand_dy, fill=0)
+                        cand_dx, cand_dy = self._clamp_shift_to_image(M_obj, cand_dx, cand_dy)
+                        M_cand = self._shift_np(M_obj, cand_dx, cand_dy, fill=0)
                         cand_outside = int(((M_cand == 1) & (T == 0)).sum())
                         cand_mag = int(cand_dx * cand_dx + cand_dy * cand_dy)
                         scored.append((cand_outside, -cand_mag, cand_dx, cand_dy))
@@ -1077,34 +1250,38 @@ class AlignedDataset(BaseDataset):
 
         dx, dy = dx_final, dy_final
 
-        out = B.copy()
-        out[M_paste == 1] = E[M_paste == 1]
+        # -------- OD / delta based move --------
+        eps = 1e-6
+        gamma = 1.0
 
-        obj = np.zeros_like(B)
-        obj[M_paste == 1] = B[M_paste == 1]
+        OD_B = self._rgb_to_od(B, eps=eps, gamma=gamma)
+        OD_E = self._rgb_to_od(E, eps=eps, gamma=gamma)
 
-        obj_shift = self._shift_np(obj, dx, dy, fill=0)
-        M_obj_shift = self._shift_np(M_paste, dx, dy, fill=0).astype(np.uint8)
+        # Object contribution in OD space
+        delta = np.maximum(OD_B - OD_E, 0.0)
 
-        feather_px = 2
-        if feather_px > 0:
-            k = 2 * feather_px + 1
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-            M_erode = cv2.erode(M_obj_shift, kernel, iterations=1)
-            M_blur = cv2.GaussianBlur(M_obj_shift.astype(np.float32), (0, 0), sigmaX=1.2, sigmaY=1.2)
-            M_blur = np.clip(M_blur, 0.0, 1.0)
+        # Keep only original object region
+        delta_obj = delta.copy()
+        delta_obj[M_obj == 0] = 0.0
 
-            alpha = np.zeros_like(M_blur, dtype=np.float32)
-            alpha[M_obj_shift > 0] = M_blur[M_obj_shift > 0]
-            alpha[M_erode > 0] = 1.0
-        else:
-            alpha = (M_obj_shift > 0).astype(np.float32)
+        # Shift delta and shifted mask
+        delta_shift = self._shift_np(delta_obj, dx, dy, fill=0.0)
+        M_shift = self._shift_np(M_obj.astype(np.uint8), dx, dy, fill=0).astype(np.uint8)
 
-        alpha3 = alpha[..., None]
-        out = obj_shift.astype(np.float32) * alpha3 + out.astype(np.float32) * (1.0 - alpha3)
-        out = np.clip(out, 0, 255).astype(np.uint8)
+        # Recompose on top of empty tray
+        OD_new = OD_E.copy()
+        inside = (M_shift > 0)
 
-        return Image.fromarray(out)
+        for c in range(3):
+            OD_new[..., c][inside] += delta_shift[..., c][inside]
+
+        # Outside tray keep exact empty tray if tray mask provided
+        B_new = self._od_to_rgb(OD_new)
+        if T is not None:
+            outside = (T == 0)
+            B_new[outside] = E[outside]
+
+        return Image.fromarray(B_new)
 
     # -------------------------
     # Empty tray loader
@@ -1213,7 +1390,7 @@ class AlignedDataset(BaseDataset):
         return Image.fromarray(out)
 
     # -------------------------
-    # Main
+    # Main  
     # -------------------------
     def __getitem__(self, index):
         AB_path = self.AB_paths[index]
@@ -1265,6 +1442,7 @@ class AlignedDataset(BaseDataset):
                 (A_img.size[1], A_img.size[0]), T_img, E_img
             )
         else:
+            """
             if self.use_tray_mask:
                 A_old = A_img
                 dx, dy = self._compute_autoshift(A_img, T_img)
@@ -1275,67 +1453,75 @@ class AlignedDataset(BaseDataset):
                         M_old = self._mask_from_Aimg(A_old).astype(np.uint8)
                         B_img = self._move_object_in_B_with_shift(B_img, E_img, M_old, dx, dy, T=T_bin)
 
+                    if (index % int(self.debug_every) == 0):
+                        M_new = self._mask_from_Aimg(A_img).astype(np.uint8)
+                        bbA = self._bbox_from_binary(M_new)
+                        print(f"[debug-shift] {Path(AB_path).name} shift=({dx},{dy}) A_bbox={bbA}")
+            """
+            pass
+
         if self.force_gray_rgb:
             B_img = self._to_gray_rgb(B_img)
 
-        transform_params = get_params(self.opt, A_img.size)
-        B_transform = get_transform(self.opt, transform_params, grayscale=(self.output_nc == 1))
-
-        # Honest-test option:
-        # during test, do not leak B appearance into A if --disable_test_appearance is set
-        disable_test_appearance = bool(getattr(self.opt, "disable_test_appearance", False))
-        use_app = self.use_appearance_channel and not (
-            getattr(self.opt, "phase", "") == "test" and disable_test_appearance
-        )
-
-        if use_app:
-            obj_img = self._extract_object_grayscale_from_B(B_img, A_img)
-        else:
-            mask = (A_img.sum(axis=2) > 0).astype(np.float32)
-
-            noise = np.random.normal(0.5, 0.15, mask.shape).astype(np.float32)
-            noise = np.clip(noise, 0.2, 0.8)
-
-            # smooth the noise so it looks like realistic attenuation
-            noise = cv2.GaussianBlur(noise, (21,21), 5)
-
-            obj_img = noise * mask
-
-        A = self._rgbmask_to_condition_tensor(A_img, app_img=obj_img)
-
-        # grayscale preview that looks like the real object tone
-        A_vis_img = self._build_condition_preview_rgb(B_img, A_img)
-
-        B = B_transform(B_img)
-        A_vis = B_transform(A_vis_img)
-
-        instance_masks = None
-        if self.return_instance_masks:
-            instance_masks = self._extract_instance_masks_tensor(A_img)
-
-        T = None
-        if self.use_tray_mask:
-            T_transform = get_transform(self.opt, transform_params, grayscale=True)
-            T_tensor = T_transform(T_img)
-            T01 = torch.clamp((T_tensor + 1.0) * 0.5, 0.0, 1.0)
-
-            thr = float(getattr(self.opt, "tray_mask_thr", 0.5))
-            T01 = (T01 > thr).float()
-            if bool(getattr(self.opt, "tray_mask_invert", False)):
-                T01 = 1.0 - T01
-
-            if T01.shape[0] != 1:
-                T01 = T01[:1]
-            T = T01
-
+        # Match global empty to B BEFORE transform, using aligned original geometry
         if bool(getattr(self.opt, "use_delta_comp", False)):
             using_global_empty = (not loaded_from_dir) and bool(getattr(self.opt, "empty_path", ""))
             if self.match_empty_to_B and using_global_empty and (E_img is not None) and (not use_synth):
                 obj_mask = self._mask_from_Aimg(A_img)
                 E_img = self._match_empty_to_B(E_img, B_img, obj_mask)
 
+        # Sample one shared transform and apply same geometry to everything
+        transform_params = get_params(self.opt, A_img.size)
+
+        A_img_t = self._apply_shared_geom_to_mask_rgb(A_img, transform_params)
+
+        if self.use_tray_mask and T_img is not None:
+            T_img_t = self._apply_shared_geom_to_mask_rgb(T_img.convert("RGB"), transform_params).convert("L")
+        else:
+            T_img_t = None
+
+        B_transform = get_transform(self.opt, transform_params, grayscale=(self.output_nc == 1))
+        B = B_transform(B_img)
+
+        E = None
+        if E_img is not None:
             E = B_transform(E_img)
 
+        # Build conditioning from transformed mask, not original mask
+        app_img_t = None
+        if self.use_appearance_channel:
+            if use_synth:
+                app_img_t = self._extract_object_grayscale_from_B(B_img, A_img)
+            else:
+                app_img_t = self._extract_appearance_from_B(B_img, A_img)
+
+            # apply same geometry to appearance
+            app_img_t = self._apply_shared_geom_to_mask_rgb(app_img_t.convert("RGB"), transform_params).convert("L")
+
+            # dropout during training so model does not depend on appearance too much
+            if getattr(self.opt, "phase", "") == "train":
+                p_drop = float(getattr(self.opt, "appearance_dropout", 0.0))
+                if np.random.rand() < p_drop:
+                    app_img_t = self._zero_appearance_img(A_img_t)
+
+            # disable appearance at test if requested
+            if getattr(self.opt, "phase", "") == "test" and bool(getattr(self.opt, "disable_test_appearance", False)):
+                app_img_t = self._zero_appearance_img(A_img_t)
+
+        A, cond_chs = self._rgbmask_to_condition_tensor(A_img_t, app_img=app_img_t)
+        A_vis_img = self._build_condition_vis_from_channels(cond_chs)
+        A_vis = B_transform(A_vis_img)
+
+        instance_masks = None
+        if self.return_instance_masks:
+            instance_masks = self._extract_instance_masks_tensor(A_img_t)
+
+        T = None
+        if self.use_tray_mask and T_img_t is not None:
+            T_np = self._get_tray_bin(T_img_t).astype(np.float32)
+            T = torch.from_numpy(T_np[None, :, :]).float()
+
+        if bool(getattr(self.opt, "use_delta_comp", False)):
             if (getattr(self.opt, "phase", "") == "train") and (index % int(self.debug_every) == 0):
                 msg = (
                     f"[debug] {Path(AB_path).name} | synth={use_synth} | shift(dx,dy)=({dx},{dy}) | "
