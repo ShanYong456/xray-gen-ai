@@ -197,6 +197,52 @@ class AlignedDataset(BaseDataset):
             action="store_true",
             help="Add 2-channel normalized object-local coord maps (x,y).",
         )
+        parser.add_argument(
+            "--appearance_zero_prob",
+            type=float,
+            default=0.35,
+            help="Probability of replacing appearance with all-zero map during training.",
+        )
+        parser.add_argument(
+            "--appearance_weak_prob",
+            type=float,
+            default=0.35,
+            help="Probability of replacing appearance with weak blurred appearance during training.",
+        )
+        parser.add_argument(
+            "--appearance_proto_prob",
+            type=float,
+            default=0.15,
+            help="Probability of replacing appearance with class prototype appearance during training.",
+        )
+        parser.add_argument(
+            "--appearance_blur_ksize",
+            type=int,
+            default=31,
+            help="Gaussian blur kernel size for weak appearance mode.",
+        )
+        parser.add_argument(
+            "--appearance_blur_sigma",
+            type=float,
+            default=8.0,
+            help="Gaussian blur sigma for weak appearance mode.",
+        )
+        parser.add_argument(
+            "--build_appearance_prototypes",
+            action="store_true",
+            help="Build appearance prototype bank for unguided robustness.",
+        )
+        parser.add_argument(
+            "--max_appearance_prototypes",
+            type=int,
+            default=200,
+            help="Maximum number of prototype appearance samples to build.",
+        )
+        parser.add_argument("--delta_aug_scale_min", type=float, default=0.90)
+        parser.add_argument("--delta_aug_scale_max", type=float, default=1.12)
+        parser.add_argument("--delta_aug_noise_std", type=float, default=0.01)
+        parser.add_argument("--delta_aug_edge_gain", type=float, default=0.10)
+        parser.add_argument("--mask_aug_px", type=int, default=2)
         return parser
 
     def __init__(self, opt):
@@ -234,6 +280,7 @@ class AlignedDataset(BaseDataset):
 
         self.cutout_items = []
         self.pseudo_object_lib = []
+        self.appearance_prototypes = []
 
         self.use_tray_mask = bool(getattr(self.opt, "use_tray_mask", False))
         self.tray_mask_img = None
@@ -271,7 +318,13 @@ class AlignedDataset(BaseDataset):
             self.pseudo_object_lib = self._build_pseudo_object_library(max_items=500)
             print(f"[synthetic-pseudo] built {len(self.pseudo_object_lib)} pseudo object entries")
 
-    # -------------------------
+        if self.use_appearance_channel and bool(getattr(self.opt, "build_appearance_prototypes", False)):
+            self.appearance_prototypes = self._build_appearance_prototype_bank(
+                max_items=int(getattr(self.opt, "max_appearance_prototypes", 200))
+            )
+            print(f"[appearance-proto] built {len(self.appearance_prototypes)} prototypes")
+
+    # ------------------------  -
     # Palette helpers
     # -------------------------
     def _train_id_to_rgb(self, train_id: int):
@@ -395,6 +448,125 @@ class AlignedDataset(BaseDataset):
     # -------------------------
     # Synthetic helpers
     # -------------------------
+
+    def _weak_blur_appearance_img(self, app_img: Image.Image, A_img: Image.Image) -> Image.Image:
+        """
+        Weak appearance cue:
+        keep only low-frequency interior tone, remove fine details.
+        """
+        app = np.array(app_img).astype(np.uint8)
+        A = np.array(A_img).astype(np.uint8)
+
+        if app.ndim == 3:
+            app = cv2.cvtColor(app, cv2.COLOR_RGB2GRAY)
+
+        obj = self._mask_from_Aimg(A).astype(np.uint8)
+        if obj.sum() == 0:
+            return self._zero_appearance_img(A_img)
+
+        ksize = int(getattr(self.opt, "appearance_blur_ksize", 31))
+        sigma = float(getattr(self.opt, "appearance_blur_sigma", 8.0))
+
+        if ksize % 2 == 0:
+            ksize += 1
+        ksize = max(3, ksize)
+
+        blur = cv2.GaussianBlur(app, (ksize, ksize), sigmaX=sigma, sigmaY=sigma)
+        blur = (blur.astype(np.float32) * obj.astype(np.float32)).clip(0, 255).astype(np.uint8)
+        return Image.fromarray(blur, mode="L")
+
+
+    def _normalize_object_crop_to_canvas(self, obj_gray: np.ndarray, obj_mask: np.ndarray, out_hw):
+        """
+        Resize an object's grayscale interior crop back into full canvas bbox.
+        """
+        H, W = out_hw
+        canvas = np.zeros((H, W), dtype=np.uint8)
+
+        ys, xs = np.where(obj_mask > 0)
+        if len(xs) == 0:
+            return canvas
+
+        y0, y1 = ys.min(), ys.max()
+        x0, x1 = xs.min(), xs.max()
+
+        bh = max(1, y1 - y0 + 1)
+        bw = max(1, x1 - x0 + 1)
+
+        crop_resized = cv2.resize(obj_gray, (bw, bh), interpolation=cv2.INTER_LINEAR)
+        mask_resized = cv2.resize(obj_mask.astype(np.uint8) * 255, (bw, bh), interpolation=cv2.INTER_NEAREST)
+        mask_resized = (mask_resized > 127).astype(np.uint8)
+
+        patch = np.zeros((bh, bw), dtype=np.uint8)
+        patch[mask_resized > 0] = crop_resized[mask_resized > 0]
+
+        canvas[y0:y0+bh, x0:x0+bw] = patch
+        return canvas
+
+
+    def _build_appearance_prototype_bank(self, max_items=200):
+        """
+        Build class-level prototype interiors from training set.
+        Each prototype stores cropped grayscale interior and cropped mask.
+        """
+        bank = []
+
+        for AB_path in self.AB_paths[:max_items]:
+            try:
+                AB = Image.open(AB_path).convert("RGB")
+            except Exception:
+                continue
+
+            w, h = AB.size
+            w2 = w // 2
+            A_img = AB.crop((0, 0, w2, h))
+            B_img = AB.crop((w2, 0, w, h))
+
+            obj_mask = self._mask_from_Aimg(A_img).astype(np.uint8)
+            ys, xs = np.where(obj_mask > 0)
+            if len(xs) == 0:
+                continue
+
+            y0, y1 = ys.min(), ys.max() + 1
+            x0, x1 = xs.min(), xs.max() + 1
+
+            B_gray = np.array(B_img.convert("L")).astype(np.uint8)
+            obj_crop = B_gray[y0:y1, x0:x1].copy()
+            mask_crop = obj_mask[y0:y1, x0:x1].copy()
+
+            if mask_crop.sum() < 20:
+                continue
+
+            obj_crop[mask_crop == 0] = 0
+            bank.append({
+                "gray": obj_crop,
+                "mask": mask_crop,
+                "path": str(AB_path),
+            })
+
+        return bank
+
+
+    def _sample_prototype_appearance_img(self, A_img: Image.Image) -> Image.Image:
+        """
+        Take a random prototype interior and warp it into the current object's bbox.
+        Gives class-style interior cue without leaking the exact target.
+        """
+        if len(self.appearance_prototypes) == 0:
+            return self._zero_appearance_img(A_img)
+
+        proto = self.appearance_prototypes[np.random.randint(len(self.appearance_prototypes))]
+        obj_mask = self._mask_from_Aimg(A_img).astype(np.uint8)
+
+        canvas = self._normalize_object_crop_to_canvas(
+            proto["gray"],
+            obj_mask,
+            out_hw=obj_mask.shape[:2]
+        )
+
+        canvas = (canvas.astype(np.float32) * obj_mask.astype(np.float32)).clip(0, 255).astype(np.uint8)
+        return Image.fromarray(canvas, mode="L")
+
 
     def _apply_shared_geom_to_mask_rgb(self, img: Image.Image, params):
         """
@@ -663,33 +835,61 @@ class AlignedDataset(BaseDataset):
                 chosen_train_id = int(np.random.choice(tids))
 
         tries_per_obj = 300
+
         for _ in range(n_obj):
+
             item = self._sample_cutout_item(chosen_train_id=chosen_train_id)
+            if item is None:
+                continue
+
             cut = self._transform_cutout(item["bgr"])
             if cut is None:
                 continue
 
             h, w = cut.shape[:2]
-            if h >= H or w >= W or h < 2 or w < 2:
+
+            if h < 2 or w < 2:
+                continue
+
+            if h >= H or w >= W:
                 continue
 
             obj_mask = np.any(cut > 0, axis=2)
+            if obj_mask.sum() < 10:
+                continue
+
+            placed = False
+
             for _ in range(tries_per_obj):
+
                 x = np.random.randint(0, W - w + 1)
                 y = np.random.randint(0, H - h + 1)
 
                 tray_region = T[y:y + h, x:x + w]
+
+                # ensure object pixels lie inside tray
                 if not np.all(tray_region[obj_mask]):
                     continue
 
-                if no_overlap and np.any(occ[y:y + h, x:x + w] & obj_mask):
-                    continue
+                if no_overlap:
+                    if np.any(occ[y:y + h, x:x + w] & obj_mask):
+                        continue
 
                 region = canvas[y:y + h, x:x + w]
+
                 region[obj_mask] = cut[obj_mask]
+
                 canvas[y:y + h, x:x + w] = region
-                occ[y:y + h, x:x + w][obj_mask] = True
+
+                occ_region = occ[y:y + h, x:x + w]
+                occ_region[obj_mask] = True
+                occ[y:y + h, x:x + w] = occ_region
+
+                placed = True
                 break
+
+            if not placed:
+                continue
 
         return Image.fromarray(cv2.cvtColor(canvas, cv2.COLOR_BGR2RGB))
 
@@ -754,8 +954,12 @@ class AlignedDataset(BaseDataset):
         return lib
 
     def _transform_pseudo_object(self, obj):
-        mask = obj["mask"].astype(np.uint8) * 255
+        mask = obj["mask"].astype(np.uint8)
         delta = obj["delta"].astype(np.float32)
+
+        # augment mask + delta BEFORE geometry
+        mask = self._random_mask_augment(mask)
+        delta = self._random_delta_augment(delta, mask)
 
         s = np.random.uniform(
             float(getattr(self.opt, "synthetic_scale_min", 0.6)),
@@ -770,7 +974,7 @@ class AlignedDataset(BaseDataset):
         new_w = max(2, int(round(w * s)))
         new_h = max(2, int(round(h * s)))
 
-        mask_r = cv2.resize(mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
+        mask_r = cv2.resize((mask * 255).astype(np.uint8), (new_w, new_h), interpolation=cv2.INTER_NEAREST)
         delta_r = cv2.resize(delta, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
 
         M = cv2.getRotationMatrix2D((new_w / 2, new_h / 2), angle, 1.0)
@@ -797,7 +1001,11 @@ class AlignedDataset(BaseDataset):
         delta_t = delta_t[y1:y2, x1:x2, :]
         delta_t[mask_t == 0] = 0.0
 
-        return {"mask": mask_t, "delta": delta_t, "train_id": obj["train_id"]}
+        return {
+            "mask": mask_t,
+            "delta": delta_t,
+            "train_id": obj["train_id"],
+        }
 
 
     def _build_synthetic_A_and_Bpseudo(self, size_hw, T_img: Image.Image, E_img: Image.Image):
@@ -864,12 +1072,30 @@ class AlignedDataset(BaseDataset):
                     region_OD[..., c][mask > 0] += delta[..., c][mask > 0]
                 OD_total[y:y + h, x:x + w] = region_OD
 
-                occ[y:y + h, x:x + w][mask > 0] = True
+                occ_region = occ[y:y + h, x:x + w]
+                occ_region[mask > 0] = True
+                occ[y:y + h, x:x + w] = occ_region
                 break
 
+                
+
+        # convert OD back to RGB
         B_pseudo = self._od_to_rgb(OD_total)
+
+        # outside tray = exact empty tray
         outside = ~T
         B_pseudo[outside] = E_np[outside]
+
+        # mild scanner-like intensity perturbation
+        if np.random.rand() < 0.8:
+            noise_sigma = np.random.uniform(0.5, 2.0)
+            noise = np.random.normal(0.0, noise_sigma, size=B_pseudo.shape).astype(np.float32)
+            B_pseudo = np.clip(B_pseudo.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+
+        # mild blur sometimes
+        if np.random.rand() < 0.3:
+            sigma = np.random.uniform(0.3, 0.8)
+            B_pseudo = cv2.GaussianBlur(B_pseudo, (0, 0), sigmaX=sigma, sigmaY=sigma)
 
         A_img = Image.fromarray(canvas_A)
         B_img = Image.fromarray(B_pseudo)
@@ -1389,6 +1615,123 @@ class AlignedDataset(BaseDataset):
         out = np.clip(out, 0, 255).astype(np.uint8)
         return Image.fromarray(out)
 
+    def _random_delta_augment(self, delta: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        """
+        Augment OD-space object residual:
+        delta = OD(B) - OD(E)
+
+        This is much better than plain RGB augmentation because it changes
+        attenuation magnitude/texture while preserving X-ray composition logic.
+
+        Args:
+            delta: HxWx3 float32 OD residual crop
+            mask:  HxW uint8/bool object mask crop
+
+        Returns:
+            augmented delta, same shape as input
+        """
+        out = delta.astype(np.float32).copy()
+        m = (mask > 0)
+
+        if not np.any(m):
+            return out
+
+        # -------------------------
+        # 1) Global attenuation scaling
+        # -------------------------
+        scale = np.random.uniform(0.90, 1.12)
+        out[m] *= scale
+
+        # -------------------------
+        # 2) Low-frequency thickness variation
+        # simulates slightly different material density / projection thickness
+        # -------------------------
+        h, w = mask.shape[:2]
+        noise_small = np.random.normal(loc=0.0, scale=0.08, size=(max(8, h // 8), max(8, w // 8))).astype(np.float32)
+        noise_field = cv2.resize(noise_small, (w, h), interpolation=cv2.INTER_CUBIC)
+
+        # smooth it
+        noise_field = cv2.GaussianBlur(noise_field, (0, 0), sigmaX=5.0, sigmaY=5.0)
+
+        # convert to multiplicative field
+        # range roughly ~ [0.9, 1.1]
+        field = 1.0 + 0.10 * noise_field
+        field = np.clip(field, 0.88, 1.15)
+
+        for c in range(3):
+            ch = out[..., c]
+            ch[m] *= field[m]
+            out[..., c] = ch
+
+        # -------------------------
+        # 3) Edge emphasis / suppression
+        # helps model not memorize one exact contour profile
+        # -------------------------
+        mask_u8 = (m.astype(np.uint8) * 255)
+        dist = cv2.distanceTransform(mask_u8, cv2.DIST_L2, 5).astype(np.float32)
+
+        if dist.max() > 1e-6:
+            dist = dist / (dist.max() + 1e-6)
+            edge_band = 1.0 - dist   # stronger near boundary
+            edge_gain = np.random.uniform(-0.05, 0.12)  # small only
+            edge_factor = 1.0 + edge_gain * edge_band
+            edge_factor = np.clip(edge_factor, 0.90, 1.15)
+
+            for c in range(3):
+                ch = out[..., c]
+                ch[m] *= edge_factor[m]
+                out[..., c] = ch
+
+        # -------------------------
+        # 4) Fine interior OD noise
+        # -------------------------
+        fine_sigma = np.random.uniform(0.003, 0.015)
+        fine_noise = np.random.normal(0.0, fine_sigma, size=out.shape).astype(np.float32)
+        out[m] += fine_noise[m]
+
+        # -------------------------
+        # 5) Mild blur or sharpen in OD space
+        # -------------------------
+        r = np.random.rand()
+        if r < 0.33:
+            blur_sigma = np.random.uniform(0.4, 1.0)
+            out = cv2.GaussianBlur(out, (0, 0), sigmaX=blur_sigma, sigmaY=blur_sigma)
+        elif r < 0.66:
+            blur = cv2.GaussianBlur(out, (0, 0), sigmaX=0.8, sigmaY=0.8)
+            out = out + 0.25 * (out - blur)
+
+        # keep only masked area
+        out[~m] = 0.0
+
+        # physics-safe clamp
+        out = np.clip(out, 0.0, 4.0).astype(np.float32)
+        return out
+
+    def _random_mask_augment(self, mask: np.ndarray) -> np.ndarray:
+        """
+        Small shape perturbation so the generator does not memorize one exact silhouette.
+        """
+        m = (mask > 0).astype(np.uint8)
+
+        if m.sum() < 20:
+            return m
+
+        # random erode/dilate
+        if np.random.rand() < 0.7:
+            px = np.random.randint(1, 3)  # 1 or 2
+            k = np.ones((2 * px + 1, 2 * px + 1), np.uint8)
+            if np.random.rand() < 0.5:
+                m = cv2.dilate(m, k, iterations=1)
+            else:
+                m = cv2.erode(m, k, iterations=1)
+
+        # small blur + threshold
+        if np.random.rand() < 0.5:
+            m2 = cv2.GaussianBlur((m * 255).astype(np.uint8), (5, 5), 0.8)
+            _, m = cv2.threshold(m2, 127, 1, cv2.THRESH_BINARY)
+
+        return m.astype(np.uint8)
+
     # -------------------------
     # Main  
     # -------------------------
@@ -1491,20 +1834,32 @@ class AlignedDataset(BaseDataset):
         app_img_t = None
         if self.use_appearance_channel:
             if use_synth:
-                app_img_t = self._extract_object_grayscale_from_B(B_img, A_img)
+                app_img_raw = self._extract_object_grayscale_from_B(B_img, A_img)
             else:
-                app_img_t = self._extract_appearance_from_B(B_img, A_img)
+                app_img_raw = self._extract_appearance_from_B(B_img, A_img)
 
-            # apply same geometry to appearance
-            app_img_t = self._apply_shared_geom_to_mask_rgb(app_img_t.convert("RGB"), transform_params).convert("L")
+            # apply same geometry first
+            app_img_t = self._apply_shared_geom_to_mask_rgb(app_img_raw.convert("RGB"), transform_params).convert("L")
 
-            # dropout during training so model does not depend on appearance too much
             if getattr(self.opt, "phase", "") == "train":
-                p_drop = float(getattr(self.opt, "appearance_dropout", 0.0))
-                if np.random.rand() < p_drop:
+                p_zero = float(getattr(self.opt, "appearance_zero_prob", 0.35))
+                p_weak = float(getattr(self.opt, "appearance_weak_prob", 0.35))
+                p_proto = float(getattr(self.opt, "appearance_proto_prob", 0.15))
+
+                r = np.random.rand()
+
+                if r < p_zero:
                     app_img_t = self._zero_appearance_img(A_img_t)
 
-            # disable appearance at test if requested
+                elif r < (p_zero + p_weak):
+                    app_img_t = self._weak_blur_appearance_img(app_img_t, A_img_t)
+
+                elif r < (p_zero + p_weak + p_proto):
+                    app_img_t = self._sample_prototype_appearance_img(A_img_t)
+
+                else:
+                    pass  # keep real appearance
+
             if getattr(self.opt, "phase", "") == "test" and bool(getattr(self.opt, "disable_test_appearance", False)):
                 app_img_t = self._zero_appearance_img(A_img_t)
 

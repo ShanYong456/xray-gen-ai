@@ -2,6 +2,7 @@ from pathlib import Path
 import argparse, json, random, subprocess
 import cv2
 import numpy as np
+from PIL import Image
 
 # Import halo remover
 import sys
@@ -17,7 +18,7 @@ except ImportError:
 # =========================
 SIZE = 1024  # must match your training load_size/crop_size
 #MODEL_NAME = "contraband_metal_pix2pix_phys_fixDull_v4"   # your pix2pix --name
-MODEL_NAME = "Shampoo_pix2pix_StructCond_V2"       # your pix2pix --name
+MODEL_NAME = "Shampoo_pix2pix_StructCond_V3_unguided"       # your pix2pix --name
 PIX2PIX_DIR = Path("external/pix2pix")
 
 # =========================
@@ -55,21 +56,21 @@ PALETTE_BGR = {
     6: (255, 0, 255),     # magenta
 }
 """
-"""
+
 # Shampoo:
 PALETTE_BGR = {
     0:  (0, 0, 0),
     1: (255, 0, 0),   
 }
-"""
 
+"""
 # Shampoo_Blade:
 PALETTE_BGR = {
     0:  (0, 0, 0),
     1: (0, 255, 0),       # green
     2: (255, 0, 0),       # blue
 }
-
+"""
 
 """s
 # Non-Contraband:
@@ -171,7 +172,13 @@ def add_contour_bgr(mask_bgr):
 # -------------------------
 # random_mask mode (tray + colored cutouts)
 # -------------------------
-def load_tray_masks(tray_dir: Path):
+def load_tray_masks(
+    tray_dir: Path,
+    thr: float = 0.5,
+    invert: bool = False,
+    close_px: int = 2,
+    dilate_px: int = 3,
+):
     paths = sorted(list(tray_dir.glob("*.png")))
     if not paths:
         raise SystemExit(f"No tray mask PNGs found in {tray_dir}")
@@ -183,7 +190,15 @@ def load_tray_masks(tray_dir: Path):
             continue
         if m.shape != (SIZE, SIZE):
             m = cv2.resize(m, (SIZE, SIZE), interpolation=cv2.INTER_NEAREST)
-        masks.append(m > 127)
+
+        m_proc = preprocess_tray_mask(
+            m,
+            thr=thr,
+            invert=invert,
+            close_px=close_px,
+            dilate_px=dilate_px,
+        )
+        masks.append(m_proc)
 
     if not masks:
         raise SystemExit(f"Could not read any tray masks from {tray_dir}")
@@ -350,6 +365,7 @@ def build_random_mask_and_app_canvas(
     scale_max: float,
     rot_min: float,
     rot_max: float,
+    test_appearance_mode: str = "real",   # "real" or "zero"
 ):
     tray = rng.choice(tray_masks)
     canvas_mask = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
@@ -358,10 +374,7 @@ def build_random_mask_and_app_canvas(
     canvas_app = empty_gray.copy()
 
     occ = np.zeros((SIZE, SIZE), dtype=bool)
-
-    # if cutouts already represent the exact requested objects, use them directly
     requested_items = list(cutouts)
-
     placed_summary = {}
 
     for item in requested_items:
@@ -398,7 +411,13 @@ def build_random_mask_and_app_canvas(
                 region_app = canvas_app[y:y+h, x:x+w]
 
                 region_mask[obj_mask] = cut_mask[obj_mask]
-                region_app[obj_mask] = cut_gray[obj_mask]
+
+                if test_appearance_mode == "real":
+                    region_app[obj_mask] = cut_gray[obj_mask]
+                elif test_appearance_mode == "zero":
+                    pass
+                else:
+                    raise ValueError(f"Unknown test_appearance_mode: {test_appearance_mode}")
 
                 canvas_mask[y:y+h, x:x+w] = region_mask
                 canvas_app[y:y+h, x:x+w] = region_app
@@ -588,6 +607,526 @@ def apply_mask_style(m, morph="dilate", morph_k=3, morph_iter=1, soft_edges=Fals
             m = cv2.erode(m, kernel, iterations=it)
     return m
 
+
+def largest_cc(m01: np.ndarray) -> np.ndarray:
+    m = (m01 > 0).astype(np.uint8)
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(m, connectivity=8)
+    if num <= 1:
+        return m
+    areas = stats[1:, cv2.CC_STAT_AREA]
+    k = 1 + int(np.argmax(areas))
+    return (labels == k).astype(np.uint8)
+
+
+def morph_close(m01: np.ndarray, px: int) -> np.ndarray:
+    if px <= 0:
+        return m01.astype(np.uint8)
+    k = 2 * px + 1
+    kernel = np.ones((k, k), np.uint8)
+    return cv2.morphologyEx(m01.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
+
+
+def dilate_bin(m01: np.ndarray, px: int) -> np.ndarray:
+    if px <= 0:
+        return m01.astype(np.uint8)
+    k = 2 * px + 1
+    kernel = np.ones((k, k), np.uint8)
+    return cv2.dilate(m01.astype(np.uint8), kernel, iterations=1)
+
+
+def preprocess_tray_mask(
+    mask_gray: np.ndarray,
+    thr: float = 0.5,
+    invert: bool = False,
+    close_px: int = 2,
+    dilate_px: int = 3,
+) -> np.ndarray:
+    thr255 = int(np.clip(thr * 255.0, 0, 255))
+    T = (mask_gray > thr255).astype(np.uint8)
+    if invert:
+        T = 1 - T
+
+    T = largest_cc(T)
+    T = morph_close(T, close_px)
+    T = dilate_bin(T, dilate_px)
+    return T.astype(bool)
+
+
+# -------------------------
+# OD / pseudo-object helpers
+# -------------------------
+def rgb_to_od(img_rgb: np.ndarray, eps: float = 1e-6, gamma: float = 1.0) -> np.ndarray:
+    x = img_rgb.astype(np.float32) / 255.0
+    x = np.clip(x, 0.0, 1.0)
+    if gamma != 1.0:
+        x = np.power(x, gamma)
+    return -np.log(x + eps)
+
+
+def od_to_rgb(od: np.ndarray) -> np.ndarray:
+    x = np.exp(-od)
+    x = np.clip(x, 0.0, 1.0)
+    return (x * 255.0).round().astype(np.uint8)
+
+
+def bgr_mask_to_train_id(mask_bgr: np.ndarray) -> int:
+    m = np.any(mask_bgr > 0, axis=2)
+    if not np.any(m):
+        return 0
+    pix = mask_bgr[m].reshape(-1, 3)
+    uniq, counts = np.unique(pix, axis=0, return_counts=True)
+    dom = tuple(uniq[np.argmax(counts)].tolist())
+    for tid, col in PALETTE_BGR.items():
+        if tuple(col) == dom:
+            return int(tid)
+    return 0
+
+
+def build_pseudo_object_library_from_ab_pairs(
+    ab_dir: Path,
+    empty_dir: Path,
+    max_items: int = 500,
+    od_gamma: float = 1.0,
+):
+    ab_paths = sorted([p for p in ab_dir.glob("*.png")])
+    if not ab_paths:
+        raise SystemExit(f"No AB png files found in {ab_dir}")
+
+    print(f"[random_mask_od_ab] found {len(ab_paths)} AB files in {ab_dir}")
+    lib = []
+
+    n_no_empty = 0
+    n_bad_mask = 0
+    n_small_mask = 0
+    n_ok = 0
+
+    for ab_path in ab_paths:
+        try:
+            A_img, B_img = split_AB_image(ab_path)
+        except Exception as e:
+            print(f"[skip split] {ab_path.name}: {e}")
+            continue
+
+        e_path = find_matching_empty_for_ab(ab_path, empty_dir)
+        if e_path is None or not e_path.exists():
+            empties = sorted([p for p in empty_dir.glob("*") if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}])
+            if not empties:
+                n_no_empty += 1
+                print(f"[skip empty] {ab_path.name} -> no empty trays available")
+                continue
+            e_path = empties[0]
+            print(f"[fallback empty] {ab_path.name} -> using {e_path.name}")
+
+        try:
+            E_img = Image.open(str(e_path)).convert("RGB")
+        except Exception as e:
+            print(f"[skip empty open] {ab_path.name}: {e}")
+            continue
+
+        if E_img.size != A_img.size:
+            E_img = E_img.resize(A_img.size, resample=Image.BICUBIC)
+
+        A_rgb = np.array(A_img).astype(np.uint8)
+        B_rgb = np.array(B_img).astype(np.uint8)
+        E_rgb = np.array(E_img).astype(np.uint8)
+
+        obj_mask, train_id = infer_mask_and_train_id_from_A_rgb(A_rgb)
+
+        if train_id == 0:
+            n_bad_mask += 1
+            uniq = np.unique(A_rgb.reshape(-1, 3), axis=0)
+            print(f"[skip mask] {ab_path.name} -> train_id=0 | unique colors sample={uniq[:10].tolist()}")
+            continue
+
+        area = int(obj_mask.sum())
+        if area < 50:
+            n_small_mask += 1
+            print(f"[skip small] {ab_path.name} -> mask area {area}")
+            continue
+
+        ys, xs = np.where(obj_mask > 0)
+        y0, y1 = ys.min(), ys.max() + 1
+        x0, x1 = xs.min(), xs.max() + 1
+
+        mask_crop = obj_mask[y0:y1, x0:x1].copy()
+
+        OD_B = rgb_to_od(B_rgb, gamma=od_gamma)
+        OD_E = rgb_to_od(E_rgb, gamma=od_gamma)
+        delta = np.maximum(OD_B - OD_E, 0.0)
+
+        delta_crop = delta[y0:y1, x0:x1, :].copy()
+        delta_crop[mask_crop == 0] = 0.0
+
+        color_bgr = train_id_to_bgr(train_id)
+        mask_bgr = np.zeros((mask_crop.shape[0], mask_crop.shape[1], 3), dtype=np.uint8)
+        mask_bgr[mask_crop > 0] = color_bgr
+
+        lib.append({
+            "train_id": int(train_id),
+            "class_name": f"class_{train_id}",
+            "mask_bin": mask_crop.astype(np.uint8),
+            "mask_bgr": mask_bgr,
+            "delta": delta_crop.astype(np.float32),
+            "ab_path": str(ab_path),
+            "empty_path": str(e_path),
+        })
+        n_ok += 1
+
+        print(f"[ok] {ab_path.name} -> empty={Path(e_path).name} | train_id={train_id} | area={area}")
+
+        if len(lib) >= int(max_items):
+            break
+
+    print(f"[random_mask_od_ab] summary:")
+    print(f"  ok={n_ok}")
+    print(f"  no_empty={n_no_empty}")
+    print(f"  bad_mask={n_bad_mask}")
+    print(f"  small_mask={n_small_mask}")
+
+    if not lib:
+        raise SystemExit("No valid pseudo objects could be built from AB pairs.")
+
+    print(f"[random_mask_od_ab] built pseudo lib: {len(lib)} items")
+    return lib
+
+
+def transform_pseudo_object(item, rng: random.Random,
+                            scale_min: float, scale_max: float,
+                            rot_min: float, rot_max: float):
+    mask_bgr = item["mask_bgr"]
+    mask_bin = item["mask_bin"].astype(np.uint8) * 255
+    delta = item["delta"].astype(np.float32)
+
+    s = rng.uniform(scale_min, scale_max)
+
+    out_mask_bgr = cv2.resize(mask_bgr, None, fx=s, fy=s, interpolation=cv2.INTER_NEAREST)
+    out_mask_bin = cv2.resize(mask_bin, None, fx=s, fy=s, interpolation=cv2.INTER_NEAREST)
+    out_delta = cv2.resize(delta, None, fx=s, fy=s, interpolation=cv2.INTER_LINEAR)
+
+    ang = rng.uniform(rot_min, rot_max)
+    out_mask_bgr = rotate_preserve_bgr(out_mask_bgr, ang)
+
+    h0, w0 = out_mask_bin.shape[:2]
+    cx, cy = w0 / 2.0, h0 / 2.0
+    M = cv2.getRotationMatrix2D((cx, cy), ang, 1.0)
+    cos = abs(M[0, 0]); sin = abs(M[0, 1])
+    new_w = int(h0 * sin + w0 * cos)
+    new_h = int(h0 * cos + w0 * sin)
+    M[0, 2] += (new_w / 2) - cx
+    M[1, 2] += (new_h / 2) - cy
+
+    out_mask_bin = cv2.warpAffine(
+        out_mask_bin, M, (new_w, new_h),
+        flags=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    out_delta = cv2.warpAffine(
+        out_delta, M, (new_w, new_h),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+
+    m = (out_mask_bin > 127).astype(np.uint8) * 255
+    m = cv2.GaussianBlur(m, (5, 5), 0.8)
+    _, m = cv2.threshold(m, 127, 255, cv2.THRESH_BINARY)
+
+    ys, xs = np.where(m > 0)
+    if len(xs) == 0:
+        return None
+
+    orig_mask = np.any(out_mask_bgr > 0, axis=2)
+    pix = out_mask_bgr[orig_mask].reshape(-1, 3)
+    uniq, counts = np.unique(pix, axis=0, return_counts=True)
+    dom_color = uniq[np.argmax(counts)].astype(np.uint8)
+
+    clean_bgr = np.zeros_like(out_mask_bgr)
+    clean_bgr[m > 0] = dom_color
+
+    out_delta[m == 0] = 0.0
+
+    y1, y2 = ys.min(), ys.max() + 1
+    x1, x2 = xs.min(), xs.max() + 1
+
+    return {
+        "mask_bgr": clean_bgr[y1:y2, x1:x2].copy(),
+        "mask_bin": (m[y1:y2, x1:x2] > 0).astype(np.uint8),
+        "delta": out_delta[y1:y2, x1:x2].copy(),
+        "train_id": item["train_id"],
+        "class_name": item.get("class_name", f"id_{item['train_id']}"),
+    }
+
+
+def build_random_mask_and_od_pseudoB(
+    rng: random.Random,
+    tray_masks,
+    pseudo_objects,
+    empty_bgr,
+    allow_overlap: bool,
+    max_tries_per_obj: int,
+    scale_min: float,
+    scale_max: float,
+    rot_min: float,
+    rot_max: float,
+):
+    tray = rng.choice(tray_masks)
+    canvas_mask = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
+    occ = np.zeros((SIZE, SIZE), dtype=bool)
+
+    E_rgb = cv2.cvtColor(empty_bgr, cv2.COLOR_BGR2RGB)
+    OD_E = rgb_to_od(E_rgb)
+    OD_total = OD_E.copy()
+
+    placed_summary = {}
+
+    for item in pseudo_objects:
+        cls_name = item.get("class_name", f"id_{item.get('train_id', -1)}")
+        placed = False
+
+        for _global_try in range(max_tries_per_obj):
+            transformed = transform_pseudo_object(item, rng, scale_min, scale_max, rot_min, rot_max)
+            if transformed is None:
+                continue
+
+            cut_mask = transformed["mask_bgr"]
+            cut_bin = transformed["mask_bin"]
+            cut_delta = transformed["delta"]
+
+            h, w = cut_mask.shape[:2]
+            if h >= SIZE or w >= SIZE or h < 2 or w < 2:
+                continue
+
+            obj_mask = cut_bin > 0
+
+            for _t in range(max_tries_per_obj):
+                x = rng.randint(0, SIZE - w)
+                y = rng.randint(0, SIZE - h)
+
+                tray_region = tray[y:y+h, x:x+w]
+                if not np.all(tray_region[obj_mask]):
+                    continue
+
+                if not allow_overlap and np.any(occ[y:y+h, x:x+w] & obj_mask):
+                    continue
+
+                region_mask = canvas_mask[y:y+h, x:x+w]
+                region_mask[obj_mask] = cut_mask[obj_mask]
+                canvas_mask[y:y+h, x:x+w] = region_mask
+
+                region_OD = OD_total[y:y+h, x:x+w]
+                for c in range(3):
+                    rc = region_OD[..., c]
+                    dc = cut_delta[..., c]
+                    rc[obj_mask] += dc[obj_mask]
+                    region_OD[..., c] = rc
+                OD_total[y:y+h, x:x+w] = region_OD
+
+                occ[y:y+h, x:x+w][obj_mask] = True
+                placed = True
+                placed_summary[cls_name] = placed_summary.get(cls_name, 0) + 1
+                break
+
+            if placed:
+                break
+
+        if not placed:
+            print(f"[random_mask_od] WARNING: could not place requested object of class {cls_name}")
+
+    pseudo_B_rgb = od_to_rgb(OD_total)
+    pseudo_B_rgb[~tray] = E_rgb[~tray]
+    pseudo_B_bgr = cv2.cvtColor(pseudo_B_rgb, cv2.COLOR_RGB2BGR)
+
+    print(f"[random_mask_od] placed summary: {placed_summary}")
+    return canvas_mask, pseudo_B_bgr
+
+# -------------------------
+# AB-pair pseudo-object helpers
+# -------------------------
+def train_id_to_bgr(train_id: int):
+    return np.array(PALETTE_BGR.get(int(train_id), (255, 255, 255)), dtype=np.uint8)
+
+
+def split_AB_image(ab_path: Path):
+    AB = Image.open(str(ab_path)).convert("RGB")
+    w, h = AB.size
+    w2 = w // 2
+    A_img = AB.crop((0, 0, w2, h))
+    B_img = AB.crop((w2, 0, w, h))
+    return A_img, B_img
+
+
+def infer_mask_and_train_id_from_A_rgb(A_rgb: np.ndarray, tol: int = 10):
+    """
+    Robust single-class Shampoo mask extraction.
+
+    Supports both:
+      - green encoded masks
+      - blue/red encoded masks seen in current AB files
+    """
+    H, W = A_rgb.shape[:2]
+
+    candidate_colors_rgb = [
+        np.array([0, 255, 0], dtype=np.int16),   # green
+        np.array([0, 0, 255], dtype=np.int16),   # blue/red-encoded in RGB
+    ]
+
+    best_area = 0
+    best_mask = np.zeros((H, W), dtype=np.uint8)
+
+    A16 = A_rgb.astype(np.int16)
+    for col_rgb in candidate_colors_rgb:
+        diff = np.abs(A16 - col_rgb[None, None, :])
+        m = np.all(diff <= tol, axis=2).astype(np.uint8)
+        area = int(m.sum())
+        if area > best_area:
+            best_area = area
+            best_mask = m
+
+    if best_area >= 50:
+        return best_mask, 1
+
+    return np.zeros((H, W), dtype=np.uint8), 0
+
+
+def find_matching_empty_for_ab(ab_path: Path, empty_dir: Path):
+    """
+    Match empty tray using same filename logic as training:
+      - direct filename match
+      - fallback using timestamp in name
+      - fallback nearest timestamp
+    """
+    bname = ab_path.name
+    e_path = empty_dir / bname
+    if e_path.exists():
+        return e_path
+
+    parts = bname.split("-", 1)
+    timestamp = None
+    if len(parts) == 2:
+        timestamp = parts[1].split("_tr")[0]
+
+    if timestamp:
+        candidates = list(empty_dir.glob(f"*{timestamp}*"))
+        if len(candidates) == 1:
+            return candidates[0]
+        elif len(candidates) > 1:
+            return candidates[0]
+
+        import datetime
+
+        def parse_ts(name: str):
+            try:
+                return name.split(".")[0]
+            except Exception:
+                return name
+
+        def ts_to_seconds(ts_str: str):
+            fmt = "%Y-%m-%d_%H-%M-%S-%f"
+            try:
+                dt = datetime.datetime.strptime(ts_str, fmt)
+                return dt.timestamp()
+            except Exception:
+                return None
+
+        target_sec = ts_to_seconds(timestamp)
+        best = None
+        best_diff = None
+        for emp in empty_dir.iterdir():
+            emp_sec = ts_to_seconds(parse_ts(emp.name))
+            if emp_sec is None or target_sec is None:
+                continue
+            diff = abs(emp_sec - target_sec)
+            if best_diff is None or diff < best_diff:
+                best_diff = diff
+                best = emp
+        if best is not None:
+            return best
+
+    return None
+
+
+def build_pseudo_object_library_from_ab_pairs(
+    ab_dir: Path,
+    empty_dir: Path,
+    max_items: int = 500,
+    od_gamma: float = 1.0,
+):
+    """
+    Build pseudo object library from actual training AB pairs.
+
+    Each item contains:
+      - mask_bin
+      - mask_bgr
+      - delta = max(OD(B)-OD(E), 0) inside object
+      - train_id
+      - source path
+    """
+    ab_paths = sorted([p for p in ab_dir.glob("*.png")])
+    if not ab_paths:
+        raise SystemExit(f"No AB png files found in {ab_dir}")
+
+    lib = []
+
+    for ab_path in ab_paths:
+        try:
+            A_img, B_img = split_AB_image(ab_path)
+        except Exception:
+            continue
+
+        e_path = find_matching_empty_for_ab(ab_path, empty_dir)
+        if e_path is None or not e_path.exists():
+            continue
+
+        E_img = Image.open(str(e_path)).convert("RGB")
+
+        if E_img.size != A_img.size:
+            E_img = E_img.resize(A_img.size, resample=Image.BICUBIC)
+
+        A_rgb = np.array(A_img).astype(np.uint8)
+        B_rgb = np.array(B_img).astype(np.uint8)
+        E_rgb = np.array(E_img).astype(np.uint8)
+
+        obj_mask, train_id = infer_mask_and_train_id_from_A_rgb(A_rgb)
+        if train_id == 0 or obj_mask.sum() < 50:
+            continue
+
+        ys, xs = np.where(obj_mask > 0)
+        y0, y1 = ys.min(), ys.max() + 1
+        x0, x1 = xs.min(), xs.max() + 1
+
+        mask_crop = obj_mask[y0:y1, x0:x1].copy()
+
+        OD_B = rgb_to_od(B_rgb, gamma=od_gamma)
+        OD_E = rgb_to_od(E_rgb, gamma=od_gamma)
+        delta = np.maximum(OD_B - OD_E, 0.0)
+
+        delta_crop = delta[y0:y1, x0:x1, :].copy()
+        delta_crop[mask_crop == 0] = 0.0
+
+        color_bgr = train_id_to_bgr(train_id)
+        mask_bgr = np.zeros((mask_crop.shape[0], mask_crop.shape[1], 3), dtype=np.uint8)
+        mask_bgr[mask_crop > 0] = color_bgr
+
+        lib.append({
+            "train_id": int(train_id),
+            "class_name": f"class_{train_id}",
+            "mask_bin": mask_crop.astype(np.uint8),
+            "mask_bgr": mask_bgr,
+            "delta": delta_crop.astype(np.float32),
+            "ab_path": str(ab_path),
+            "empty_path": str(e_path),
+        })
+
+        if len(lib) >= int(max_items):
+            print(f"[random_mask_od_ab] built pseudo lib: {len(lib)} items")
+            return lib
+
+    if not lib:
+        raise SystemExit("No valid pseudo objects could be built from AB pairs.")
+
+    print(f"[random_mask_od_ab] built pseudo lib: {len(lib)} items")
+    return lib
 
 def build_shape_library_for_paste(coco, images_dir: Path):
     images_by_id, cats_by_id, ann_by_img, cat_id_to_train, cat_name_to_train, skipped_rle = build_indices(coco)
@@ -984,8 +1523,8 @@ def run_pix2pix_test(
         cmd += [
             "--use_delta_comp",
             "--delta_positive",
-            "--delta_scale", "0.8",
-            "--delta_max", "3",
+            "--delta_scale", "0.9",
+            "--delta_max", "4",
             "--use_tray_mask",
             "--tray_mask_path=data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png",
             "--tray_mask_autoshift",
@@ -1041,7 +1580,7 @@ def main():
     ap.add_argument("--no_overlap", action="store_true")
 
     ap.add_argument("--mode", type=str, default="real_scene",
-                    choices=["real_scene", "paste", "real_scene_count", "random_mask"])
+                choices=["real_scene", "paste", "real_scene_count", "random_mask", "random_mask_od", "random_mask_od_ab"])
 
     # paste / real_scene_count knobs
     ap.add_argument("--scale_min", type=float, default=0.98)
@@ -1095,6 +1634,22 @@ def main():
         action="store_true",
         help="Pass through to pix2pix test so appearance is disabled at test time."
     )
+
+    ap.add_argument("--tray_mask_thr", type=float, default=0.5)
+    ap.add_argument("--tray_mask_invert", action="store_true")
+    ap.add_argument("--tray_cc_close_px", type=int, default=2)
+    ap.add_argument("--tray_mask_dilate_px", type=int, default=3)
+
+    ap.add_argument(
+        "--test_appearance_mode",
+        type=str,
+        default="real",
+        choices=["real", "zero"],
+        help="For random_mask inference: real=paste grayscale interiors into pseudo-B, zero=empty-tray only.",
+    )
+    ap.add_argument("--pseudo_lib_max_items", type=int, default=500)
+    ap.add_argument("--ab_train_dir", type=str, default="datasets/Shampoo/train")
+    ap.add_argument("--empty_train_dir", type=str, default="data/interim/GAN/Empty")
     ap.set_defaults(use_display_mapper=True)
 
     args = ap.parse_args()
@@ -1156,68 +1711,149 @@ def main():
         )
         print(f"real_scene_count picked image_id={img_id}, file={fname}")
 
-    elif args.mode == "random_mask":
+    elif args.mode in ["random_mask", "random_mask_od", "random_mask_od_ab"]:
 
-        tray_masks = load_tray_masks(Path(args.tray_mask_dir))
-
-        real_cutouts = build_real_cutout_library(coco, images_dir)
-
-        allow_overlap = False if args.no_overlap else True
-
-        # -------------------------
-        # Build class filtered library
-        # -------------------------
-        if want_classes is not None:
-            class_map = {}
-            for item in real_cutouts:
-                tid = item["train_id"]
-                class_map.setdefault(tid, []).append(item)
-
-            counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
-
-            if len(counts_raw) == 1:
-                targets = [int(counts_raw[0])] * len(want_classes)
-            elif len(counts_raw) == len(want_classes):
-                targets = [int(x) for x in counts_raw]
-            else:
-                raise SystemExit("--count must match --classes")
-
-            cutouts = []
-            for cls, n in zip(want_classes, targets):
-                candidates = [c for c in real_cutouts if c["class_name"].lower() == cls.lower()]
-
-                if len(candidates) == 0:
-                    avail = sorted({c["class_name"] for c in real_cutouts})
-                    raise SystemExit(f"class {cls} not found. Available classes: {avail}")
-
-                for _ in range(n):
-                    cutouts.append(rng.choice(candidates))
-
-        else:
-            cutouts = real_cutouts
+        tray_masks = load_tray_masks(
+            Path(args.tray_mask_dir),
+            thr=args.tray_mask_thr,
+            invert=bool(args.tray_mask_invert),
+            close_px=int(args.tray_cc_close_px),
+            dilate_px=int(args.tray_mask_dilate_px),
+        )
 
         if args.use_delta_comp:
             empty_bgr_for_scene = load_empty_tray_bgr(args.empty_dir, args.empty_path)
         else:
             empty_bgr_for_scene = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
 
-        canvas_bgr, pseudo_B_bgr = build_random_mask_and_app_canvas(
-            rng=rng,
-            tray_masks=tray_masks,
-            cutouts=cutouts,
-            empty_bgr=empty_bgr_for_scene,
-            n_min=len(cutouts) if want_classes else args.rand_n_min,
-            n_max=len(cutouts) if want_classes else args.rand_n_max,
-            allow_overlap=allow_overlap,
-            max_tries_per_obj=args.rand_max_tries_per_obj,
-            scale_min=args.rand_scale_min,
-            scale_max=args.rand_scale_max,
-            rot_min=args.rand_rot_min,
-            rot_max=args.rand_rot_max,
-        )
+        allow_overlap = False if args.no_overlap else True
 
-        img_id, fname = -1, "random_mask"
-        print("random_mask: generated controlled synthetic scene")
+        if args.mode == "random_mask":
+            real_cutouts = build_real_cutout_library(coco, images_dir)
+
+            if want_classes is not None:
+                counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
+                if len(counts_raw) == 1:
+                    targets = [int(counts_raw[0])] * len(want_classes)
+                elif len(counts_raw) == len(want_classes):
+                    targets = [int(x) for x in counts_raw]
+                else:
+                    raise SystemExit("--count must match --classes")
+
+                cutouts = []
+                for cls, n in zip(want_classes, targets):
+                    candidates = [c for c in real_cutouts if c["class_name"].lower() == cls.lower()]
+                    if len(candidates) == 0:
+                        avail = sorted({c["class_name"] for c in real_cutouts})
+                        raise SystemExit(f"class {cls} not found. Available classes: {avail}")
+                    for _ in range(n):
+                        cutouts.append(rng.choice(candidates))
+            else:
+                cutouts = real_cutouts
+
+            test_app_mode = "zero" if args.disable_test_appearance else args.test_appearance_mode
+
+            canvas_bgr, pseudo_B_bgr = build_random_mask_and_app_canvas(
+                rng=rng,
+                tray_masks=tray_masks,
+                cutouts=cutouts,
+                empty_bgr=empty_bgr_for_scene,
+                n_min=len(cutouts) if want_classes else args.rand_n_min,
+                n_max=len(cutouts) if want_classes else args.rand_n_max,
+                allow_overlap=allow_overlap,
+                max_tries_per_obj=args.rand_max_tries_per_obj,
+                scale_min=args.rand_scale_min,
+                scale_max=args.rand_scale_max,
+                rot_min=args.rand_rot_min,
+                rot_max=args.rand_rot_max,
+                test_appearance_mode=test_app_mode,
+            )
+
+        elif args.mode == "random_mask_od":
+            if not args.use_delta_comp:
+                raise SystemExit("--mode random_mask_od requires --use_delta_comp")
+
+            pseudo_lib = build_pseudo_object_library_from_coco_and_empty(
+                coco=coco,
+                images_dir=images_dir,
+                empty_bgr=empty_bgr_for_scene,
+                max_items=int(args.pseudo_lib_max_items),
+            )
+
+            if want_classes is not None:
+                counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
+                if len(counts_raw) == 1:
+                    targets = [int(counts_raw[0])] * len(want_classes)
+                elif len(counts_raw) == len(want_classes):
+                    targets = [int(x) for x in counts_raw]
+                else:
+                    raise SystemExit("--count must match --classes")
+
+                selected_items = []
+                for cls, n in zip(want_classes, targets):
+                    candidates = [c for c in pseudo_lib if c["class_name"].lower() == cls.lower()]
+                    if len(candidates) == 0:
+                        avail = sorted({c["class_name"] for c in pseudo_lib})
+                        raise SystemExit(f"class {cls} not found. Available classes: {avail}")
+                    for _ in range(n):
+                        selected_items.append(rng.choice(candidates))
+            else:
+                selected_items = pseudo_lib
+
+            canvas_bgr, pseudo_B_bgr = build_random_mask_and_od_pseudoB(
+                rng=rng,
+                tray_masks=tray_masks,
+                pseudo_objects=selected_items,
+                empty_bgr=empty_bgr_for_scene,
+                allow_overlap=allow_overlap,
+                max_tries_per_obj=args.rand_max_tries_per_obj,
+                scale_min=args.rand_scale_min,
+                scale_max=args.rand_scale_max,
+                rot_min=args.rand_rot_min,
+                rot_max=args.rand_rot_max,
+            )
+
+        else:
+            # random_mask_od_ab
+            if not args.use_delta_comp:
+                raise SystemExit("--mode random_mask_od_ab requires --use_delta_comp")
+
+            pseudo_lib = build_pseudo_object_library_from_ab_pairs(
+                ab_dir=Path(args.ab_train_dir),
+                empty_dir=Path(args.empty_train_dir),
+                max_items=int(args.pseudo_lib_max_items),
+            )
+
+            if want_classes is not None:
+                # for Shampoo single-class case, just sample by count
+                counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
+                if len(counts_raw) == 1:
+                    total_n = int(counts_raw[0]) * len(want_classes)
+                elif len(counts_raw) == len(want_classes):
+                    total_n = sum(int(x) for x in counts_raw)
+                else:
+                    raise SystemExit("--count must match --classes")
+
+                selected_items = [rng.choice(pseudo_lib) for _ in range(total_n)]
+            else:
+                n_obj = rng.randint(int(args.rand_n_min), int(args.rand_n_max))
+                selected_items = [rng.choice(pseudo_lib) for _ in range(n_obj)]
+
+            canvas_bgr, pseudo_B_bgr = build_random_mask_and_od_pseudoB(
+                rng=rng,
+                tray_masks=tray_masks,
+                pseudo_objects=selected_items,
+                empty_bgr=empty_bgr_for_scene,
+                allow_overlap=allow_overlap,
+                max_tries_per_obj=args.rand_max_tries_per_obj,
+                scale_min=args.rand_scale_min,
+                scale_max=args.rand_scale_max,
+                rot_min=args.rand_rot_min,
+                rot_max=args.rand_rot_max,
+            )
+
+        img_id, fname = -1, args.mode
+        print(f"{args.mode}: generated controlled synthetic scene")
 
     elif args.mode == "paste":
         if not want_classes:
@@ -1294,7 +1930,7 @@ def main():
     preview_dir.mkdir(parents=True, exist_ok=True)
     # Save preview in BGR (OpenCV expects BGR)
     cv2.imwrite(str(preview_dir / f"mask_color_seed{args.seed}.png"), canvas_bgr)
-    if args.mode == "random_mask":
+    if args.mode in ["random_mask", "random_mask_od", "random_mask_od_ab"]:
         cv2.imwrite(str(preview_dir / f"pseudo_realB_seed{args.seed}.png"), pseudo_B_bgr)
     # -------------------------
     # WRITE AB (aligned) into out_root/test
@@ -1317,6 +1953,11 @@ def main():
         effective_empty_dir = str(tmp_empty_dir)
 
         if args.mode == "random_mask":
+            if args.disable_test_appearance or args.test_appearance_mode == "zero":
+                blank_B = empty_bgr
+            else:
+                blank_B = pseudo_B_bgr
+        elif args.mode in ["random_mask_od", "random_mask_od_ab"]:
             blank_B = pseudo_B_bgr
         else:
             blank_B = empty_bgr
@@ -1371,7 +2012,8 @@ def main():
             # -------------------------
             img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
             rgb_path = p.with_name(p.stem + "_rgb.png")
-            cv2.imwrite(str(rgb_path), img_rgb)
+            from PIL import Image
+            Image.fromarray(img_rgb).save(str(rgb_path))
 
             # -------------------------
             # 2 Create colored visualization
@@ -1634,7 +2276,30 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode random_mask \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
-  --seed 223 \
+  --seed 121 \
+  --out_dataset datasets/_gen_test \
+  --epoch latest \
+  --norm instance \
+  --use_delta_comp \
+  --empty_dir data/interim/GAN/Empty \
+  --tray_mask_dir data/interim/GAN/Empty_Tray_mask/Mask \
+  --no_overlap \
+  --classes Shampoo \
+  --count 1 \
+  --rand_n_min 1 \
+  --rand_n_max 2 \
+  --rand_scale_min 0.9 \
+  --rand_scale_max 1.1 \
+  --rand_rot_min 0 \
+  --rand_rot_max 20 \
+  --test_appearance_mode real
+
+  NONGUIDED
+python notebooks/Pix2Pix/generate_pix2pix.py \
+  --mode random_mask \
+  --images_dir data/raw/Shampoo \
+  --coco_json data/raw/Shampoo/result.json \
+  --seed 124 \
   --out_dataset datasets/_gen_test \
   --epoch latest \
   --norm instance \
@@ -1649,14 +2314,14 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --rand_scale_min 0.75 \
   --rand_scale_max 1.25 \
   --rand_rot_min 0 \
-  --rand_rot_max 45
+  --rand_rot_max 45 \
+  --test_appearance_mode zero --disable_test_appearance
 
-  NONGUIDED
 python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode random_mask \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
-  --seed 222 \
+  --seed 88 \
   --out_dataset datasets/_gen_test \
   --epoch latest \
   --norm instance \
@@ -1665,13 +2330,12 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --tray_mask_dir data/interim/GAN/Empty_Tray_mask/Mask \
   --no_overlap \
   --classes Shampoo \
-  --count 2 \
-  --rand_n_min 1 \
-  --rand_n_max 2 \
-  --rand_scale_min 0.75 \
-  --rand_scale_max 1.25 \
-  --rand_rot_min 0 --disable_test_appearance\
-  --rand_rot_max 45
+  --count 1 \
+  --rand_scale_min 0.98 \
+  --rand_scale_max 1.02 \
+  --rand_rot_min 0 \
+  --rand_rot_max 8 \
+  --test_appearance_mode real
 
 
   To print out classes that you have:

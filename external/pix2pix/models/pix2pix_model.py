@@ -265,22 +265,13 @@ class Pix2PixModel(BaseModel):
         if self.isTrain:
             noise_std = float(getattr(self.opt, "mask_noise_std", 0.0))
             if noise_std > 0:
-                cond_nc = 1  # object mask
-
-                if bool(getattr(self.opt, "use_edge_channel", False)):
-                    cond_nc += 1
-
-                if self.use_thickness_channel:
-                    cond_nc += self.thickness_nc
-
-                if bool(getattr(self.opt, "use_coord_channels", False)):
-                    cond_nc += 2
-
+                # small noise to appearance only
                 if self.use_appearance_channel:
-                    cond_nc += self.appearance_nc
-
-                noise = torch.randn_like(A[:, :cond_nc]) * noise_std
-                A[:, :cond_nc] = torch.clamp(A[:, :cond_nc] + noise, -1.0, 1.0)
+                    app_start = self._appearance_channel_start_idx()
+                    app_end = app_start + self.appearance_nc
+                    if A.shape[1] >= app_end:
+                        noise = torch.randn_like(A[:, app_start:app_end]) * noise_std
+                        A[:, app_start:app_end] = torch.clamp(A[:, app_start:app_end] + noise, -1.0, 1.0)
 
         is_synth = input.get("is_synthetic", False)
         if isinstance(is_synth, torch.Tensor):
@@ -319,6 +310,17 @@ class Pix2PixModel(BaseModel):
             self.instance_masks = None
 
         self.image_paths = input.get("A_paths" if AtoB else "B_paths", [])
+
+    def _appearance_channel_start_idx(self):
+        start = 1
+        if bool(getattr(self.opt, "use_edge_channel", False)):
+            start += 1
+        if self.use_thickness_channel:
+            start += self.thickness_nc
+        if bool(getattr(self.opt, "use_coord_channels", False)):
+            start += 2
+        return start
+
 
     def _build_object_mask_from_A(self):
         """
@@ -461,41 +463,37 @@ class Pix2PixModel(BaseModel):
 
     def _build_delta_prior(self):
         """
-        Disabled for current conditioning layout:
-        ch0 = object mask
-        ch1 = appearance
-        ch2 = thickness
+        Simplified prior for current conditioning layout:
+          ch0 = object mask
+          ch1 = edge (optional)
+          next = thickness (optional)
+          next = coord x/y (optional)
+          next = appearance (optional)
 
-        The old class-based prior assumed separate Shampoo/Blade channels,
-        which no longer matches the dataset.
-        
-        
-        Simple class-weighted thickness prior.
-        ch0 = Shampoo
-        ch1 = Blade
-        
+        For Shampoo-only training, use:
+          prior = mask * thickness * prior_shampoo
+
+        This gives a coarse physically reasonable interior attenuation base
+        even when appearance is absent.
+        """
         if not bool(getattr(self.opt, "use_delta_prior", False)):
             return None
         if not self.use_thickness_channel:
             return None
 
-        A_cls = self.real_A[:, :self.class_nc, :, :]
-        A_cls01 = torch.clamp((A_cls + 1.0) * 0.5, 0.0, 1.0)
         thickness = self._get_thickness_from_A()
         if thickness is None:
             return None
 
-        shampoo = A_cls01[:, 0:1, :, :] if self.class_nc >= 1 else 0.0
-        blade = A_cls01[:, 1:2, :, :] if self.class_nc >= 2 else 0.0
+        _, M = self._build_object_mask_from_A()
+        if M is None:
+            return None
 
         k_shampoo = float(getattr(self.opt, "prior_shampoo", 1.2))
-        k_blade = float(getattr(self.opt, "prior_blade", 0.8))
 
-        prior_1ch = thickness * (k_shampoo * shampoo + k_blade * blade)
+        prior_1ch = M * thickness * k_shampoo
         prior_3ch = prior_1ch.repeat(1, 3, 1, 1)
         return prior_3ch
-        """
-        return None
 
     def forward(self):
         if not getattr(self.opt, "use_delta_comp", False):

@@ -476,6 +476,47 @@ python external/pix2pix/train.py \
   --n_epochs 80 --n_epochs_decay 80 --num_threads 0
 
   
+python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo \
+  --name Shampoo_pix2pix_StructCond_V4_unguided \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 9 --output_nc 3 --class_nc 1 --thickness_nc 1 --appearance_nc 1 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels --use_appearance_channel --return_instance_masks \
+  --netG unet_256 --norm instance --gan_mode lsgan \
+  --lambda_L1 6 --use_masked_l1 --lambda_bg 1.5 \
+  --use_grad_loss --lambda_grad 10 \
+  --use_lap_loss --lambda_lap 6 \
+  --use_ssim_loss --lambda_ssim 3 \
+  --use_region_stats --lambda_stats 3 \
+  --use_delta_comp --delta_positive --delta_max 3 --delta_scale 0.8 \
+  --use_delta_prior --prior_shampoo 1.2 \
+  --use_delta_supervision --lambda_delta 120 --lambda_instance_delta 8 --lambda_delta_bg 3 \
+  --use_delta_grad_loss --lambda_delta_grad 14 \
+  --use_tray_mask --tray_mask_autoshift \
+  --tray_obj_dilate_px 5 --tray_bbox_margin 2 --tray_mask_dilate_px 3 \
+  --tray_nudge_iters 8 --tray_nudge_max_step 20 --tray_shift_max_px 400 \
+  --synthetic_prob 0.35 --synthetic_same_class_prob 0.5 --synthetic_no_overlap \
+  --synthetic_min_items 1 --synthetic_max_items 3 \
+  --synthetic_scale_min 0.85 --synthetic_scale_max 1.15 --synthetic_rot_min 0 --synthetic_rot_max 25 \
+  --appearance_zero_prob 0.8 --appearance_weak_prob 0.15 --appearance_proto_prob 0.05 \
+  --appearance_blur_ksize 31 --appearance_blur_sigma 8.0 \
+  --batch_size 1 --lr 0.00003 --beta1 0.5 \
+  --build_appearance_prototypes --max_appearance_prototypes 200 \
+  --mask_noise_std 0.04 --lambda_syn_tv 0.25 --lambda_syn_mag 0.07 \
+  --n_epochs 100 --n_epochs_decay 100 \
+  --empty_dir data/interim/GAN/Empty \
+  --preprocess none --load_size 1024 --crop_size 1024 \
+  --tray_mask_path data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png \
+  --cutout_dir data/raw/Shampoo/Cropped \
+  --num_threads 0 \
+  --pretrained_netG checkpoints/Shampoo_pix2pix_StructCond_V2/latest_net_G.pth
+ 
+
+ 
+ 
+
+
+
   # WITHOUT EMPTY TRAY
    python external/pix2pix/train.py \
   --dataroot datasets/Shampoo \
