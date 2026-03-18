@@ -30,7 +30,7 @@ TRAY_MASK_DIR = Path("data/interim/GAN/Empty_Tray_mask/Mask")
 #Contraband Metal
 #CUTOUT_DIR = Path("data/raw/Contraband/Metal/Cropped")
 #Non-Contraband
-CUTOUT_DIR = Path("data/raw/Shampoo/Cropped")
+CUTOUT_DIR = Path("data/raw/Shampoo_Blade/Cropped")
 
 # For random mask generation
 RAND_N_MIN, RAND_N_MAX = 1, 3

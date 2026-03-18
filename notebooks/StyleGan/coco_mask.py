@@ -6,13 +6,13 @@ import numpy as np
 # =========================
 # Paths
 # =========================
-IMAGES_DIR = Path("data/raw/Shampoo&Blade")                 # your images
-COCO_JSON  = Path("data/raw/Shampoo&Blade/result.json")     # COCO export
+IMAGES_DIR = Path("data/raw/Shampoo_nobackground")                 # your images
+COCO_JSON  = Path("data/raw/Shampoo_nobackground/result.json")     # COCO export
 
-OUT_MASKS   = Path("data/interim/Shampoo&Blade/masks")         # raw label-id masks (0..K)  (will look black)
-OUT_VIZ     = Path("data/interim/Shampoo&Blade/masks_viz")     # grayscale view (0..255)
-OUT_COLOR   = Path("data/interim/Shampoo&Blade/masks_color")   # colored mask (per-class color)
-OUT_OVERLAY = Path("data/interim/Shampoo&Blade/masks_overlay") # colored mask overlaid on image
+OUT_MASKS   = Path("data/interim/Shampoo_nobackground/masks")         # raw label-id masks (0..K)  (will look black)
+OUT_VIZ     = Path("data/interim/Shampoo_nobackground/masks_viz")     # grayscale view (0..255)
+OUT_COLOR   = Path("data/interim/Shampoo_nobackground/masks_color")   # colored mask (per-class color)
+OUT_OVERLAY = Path("data/interim/Shampoo_nobackground/masks_overlay") # colored mask overlaid on image
 
 for d in [OUT_MASKS, OUT_VIZ, OUT_COLOR, OUT_OVERLAY]:
     d.mkdir(parents=True, exist_ok=True)

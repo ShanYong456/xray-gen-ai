@@ -1656,7 +1656,7 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --mode random_mask \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
-  --seed 222 \
+  --seed 111 \
   --out_dataset datasets/_gen_test \
   --epoch latest \
   --norm instance \

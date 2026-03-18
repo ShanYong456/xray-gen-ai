@@ -5,13 +5,14 @@ import numpy as np
 # =========================
 # Config
 # =========================
-INPUT_DIR = Path("data/raw/Shampoo_Blade(Overlap)")  # your raw images
+INPUT_DIR = Path("data/raw/Shampoo_NOBGR")  # your raw images
 
-OUT_GRAY  = Path("data/interim/Shampoo_Blade(Overlap)/Gray")
-OUT_COLOR = Path("data/interim/Shampoo_Blade(Overlap)/Color")
+OUT_GRAY  = Path("data/interim/Shampoo_NOBGR/Gray")
+OUT_COLOR = Path("data/interim/Shampoo_NOBGR/Color")
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff"}
-TARGET_SIZE = (1500, 1000)  # (width, height)
+#TARGET_SIZE = (1500, 1000)  # (width, height)
+#TARGET_SIZE = (560, 1000)  # (width, height)
 
 # Create output dirs
 OUT_GRAY.mkdir(parents=True, exist_ok=True)
@@ -98,7 +99,7 @@ for img_path in image_paths:
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)   # <-- define it first
     gray = cv2.GaussianBlur(gray, (3, 3), 0)
     gray = clahe_gray.apply(ensure_uint8(gray))
-    gray = resize_crop_fill_random(gray, TARGET_SIZE)
+    #gray = resize_crop_fill_random(gray, TARGET_SIZE)
 
     # convert FINAL grayscale to 3-channel for StyleGAN
     gray3 = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
@@ -113,7 +114,7 @@ for img_path in image_paths:
     l = clahe_color.apply(ensure_uint8(l))
     lab = cv2.merge((l, a, b))
     color = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-    color = resize_crop_fill_random(color, TARGET_SIZE)
+    #color = resize_crop_fill_random(color, TARGET_SIZE)
 
     # Save
     out_name = f"{base_name}.png"

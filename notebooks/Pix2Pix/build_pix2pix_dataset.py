@@ -4,11 +4,11 @@ import numpy as np
 import random
 
 # ===== INPUTS =====
-IMG_DIR  = Path("data/raw/Shampoo&Blade")
-MASK_DIR = Path("data/interim/Shampoo&Blade/masks")
+IMG_DIR  = Path("data/raw/Shampoo_nobackground")
+MASK_DIR = Path("data/interim/Shampoo_nobackground/masks")
 
 # ===== OUTPUT =====
-OUT_ROOT  = Path("datasets/Shampoo&Blade")
+OUT_ROOT  = Path("datasets/Shampoo_nobackground")
 TRAIN_DIR = OUT_ROOT / "train"
 TEST_DIR  = OUT_ROOT / "test"
 TRAIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -63,7 +63,7 @@ PALETTE_BGR ={
     6: (255, 0, 255),     # magenta
 }
 """
-
+"""
 #FOR SHAMPOO&BLADE:
 PALETTE_BGR ={
     0: (0, 0, 0),         # background
@@ -71,6 +71,15 @@ PALETTE_BGR ={
     2: (255, 0, 0),       # blue
    
 }
+"""
+
+#FOR SHAMPOO:
+PALETTE_BGR ={
+    0: (0, 0, 0),         # background
+    1: (0, 255, 0),       # green
+   
+}
+
 
 
 # store dynamically generated colors (for unknown ids)
