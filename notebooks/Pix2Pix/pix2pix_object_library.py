@@ -25,7 +25,7 @@ PALETTE_BGR = {
 # Shampoo:
 PALETTE_BGR = {
     0: (0, 0, 0),         # background
-    1: (255, 0, 0),       # blue
+    1: (0, 255, 0),       # blue
 }
 
 
@@ -285,5 +285,5 @@ python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo/
 
 python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo_Blade/result.json --out_dir data/raw/Shampoo_Blade/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo_Blade/color_palette.json
 
-
+python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo_nobackground/result.json --out_dir data/raw/Shampoo_nobackground/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo_nobackground/color_palette.json
 """

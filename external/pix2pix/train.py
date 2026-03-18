@@ -477,49 +477,31 @@ python external/pix2pix/train.py \
 
   
 python external/pix2pix/train.py \
-  --dataroot datasets/Shampoo --name Shampoo_pix2pix_StructCond_V5_unguided \
-  --model pix2pix --dataset_mode aligned --direction AtoB \
-  --input_nc 9 --output_nc 3 --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
-  --preprocess none --load_size 1024 --crop_size 1024 --batch_size 1 \
-  --gan_mode lsgan --lr 3e-5 --beta1 0.5 --n_epochs 100 --n_epochs_decay 100 \
-  --lr_policy linear --lr_decay_iters 50 --pool_size 0 --no_flip --num_threads 0 \
-  --save_epoch_freq 5 --save_latest_freq 5000 --display_freq 400 --print_freq 100 \
-  --ngf 64 --ndf 64 \
-  --lambda_L1 50.0 --lambda_delta 30.0 --lambda_delta_bg 3.0 --lambda_delta_grad 14.0 \
-  --lambda_grad 10.0 --lambda_lap 6.0 --lambda_ssim 3.0 --lambda_stats 3.0 \
-  --lambda_bg 1.5 --lambda_instance_delta 8.0 --lambda_syn_tv 0.25 --lambda_syn_mag 0.07 \
-  --lambda_syn_mask_mean 0.0 --lambda_gp 5.0 \
-  --d_label_smooth 0.1 --syn_gan_weight 0.3 --d_update_ratio 2 \
-  --class_nc 1 --thickness_nc 1 --appearance_nc 1 \
-  --use_thickness_channel --use_edge_channel --use_coord_channels --use_appearance_channel \
-  --appearance_zero_prob 0.35 --appearance_weak_prob 0.35 --appearance_proto_prob 0.15 \
-  --appearance_blur_ksize 31 --appearance_blur_sigma 8.0 \
-  --build_appearance_prototypes --max_appearance_prototypes 200 \
-  --use_delta_comp --delta_positive --delta_scale 0.8 --delta_max 5.0 --compose_eps 1e-6 --od_gamma 1.0 \
-  --use_delta_supervision --use_delta_grad_loss --use_delta_prior --use_masked_l1 \
-  --prior_shampoo 1.1 \
-  --use_grad_loss --use_lap_loss --use_ssim_loss --use_region_stats \
-  --use_tray_mask --tray_mask_path data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png \
-  --tray_mask_thr 0.5 --tray_mask_autoshift --tray_bbox_margin 2 --tray_mask_dilate_px 3 \
-  --tray_obj_dilate_px 5 --tray_nudge_iters 8 --tray_nudge_max_step 20 --tray_cc_close_px 2 --tray_shift_max_px 400 \
-  --empty_dir data/interim/GAN/Empty \
-  --return_instance_masks --mask_thr 0.05 --mask_noise_std 0.04 --mask_aug_px 2 \
-  --synthetic_prob 0.35 --synthetic_mode random_mask --synthetic_min_items 1 --synthetic_max_items 3 \
-  --synthetic_scale_min 0.85 --synthetic_scale_max 1.15 --synthetic_rot_min 0.0 --synthetic_rot_max 25.0 \
-  --synthetic_no_overlap --synthetic_same_class_prob 0.5 --cutout_dir data/raw/Shampoo/Cropped \
-  --delta_aug_scale_min 0.92 --delta_aug_scale_max 1.08 --delta_aug_noise_std 0.008 --delta_aug_edge_gain 0.08 \
-  --edge_dilate_px 1 --mask_blur_ksize 0 --mask_blur_sigma 1.2 --mask_soft_beta 30.0 \
-  --pretrained_netG checkpoints/Shampoo_pix2pix_StructCond_V4_unguided/latest_net_G.pth
- 
+--dataroot datasets/Shampoo_nobackground \
+--name Shampoo_NOBGR_pix2pix_StructCond_V1 \
+--model pix2pix --dataset_mode aligned --direction AtoB \
+--input_nc 6 --output_nc 3 \
+--netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+--preprocess none --load_size 0 --crop_size 0 --no_flip \
+--batch_size 1 --pool_size 0 --gan_mode lsgan \
+--lr 3e-5 --beta1 0.5 --n_epochs 150 --n_epochs_decay 150 \
+--class_nc 1 --thickness_nc 1 --appearance_nc 1 \
+--use_thickness_channel --use_edge_channel --use_coord_channels --use_appearance_channel \
+--return_instance_masks --mask_thr 0.05 \
+--use_masked_l1 --lambda_L1 30 --lambda_bg 1.5 \
+--use_grad_loss --lambda_grad 10 \
+--use_lap_loss --lambda_lap 6 \
+--use_ssim_loss --lambda_ssim 3 \
+--use_region_stats --lambda_stats 3 \
+--d_label_smooth 0.1 --syn_gan_weight 0.3 \
+--synthetic_scale_min 1.0 \
+--synthetic_scale_max 1.0 \
+--synthetic_rot_min 0.0 \
+--synthetic_rot_max 0.0 \
+--pad_to_canvas --canvas_w 1024 --canvas_h 1536 --canvas_fill 255 \
+--synthetic_prob 0.3 --cutout_dir data/raw/Shampoo_nobackground/Cropped
 
---netD n_layers --n_layers_D 4
- --synthetic_prob 0.35 -> 0.25
---syn_gan_weight 0.3 -> 0.2
---lambda_gp 5.0 -> 2.0
---tray_obj_dilate_px 5 -> 3
---lambda_L1 35.0
---syn_gan_weight 0.25
---synthetic_prob 0.30
+
 
 
   # WITHOUT EMPTY TRAY
