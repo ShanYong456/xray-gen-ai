@@ -18,39 +18,42 @@ except ImportError:
 # =============================================================================
 # CONFIG — must match your training options exactly
 # =============================================================================
-SIZE = 1024
-MODEL_NAME = "Shampoo_pix2pix_StructCond_V6_noempty"
+SIZE = 1024                    # kept for model/test defaults
+CANVAS_H = 1024                # generation canvas height (overridable by CLI)
+CANVAS_W = 1536                # generation canvas width  (overridable by CLI)
+
+MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage7_Syn"
 PIX2PIX_DIR = Path("external/pix2pix")
 
 TRAY_MASK_DIR = Path("data/interim/GAN/Empty_Tray_mask/Mask")
 
-RAND_MAX_TRIES_PER_OBJ = 300
+RAND_MAX_TRIES_PER_OBJ = 120   # reduced default for faster placement
 RAND_ALLOW_OVERLAP = False
 RAND_SCALE_MIN, RAND_SCALE_MAX = 0.85, 1.15
 RAND_ROT_MIN, RAND_ROT_MAX = 0.0, 25.0
+
+# Fast placement defaults
+X_SEARCH_STEP = 8
+MAX_TRANSFORM_CANDIDATES = 12
+Y_FALLBACK_OFFSETS = (0, -64, 64, -128, 128, -256, 256, -384, 384, -512, 512)
 
 # Must match training palette exactly
 PALETTE_BGR = {
     0: (0, 0, 0),
     1: (0, 255, 0),
-    #2: (0, 0, 255),
+    # 2: (0, 0, 255),
 }
 
 # =============================================================================
 # Training config mirror
-# IMPORTANT: without empty tray E, input_nc is no longer 9.
-# mask + edge + thickness + coord_x + coord_y + appearance = 6
+# IMPORTANT: this checkpoint was trained with 5 channels:
+# mask + edge + thickness + coord_x + coord_y
 # =============================================================================
 TRAIN_CFG = dict(
-    input_nc=6,
+    input_nc=5,
     norm="instance",
-    use_tray_mask=True,
-    tray_mask_path="data/interim/GAN/Empty/Mask/2026-01-21_10-36-28-447_traymask.png",
-    tray_bbox_margin=2,
-    tray_obj_dilate_px=5,
-    tray_mask_dilate_px=3,
-    tray_nudge_iters=8,
-    tray_nudge_max_step=20,
+    use_appearance_channel=False,
+    use_tray_mask=False,
 )
 
 
@@ -66,8 +69,14 @@ def rotate_preserve_bgr(img: np.ndarray, angle_deg: float) -> np.ndarray:
     nw, nh = int(h * sin + w * cos), int(h * cos + w * sin)
     M[0, 2] += nw / 2 - cx
     M[1, 2] += nh / 2 - cy
-    return cv2.warpAffine(img, M, (nw, nh), flags=cv2.INTER_LINEAR,
-                          borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    return cv2.warpAffine(
+        img,
+        M,
+        (nw, nh),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
 
 
 def poly_to_pts_list(seg, W, H):
@@ -144,8 +153,8 @@ def load_tray_masks(tray_dir: Path, thr=0.5, invert=False, close_px=2, dilate_px
         m = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
         if m is None:
             continue
-        if m.shape != (SIZE, SIZE):
-            m = cv2.resize(m, (SIZE, SIZE), interpolation=cv2.INTER_NEAREST)
+        if m.shape != (CANVAS_H, CANVAS_W):
+            m = cv2.resize(m, (CANVAS_W, CANVAS_H), interpolation=cv2.INTER_NEAREST)
         masks.append(preprocess_tray_mask(m, thr, invert, close_px, dilate_px))
     if not masks:
         raise SystemExit(f"Could not read tray masks from {tray_dir}")
@@ -175,10 +184,6 @@ def train_id_to_bgr(train_id):
 
 
 def build_real_cutout_library(coco, images_dir: Path):
-    """
-    Build grayscale crops from real COCO annotations.
-    These are used as appearance cues at inference time.
-    """
     images_by_id = {im["id"]: im for im in coco.get("images", [])}
     cats = coco.get("categories", [])
     cats_by_id = {c["id"]: c for c in cats}
@@ -197,10 +202,12 @@ def build_real_cutout_library(coco, images_dir: Path):
         im = images_by_id.get(img_id)
         if not im:
             continue
+
         img_path = images_dir / Path(im.get("file_name", "")).name
         img_bgr = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
         if img_bgr is None:
             continue
+
         img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
         H, W = img_gray.shape[:2]
 
@@ -208,13 +215,16 @@ def build_real_cutout_library(coco, images_dir: Path):
             seg = ann.get("segmentation")
             if not seg or isinstance(seg, dict):
                 continue
+
             pts = poly_to_pts_list(seg, W, H)
             if not pts:
                 continue
+
             inst = rasterize_instance_mask(pts, W, H)
             bbox = tight_crop(inst)
             if bbox is None:
                 continue
+
             x0, y0, x1, y1 = bbox
             mask_crop = inst[y0:y1 + 1, x0:x1 + 1]
             gray_crop = img_gray[y0:y1 + 1, x0:x1 + 1].copy()
@@ -223,19 +233,38 @@ def build_real_cutout_library(coco, images_dir: Path):
             cat_id = ann.get("category_id")
             train_id = int(cat_to_train.get(cat_id, 1))
             color_bgr = np.array(PALETTE_BGR.get(train_id, (255, 255, 255)), dtype=np.uint8)
+
             mask_bgr = np.zeros((*mask_crop.shape, 3), dtype=np.uint8)
             mask_bgr[mask_crop > 0] = color_bgr
+
+            orig_w = int(x1 - x0 + 1)
+            orig_h = int(y1 - y0 + 1)
+            orig_cx = 0.5 * (x0 + x1)
+            orig_cy = 0.5 * (y0 + y1)
 
             lib.append({
                 "train_id": train_id,
                 "class_name": cats_by_id.get(cat_id, {}).get("name", f"class_{cat_id}"),
+                "image_id": img_id,
+                "file_name": Path(im.get("file_name", "")).name,
                 "mask_bin": mask_crop,
                 "mask_bgr": mask_bgr,
                 "gray": gray_crop,
+                "orig_x0": int(x0),
+                "orig_y0": int(y0),
+                "orig_x1": int(x1),
+                "orig_y1": int(y1),
+                "orig_w": orig_w,
+                "orig_h": orig_h,
+                "orig_cx": float(orig_cx),
+                "orig_cy": float(orig_cy),
+                "src_W": int(W),
+                "src_H": int(H),
             })
 
     if not lib:
         raise SystemExit("No valid cutouts from COCO + images_dir")
+
     print(f"[cutouts] built {len(lib)} instances")
     return lib
 
@@ -245,10 +274,30 @@ def build_real_cutout_library(coco, images_dir: Path):
 # =============================================================================
 
 def transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max):
+    """
+    Scale cutouts to a fixed reference canvas size, NOT the enlarged placement canvas.
+    This keeps object size reasonable even if CANVAS_W/CANVAS_H are very large.
+    """
+    REF_W = 1024
+    REF_H = 1024
+
+    sx = REF_W / max(1, item["src_W"])
+    sy = REF_H / max(1, item["src_H"])
+
+    base_w = max(1, int(round(item["mask_bgr"].shape[1] * sx)))
+    base_h = max(1, int(round(item["mask_bgr"].shape[0] * sy)))
+
+    mask_bgr = cv2.resize(item["mask_bgr"], (base_w, base_h), interpolation=cv2.INTER_NEAREST)
+    mask_bin = cv2.resize(item["mask_bin"], (base_w, base_h), interpolation=cv2.INTER_NEAREST)
+    gray = cv2.resize(item["gray"], (base_w, base_h), interpolation=cv2.INTER_LINEAR)
+
     s = rng.uniform(scale_min, scale_max)
-    mask_bgr = cv2.resize(item["mask_bgr"], None, fx=s, fy=s, interpolation=cv2.INTER_NEAREST)
-    mask_bin = cv2.resize(item["mask_bin"], None, fx=s, fy=s, interpolation=cv2.INTER_NEAREST)
-    gray = cv2.resize(item["gray"], None, fx=s, fy=s, interpolation=cv2.INTER_LINEAR)
+    aug_w = max(1, int(round(base_w * s)))
+    aug_h = max(1, int(round(base_h * s)))
+
+    mask_bgr = cv2.resize(mask_bgr, (aug_w, aug_h), interpolation=cv2.INTER_NEAREST)
+    mask_bin = cv2.resize(mask_bin, (aug_w, aug_h), interpolation=cv2.INTER_NEAREST)
+    gray = cv2.resize(gray, (aug_w, aug_h), interpolation=cv2.INTER_LINEAR)
 
     ang = rng.uniform(rot_min, rot_max)
     mask_bgr = rotate_preserve_bgr(mask_bgr, ang)
@@ -259,6 +308,7 @@ def transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max):
     nw, nh = int(h0 * sin + w0 * cos), int(h0 * cos + w0 * sin)
     M[0, 2] += nw / 2 - w0 / 2
     M[1, 2] += nh / 2 - h0 / 2
+
     mask_bin = cv2.warpAffine(mask_bin, M, (nw, nh), flags=cv2.INTER_NEAREST, borderValue=0)
     gray = cv2.warpAffine(gray, M, (nw, nh), flags=cv2.INTER_LINEAR, borderValue=0)
 
@@ -271,17 +321,25 @@ def transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max):
     valid = np.any(mask_bgr > 0, axis=2)
     if valid.sum() == 0:
         return None
+
     pix = mask_bgr[valid].reshape(-1, 3)
     uniq, counts = np.unique(pix, axis=0, return_counts=True)
     dom = uniq[np.argmax(counts)].astype(np.uint8)
+
     clean_bgr = np.zeros_like(mask_bgr)
     clean_bgr[m > 0] = dom
     gray[m == 0] = 0
 
     y1, y2, x1, x2 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+
+    out_mask = clean_bgr[y1:y2, x1:x2].copy()
+    out_gray = gray[y1:y2, x1:x2].copy()
+
     return {
-        "mask_bgr": clean_bgr[y1:y2, x1:x2].copy(),
-        "gray": gray[y1:y2, x1:x2].copy(),
+        "mask_bgr": out_mask,
+        "gray": out_gray,
+        "h": out_mask.shape[0],
+        "w": out_mask.shape[1],
     }
 
 
@@ -289,59 +347,182 @@ def transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max):
 # Scene builder
 # =============================================================================
 
+def build_transform_candidates(item, rng, scale_min, scale_max, rot_min, rot_max, num_candidates):
+    candidates = []
+    for _ in range(num_candidates):
+        t = transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max)
+        if t is not None:
+            candidates.append(t)
+    return candidates
+
+
+def build_candidate_xs(x_min, x_max, x_base, step, rng, randomize=True):
+    candidate_xs = list(range(x_min, x_max + 1, step))
+    if x_base < x_min:
+        x_base = x_min
+    if x_base > x_max:
+        x_base = x_max
+    candidate_xs.append(x_base)
+    candidate_xs = sorted(set(candidate_xs), key=lambda xx: abs(xx - x_base))
+
+    if randomize:
+        # keep rough locality, but randomize within chunks
+        chunks = [candidate_xs[i:i+8] for i in range(0, len(candidate_xs), 8)]
+        for chunk in chunks:
+            rng.shuffle(chunk)
+        candidate_xs = [x for chunk in chunks for x in chunk]
+
+    return candidate_xs
+
+
 def build_scene(rng, tray_masks, cutouts,
                 n_min, n_max, allow_overlap, max_tries,
                 scale_min, scale_max, rot_min, rot_max,
-                use_real_appearance=True):
+                use_real_appearance=True,
+                horizontal_shift_only=True,
+                max_horizontal_shift=200,
+                require_all=True,
+                y_fallback_offsets=Y_FALLBACK_OFFSETS,
+                x_search_step=X_SEARCH_STEP,
+                max_transform_candidates=MAX_TRANSFORM_CANDIDATES):
     """
     Returns:
         canvas_mask  : HxWx3 BGR semantic mask
         canvas_app   : HxW grayscale appearance cue
         pseudo_B_bgr : HxWx3 BGR pseudo-B
-
-    Since there is no empty tray conditioning now:
-    - pseudo_B is simply grayscale object interiors on black background.
+        placed_count : number of successfully placed objects
     """
     tray = rng.choice(tray_masks)
-    canvas_mask = np.zeros((SIZE, SIZE, 3), dtype=np.uint8)
-    canvas_app = np.zeros((SIZE, SIZE), dtype=np.uint8)
-    occ = np.zeros((SIZE, SIZE), dtype=bool)
+    if tray.shape[:2] != (CANVAS_H, CANVAS_W):
+        tray = cv2.resize(
+            tray.astype(np.uint8) * 255,
+            (CANVAS_W, CANVAS_H),
+            interpolation=cv2.INTER_NEAREST,
+        ) > 0
+
+    canvas_mask = np.zeros((CANVAS_H, CANVAS_W, 3), dtype=np.uint8)
+    canvas_app = np.zeros((CANVAS_H, CANVAS_W), dtype=np.uint8)
+    occ = np.zeros((CANVAS_H, CANVAS_W), dtype=bool)
 
     n_obj = rng.randint(n_min, n_max + 1) if n_min != n_max else n_min
-
     items = cutouts[:n_obj] if n_obj <= len(cutouts) else [rng.choice(cutouts) for _ in range(n_obj)]
 
-    for item in items:
-        for _global in range(max_tries):
-            t = transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max)
-            if t is None:
+    placed_count = 0
+
+    for idx, item in enumerate(items):
+        placed = False
+
+        num_transform_candidates = max(1, min(max_tries, max_transform_candidates))
+        transformed_candidates = build_transform_candidates(
+            item=item,
+            rng=rng,
+            scale_min=scale_min,
+            scale_max=scale_max,
+            rot_min=rot_min,
+            rot_max=rot_max,
+            num_candidates=num_transform_candidates,
+        )
+
+        for t in transformed_candidates:
+            h, w = t["h"], t["w"]
+            if h >= CANVAS_H or w >= CANVAS_W or h < 2 or w < 2:
                 continue
-            h, w = t["mask_bgr"].shape[:2]
-            if h >= SIZE or w >= SIZE or h < 2 or w < 2:
-                continue
+
             obj_mask = np.any(t["mask_bgr"] > 0, axis=2)
 
-            placed = False
-            for _ in range(max_tries):
-                x = rng.randint(0, SIZE - w)
-                y = rng.randint(0, SIZE - h)
-                if not np.all(tray[y:y + h, x:x + w][obj_mask]):
-                    continue
-                if not allow_overlap and np.any(occ[y:y + h, x:x + w] & obj_mask):
-                    continue
+            x_center = int(round(item["orig_cx"] * CANVAS_W / max(1, item["src_W"])))
+            y_center = int(round(item["orig_cy"] * CANVAS_H / max(1, item["src_H"])))
 
-                canvas_mask[y:y + h, x:x + w][obj_mask] = t["mask_bgr"][obj_mask]
-                if use_real_appearance:
-                    canvas_app[y:y + h, x:x + w][obj_mask] = t["gray"][obj_mask]
-                occ[y:y + h, x:x + w][obj_mask] = True
-                placed = True
-                break
+            x_base = max(0, min(CANVAS_W - w, x_center - w // 2))
+            y_base = max(0, min(CANVAS_H - h, y_center - h // 2))
+
+            if horizontal_shift_only:
+                y_candidates = []
+                for dy in y_fallback_offsets:
+                    yy = y_base + dy
+                    yy = max(0, min(CANVAS_H - h, yy))
+                    if yy not in y_candidates:
+                        y_candidates.append(yy)
+            else:
+                # Keep non-horizontal mode but make it lighter by striding rows
+                row_step = max(4, x_search_step)
+                y_candidates = list(range(0, CANVAS_H - h + 1, row_step))
+                if y_base not in y_candidates:
+                    y_candidates.append(y_base)
+                rng.shuffle(y_candidates)
+
+            for y in y_candidates:
+                if horizontal_shift_only:
+                    x_min = max(0, x_base - max_horizontal_shift)
+                    x_max = min(CANVAS_W - w, x_base + max_horizontal_shift)
+                    if x_min > x_max:
+                        continue
+                    candidate_xs = build_candidate_xs(
+                        x_min=x_min,
+                        x_max=x_max,
+                        x_base=x_base,
+                        step=max(1, x_search_step),
+                        rng=rng,
+                        randomize=True,
+                    )
+                else:
+                    candidate_xs = list(range(0, CANVAS_W - w + 1, max(1, x_search_step)))
+                    if x_base not in candidate_xs:
+                        candidate_xs.append(x_base)
+                    rng.shuffle(candidate_xs)
+
+                for x in candidate_xs:
+                    roi_tray = tray[y:y + h, x:x + w]
+                    if roi_tray.shape[:2] != obj_mask.shape:
+                        continue
+
+                    # cheap coarse rejection
+                    if not roi_tray.any():
+                        continue
+
+                    roi_occ = occ[y:y + h, x:x + w]
+                    if not allow_overlap and roi_occ.any():
+                        if np.any(roi_occ & obj_mask):
+                            continue
+
+                    if not np.all(roi_tray[obj_mask]):
+                        continue
+
+                    canvas_mask[y:y + h, x:x + w][obj_mask] = t["mask_bgr"][obj_mask]
+                    if use_real_appearance:
+                        canvas_app[y:y + h, x:x + w][obj_mask] = t["gray"][obj_mask]
+                    occ[y:y + h, x:x + w][obj_mask] = True
+
+                    placed = True
+                    placed_count += 1
+                    print(f"[place] item {idx+1}/{len(items)} placed at x={x}, y={y}, w={w}, h={h}")
+                    break
+
+                if placed:
+                    break
 
             if placed:
                 break
 
+        if not placed:
+            print(
+                f"[place] item {idx+1}/{len(items)} FAILED | "
+                f"file={item.get('file_name')} "
+                f"orig_cx={item.get('orig_cx')} orig_cy={item.get('orig_cy')} "
+                f"orig_w={item.get('orig_w')} orig_h={item.get('orig_h')}"
+            )
+
+    print(f"[place] placed {placed_count}/{len(items)} items")
+
+    if require_all and placed_count < len(items):
+        raise RuntimeError(
+            f"Only placed {placed_count}/{len(items)} items. "
+            f"Try increasing --canvas_w, --max_horizontal_shift, reducing rotation, "
+            f"or allowing overlap."
+        )
+
     pseudo_B_bgr = cv2.cvtColor(canvas_app, cv2.COLOR_GRAY2BGR)
-    return canvas_mask, canvas_app, pseudo_B_bgr
+    return canvas_mask, canvas_app, pseudo_B_bgr, placed_count
 
 
 # =============================================================================
@@ -358,10 +539,9 @@ def clean_test_dir(test_dir: Path):
 # Pix2pix inference
 # =============================================================================
 
-def run_pix2pix_test(temp_dataset_dir, epoch="latest",
-                     use_display_mapper=True,
-                     disable_test_appearance=False):
+def run_pix2pix_test(temp_dataset_dir, epoch="latest", use_display_mapper=True):
     cfg = TRAIN_CFG
+
     cmd = [
         "python", str(PIX2PIX_DIR / "test.py"),
         f"--dataroot={temp_dataset_dir}",
@@ -382,25 +562,37 @@ def run_pix2pix_test(temp_dataset_dir, epoch="latest",
         "--eval",
         "--class_nc=1",
         "--thickness_nc=1",
-        "--appearance_nc=1",
         "--use_thickness_channel",
         "--use_edge_channel",
         "--use_coord_channels",
-        "--use_appearance_channel",
         "--return_instance_masks",
         "--mask_thr=0.05",
-        "--use_tray_mask",
-        f"--tray_mask_path={cfg['tray_mask_path']}",
-        "--tray_mask_autoshift",
-        f"--tray_bbox_margin={cfg['tray_bbox_margin']}",
-        f"--tray_obj_dilate_px={cfg['tray_obj_dilate_px']}",
-        f"--tray_mask_dilate_px={cfg['tray_mask_dilate_px']}",
-        f"--tray_nudge_iters={cfg['tray_nudge_iters']}",
-        f"--tray_nudge_max_step={cfg['tray_nudge_max_step']}",
     ]
 
-    if disable_test_appearance:
-        cmd.append("--disable_test_appearance")
+    if cfg.get("use_appearance_channel", False):
+        cmd += [
+            "--appearance_nc=1",
+            "--use_appearance_channel",
+        ]
+
+    if cfg.get("use_tray_mask", False):
+        cmd += [
+            "--use_tray_mask",
+            f"--tray_mask_path={cfg['tray_mask_path']}",
+        ]
+        if cfg.get("tray_mask_autoshift", False):
+            cmd.append("--tray_mask_autoshift")
+        if "tray_bbox_margin" in cfg:
+            cmd.append(f"--tray_bbox_margin={cfg['tray_bbox_margin']}")
+        if "tray_obj_dilate_px" in cfg:
+            cmd.append(f"--tray_obj_dilate_px={cfg['tray_obj_dilate_px']}")
+        if "tray_mask_dilate_px" in cfg:
+            cmd.append(f"--tray_mask_dilate_px={cfg['tray_mask_dilate_px']}")
+        if "tray_nudge_iters" in cfg:
+            cmd.append(f"--tray_nudge_iters={cfg['tray_nudge_iters']}")
+        if "tray_nudge_max_step" in cfg:
+            cmd.append(f"--tray_nudge_max_step={cfg['tray_nudge_max_step']}")
+
     if not use_display_mapper:
         cmd.append("--no_use_display_mapper")
 
@@ -428,11 +620,37 @@ def save_visuals(results_root: Path):
         print(f"Saved visuals for: {p.name}")
 
 
+def select_diverse_cutouts(cands, n, rng):
+    if n > len(cands):
+        raise ValueError(f"Requested {n} cutouts, but only {len(cands)} available.")
+
+    pool = cands[:]
+    rng.shuffle(pool)
+    pool.sort(key=lambda c: (c["orig_y0"], c["orig_x0"]))
+
+    if n == 1:
+        return [pool[len(pool) // 2]]
+
+    chosen = []
+    used = set()
+
+    for k in range(n):
+        idx = round(k * (len(pool) - 1) / max(1, n - 1))
+        while idx in used and idx + 1 < len(pool):
+            idx += 1
+        used.add(idx)
+        chosen.append(pool[idx])
+
+    return chosen
+
+
 # =============================================================================
 # Main
 # =============================================================================
 
 def main():
+    global CANVAS_H, CANVAS_W
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--images_dir", type=str, required=True)
     ap.add_argument("--coco_json", type=str, required=True)
@@ -442,6 +660,10 @@ def main():
     ap.add_argument("--out_dataset", type=str, default="datasets/_gen_real")
     ap.add_argument("--epoch", type=str, default="latest")
     ap.add_argument("--mode", type=str, default="random_mask", choices=["random_mask"])
+
+    # Canvas
+    ap.add_argument("--canvas_h", type=int, default=CANVAS_H, help="Output canvas height.")
+    ap.add_argument("--canvas_w", type=int, default=CANVAS_W, help="Output canvas width.")
 
     # Tray mask
     ap.add_argument("--tray_mask_dir", type=str, default=str(TRAY_MASK_DIR))
@@ -456,18 +678,28 @@ def main():
     ap.add_argument("--rand_rot_min", type=float, default=RAND_ROT_MIN)
     ap.add_argument("--rand_rot_max", type=float, default=RAND_ROT_MAX)
     ap.add_argument("--rand_max_tries_per_obj", type=int, default=RAND_MAX_TRIES_PER_OBJ)
+    ap.add_argument("--x_search_step", type=int, default=X_SEARCH_STEP,
+                    help="Horizontal search stride in pixels. Larger = faster, smaller = more exhaustive.")
+    ap.add_argument("--max_transform_candidates", type=int, default=MAX_TRANSFORM_CANDIDATES,
+                    help="How many transformed variants to precompute per item.")
     ap.add_argument("--no_overlap", action="store_true")
+    ap.add_argument("--horizontal_shift_only", action="store_true",
+                    help="Keep approximate original vertical placement, allow horizontal movement.")
+    ap.add_argument("--max_horizontal_shift", type=int, default=200,
+                    help="Maximum horizontal shift in pixels from original x position.")
 
-    # Appearance
+    # Appearance (kept for preview/pseudo_B generation only)
     ap.add_argument("--disable_test_appearance", action="store_true",
-                    help="Zero-out appearance channel (fully unguided). "
-                         "Default: use real grayscale interior.")
+                    help="Zero-out appearance in the generated pseudo_B preview.")
 
     # Display mapper
     ap.add_argument("--no_use_display_mapper", action="store_false", dest="use_display_mapper")
     ap.set_defaults(use_display_mapper=True)
 
     args = ap.parse_args()
+    CANVAS_H = int(args.canvas_h)
+    CANVAS_W = int(args.canvas_w)
+
     rng = random.Random(args.seed)
 
     images_dir = Path(args.images_dir)
@@ -485,24 +717,34 @@ def main():
 
     allow_overlap = not args.no_overlap
     counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
-
-    # Build mask + pseudo-B
     real_cutouts = build_real_cutout_library(coco, images_dir)
 
     if want_classes:
-        targets = ([int(counts_raw[0])] * len(want_classes) if len(counts_raw) == 1
-                   else [int(x) for x in counts_raw])
+        targets = ([int(counts_raw[0])] * len(want_classes)
+                   if len(counts_raw) == 1 else [int(x) for x in counts_raw])
         selected = []
+
         for cls, n in zip(want_classes, targets):
             cands = [c for c in real_cutouts if c["class_name"].lower() == cls.lower()]
             if not cands:
                 avail = sorted({c["class_name"] for c in real_cutouts})
                 raise SystemExit(f"Class '{cls}' not found. Available: {avail}")
-            selected.extend(rng.choice(cands) for _ in range(n))
+
+            chosen = rng.sample(cands, n)
+            selected.extend(chosen)
     else:
         selected = real_cutouts
 
-    canvas_mask, canvas_app, pseudo_B_bgr = build_scene(
+    print("[selected]")
+    for i, s in enumerate(selected, 1):
+        print(
+            f"  item {i}: class={s['class_name']} file={s['file_name']} "
+            f"orig_x0={s['orig_x0']} orig_y0={s['orig_y0']} "
+            f"orig_w={s['orig_w']} orig_h={s['orig_h']} "
+            f"src_W={s['src_W']} src_H={s['src_H']}"
+        )
+
+    canvas_mask, canvas_app, pseudo_B_bgr, placed_count = build_scene(
         rng=rng,
         tray_masks=tray_masks,
         cutouts=selected,
@@ -515,30 +757,34 @@ def main():
         rot_min=args.rand_rot_min,
         rot_max=args.rand_rot_max,
         use_real_appearance=(not args.disable_test_appearance),
+        horizontal_shift_only=args.horizontal_shift_only,
+        max_horizontal_shift=args.max_horizontal_shift,
+        require_all=True,
+        x_search_step=max(1, int(args.x_search_step)),
+        max_transform_candidates=max(1, int(args.max_transform_candidates)),
     )
 
-    # Save preview
+    print(f"[summary] requested {len(selected)} items, placed {placed_count}")
+
     preview_dir = out_root / "preview"
     preview_dir.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(preview_dir / f"mask_seed{args.seed}.png"), canvas_mask)
     cv2.imwrite(str(preview_dir / f"pseudo_B_seed{args.seed}.png"), pseudo_B_bgr)
 
-    # Write AB pair for pix2pix
     test_dir = out_root / "test"
     clean_test_dir(test_dir)
     tag = "_".join(want_classes) if want_classes else args.mode
     ab_path = test_dir / f"gen_{tag}_seed{args.seed}.png"
 
     AB_bgr = np.concatenate([canvas_mask, pseudo_B_bgr], axis=1)
+    AB_bgr = cv2.resize(AB_bgr, (SIZE * 2, SIZE), interpolation=cv2.INTER_NEAREST)
     cv2.imwrite(str(ab_path), AB_bgr)
     print(f"Wrote AB: {ab_path}")
 
-    # Run inference
     results_root = run_pix2pix_test(
         temp_dataset_dir=out_root,
         epoch=args.epoch,
         use_display_mapper=args.use_display_mapper,
-        disable_test_appearance=args.disable_test_appearance,
     )
 
     save_visuals(results_root)
@@ -773,23 +1019,30 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --rand_rot_max 45 \
   --test_appearance_mode zero --disable_test_appearance
 
+cp /mnt/data/generate_pix2pix_fast_completed.py notebooks/Pix2Pix/generate_pix2pix.py
+
 python notebooks/Pix2Pix/generate_pix2pix.py \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
   --mode random_mask \
   --classes Shampoo \
   --count 3 \
-  --seed 87 \
+  --seed 777 \
   --out_dataset datasets/_gen_real \
   --epoch latest \
-  --empty_dir data/interim/GAN/Empty \
-  --tray_mask_dir data/interim/GAN/Empty_Tray_mask/Mask \
-  --rand_scale_min 0.85 \
-  --rand_scale_max 1.15 \
-  --rand_rot_min 0.0 \
-  --rand_rot_max 25.0  \
-  --rand_max_tries_per_obj 300 \
-  --no_overlap --disable_test_appearance
+  --canvas_h 1200 \
+  --canvas_w 1200 \
+  --rand_scale_min 1.0 \
+  --rand_scale_max 1.0 \
+  --rand_rot_min -8.0 \
+  --rand_rot_max 8.0 \
+  --rand_max_tries_per_obj 120 \
+  --x_search_step 4 \
+  --max_transform_candidates 20 \
+  --horizontal_shift_only \
+  --max_horizontal_shift 1400 \
+  --no_overlap \
+  --disable_test_appearance
 
 python notebooks/Pix2Pix/generate_pix2pix.py \
   --images_dir data/raw/Shampoo \

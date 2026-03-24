@@ -5,7 +5,7 @@
             appearance_nc: 1                             
     appearance_proto_prob: 0.15                          
      appearance_weak_prob: 0.35                          
-     appearance_zero_prob: 0.35                          
+     appearance_zero_prob: 0.45                          	[default: 0.35]
                batch_size: 1                             
                     beta1: 0.5                           
 build_appearance_prototypes: False                         
@@ -14,9 +14,9 @@ build_appearance_prototypes: False
                  canvas_w: 1024                          
           checkpoints_dir: ./checkpoints                 
                  class_nc: 1                             
-           continue_train: False                         
+           continue_train: True                          	[default: False]
                 crop_size: 0                             	[default: 256]
-               cutout_dir: data/raw/Shampoo_nobackground/Cropped	[default: ]
+               cutout_dir:                               
            d_label_smooth: 0.1                           
            d_update_ratio: 1                             
                  dataroot: datasets/Shampoo_nobackground 	[default: None]
@@ -44,7 +44,7 @@ build_appearance_prototypes: False
              lambda_stats: 3.0                           
                 load_iter: 0                             	[default: 0]
                 load_size: 0                             	[default: 286]
-                       lr: 3e-05                         	[default: 0.0002]
+                       lr: 1e-05                         	[default: 0.0002]
                      lr_D: None                          
                      lr_G: None                          
            lr_decay_iters: 50                            
@@ -58,10 +58,10 @@ build_appearance_prototypes: False
 max_appearance_prototypes: 200                           
          max_dataset_size: inf                           
                     model: pix2pix                       	[default: cycle_gan]
-                 n_epochs: 150                           	[default: 100]
-           n_epochs_decay: 150                           	[default: 100]
+                 n_epochs: 80                            	[default: 100]
+           n_epochs_decay: 80                            	[default: 100]
                n_layers_D: 4                             	[default: 3]
-                     name: Shampoo_NOBGR_pix2pix_StructCond_V1	[default: experiment_name]
+                     name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage2	[default: experiment_name]
                       ndf: 64                            
                      netD: n_layers                      	[default: basic]
                      netG: unet_256                      
@@ -88,13 +88,13 @@ max_appearance_prototypes: 200
       synthetic_max_items: 3                             
       synthetic_min_items: 1                             
            synthetic_mode: random_mask                   
-     synthetic_no_overlap: True                          	[default: False]
+     synthetic_no_overlap: False                         
            synthetic_prob: 0.0                           
-        synthetic_rot_max: 0.0                           	[default: 360.0]
+        synthetic_rot_max: 360.0                         
         synthetic_rot_min: 0.0                           
 synthetic_same_class_prob: 0.0                           
-      synthetic_scale_max: 1.0                           	[default: 1.4]
-      synthetic_scale_min: 1.0                           	[default: 0.6]
+      synthetic_scale_max: 1.4                           
+      synthetic_scale_min: 0.6                           
              thickness_nc: 1                             
          tray_bbox_margin: 2                             
          tray_cc_close_px: 2                             
