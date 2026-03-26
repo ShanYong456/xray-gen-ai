@@ -61,7 +61,7 @@ max_appearance_prototypes: 200
                  n_epochs: 100                           
            n_epochs_decay: 100                           
                n_layers_D: 4                             	[default: 3]
-                     name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage7_Syn	[default: experiment_name]
+                     name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage8_Syn	[default: experiment_name]
                       ndf: 64                            
                      netD: n_layers                      	[default: basic]
                      netG: unet_256                      

@@ -18,7 +18,7 @@ build_appearance_prototypes: False
                cutout_dir:                               
            d_label_smooth: 0.1                           
            d_update_ratio: 1                             
-                 dataroot: datasets/_gen_real            	[default: None]
+                 dataroot: datasets/_gen_normal          	[default: None]
              dataset_mode: aligned                       
                 direction: AtoB                          
   disable_test_appearance: False                         
