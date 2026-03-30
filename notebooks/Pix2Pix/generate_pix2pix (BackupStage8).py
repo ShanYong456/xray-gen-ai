@@ -24,7 +24,7 @@ SIZE = 1024                    # model/test size
 CANVAS_H = 1024                # generation canvas height (overridable by CLI)
 CANVAS_W = 1024                # generation canvas width  (overridable by CLI)
 
-MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage9_SynTray"
+MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage8_Syn"
 PIX2PIX_DIR = Path("external/pix2pix")
 
 TRAY_MASK_DIR = Path("data/interim/GAN/Empty_Tray_mask/Mask")
@@ -263,49 +263,51 @@ def transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max):
     base_w = int(item["mask_bgr"].shape[1])
     base_h = int(item["mask_bgr"].shape[0])
 
-    mask_bin = (item["mask_bin"] > 127).astype(np.uint8) * 255
+    mask_bgr = item["mask_bgr"].copy()
+    mask_bin = item["mask_bin"].copy()
     gray = item["gray"].copy()
 
     s = rng.uniform(scale_min, scale_max)
     aug_w = max(1, int(round(base_w * s)))
     aug_h = max(1, int(round(base_h * s)))
 
-    # Use a soft mask during resize/rotation so the contour is smoother.
-    mask_soft = cv2.resize(mask_bin.astype(np.float32), (aug_w, aug_h), interpolation=cv2.INTER_LINEAR)
+    mask_bgr = cv2.resize(mask_bgr, (aug_w, aug_h), interpolation=cv2.INTER_NEAREST)
+    mask_bin = cv2.resize(mask_bin, (aug_w, aug_h), interpolation=cv2.INTER_NEAREST)
     gray = cv2.resize(gray, (aug_w, aug_h), interpolation=cv2.INTER_LINEAR)
 
     ang = rng.uniform(rot_min, rot_max)
+    mask_bgr = rotate_preserve_bgr(mask_bgr, ang)
 
-    h0, w0 = mask_soft.shape[:2]
+    h0, w0 = mask_bin.shape[:2]
     M = cv2.getRotationMatrix2D((w0 / 2, h0 / 2), ang, 1.0)
     cos, sin = abs(M[0, 0]), abs(M[0, 1])
     nw, nh = int(h0 * sin + w0 * cos), int(h0 * cos + w0 * sin)
     M[0, 2] += nw / 2 - w0 / 2
     M[1, 2] += nh / 2 - h0 / 2
 
-    mask_soft = cv2.warpAffine(mask_soft, M, (nw, nh), flags=cv2.INTER_LINEAR, borderValue=0)
+    mask_bin = cv2.warpAffine(mask_bin, M, (nw, nh), flags=cv2.INTER_NEAREST, borderValue=0)
     gray = cv2.warpAffine(gray, M, (nw, nh), flags=cv2.INTER_LINEAR, borderValue=0)
 
-    # Slight blur + close reduces staircase edges and tiny holes.
-    mask_soft = cv2.GaussianBlur(mask_soft, (0, 0), 1.2)
-    mask_u8 = np.clip(mask_soft, 0, 255).astype(np.uint8)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    mask_u8 = cv2.morphologyEx(mask_u8, cv2.MORPH_CLOSE, kernel, iterations=1)
-
-    # Lower threshold keeps more of the rotated boundary.
-    _, m = cv2.threshold(mask_u8, 96, 255, cv2.THRESH_BINARY)
-
+    m = cv2.GaussianBlur((mask_bin > 127).astype(np.uint8) * 255, (5, 5), 0.8)
+    _, m = cv2.threshold(m, 127, 255, cv2.THRESH_BINARY)
     ys, xs = np.where(m > 0)
     if not len(xs):
         return None
 
-    dom = np.array(PALETTE_BGR.get(item["train_id"], (255, 255, 255)), dtype=np.uint8)
-    clean_bgr = np.zeros((m.shape[0], m.shape[1], 3), dtype=np.uint8)
-    clean_bgr[m > 0] = dom
+    valid = np.any(mask_bgr > 0, axis=2)
+    if valid.sum() == 0:
+        return None
 
+    pix = mask_bgr[valid].reshape(-1, 3)
+    uniq, counts = np.unique(pix, axis=0, return_counts=True)
+    dom = uniq[np.argmax(counts)].astype(np.uint8)
+
+    clean_bgr = np.zeros_like(mask_bgr)
+    clean_bgr[m > 0] = dom
     gray[m == 0] = 0
 
     y1, y2, x1, x2 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+
     out_mask = clean_bgr[y1:y2, x1:x2].copy()
     out_gray = gray[y1:y2, x1:x2].copy()
 
@@ -572,19 +574,6 @@ def resolve_fake_image_path(images_dir: Path, stem: str):
         return candidates[0]
     return None
 
-def export_smooth_2x(img: np.ndarray) -> np.ndarray:
-    """
-    Export-only smoothing:
-    1) upscale 2x with cubic interpolation
-    2) apply a light Gaussian blur to soften staircase pixels
-    This avoids destructive masking/cropping of the generated object.
-    """
-    h, w = img.shape[:2]
-    up = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
-    up = cv2.GaussianBlur(up, (0, 0), 0.6)
-    return up
-
-
 
 # =============================================================================
 # Pix2pix inference
@@ -634,41 +623,6 @@ def run_pix2pix_test(temp_dataset_dir, epoch="latest", use_display_mapper=True, 
 # =============================================================================
 # Post-processing
 # =============================================================================
-
-def feather_from_canvas_mask(canvas_mask: np.ndarray, blur_sigma: float = 1.2, dilate_px: int = 1) -> np.ndarray:
-    obj = (np.any(canvas_mask > 0, axis=2)).astype(np.uint8) * 255
-
-    if dilate_px > 0:
-        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * dilate_px + 1, 2 * dilate_px + 1))
-        obj = cv2.dilate(obj, k, iterations=1)
-
-    alpha = obj.astype(np.float32) / 255.0
-    alpha = cv2.GaussianBlur(alpha, (0, 0), blur_sigma)
-    alpha = np.clip(alpha, 0.0, 1.0)
-    return alpha
-
-def smooth_generated_edges(fake_bgr: np.ndarray, canvas_mask: np.ndarray,
-                           blur_sigma: float = 1.2,
-                           dilate_px: int = 1,
-                           do_supersample: bool = True) -> np.ndarray:
-
-    alpha = feather_from_canvas_mask(canvas_mask, blur_sigma=blur_sigma, dilate_px=dilate_px)
-
-    #FIX: match fake_B resolution
-    h, w = fake_bgr.shape[:2]
-    alpha = cv2.resize(alpha, (w, h), interpolation=cv2.INTER_LINEAR)
-
-    alpha3 = alpha[..., None]
-
-    out = fake_bgr.astype(np.float32) * alpha3
-
-    if do_supersample:
-        up = cv2.resize(out, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
-        out = cv2.resize(up, (w, h), interpolation=cv2.INTER_AREA)
-
-    out = np.clip(out, 0, 255).astype(np.uint8)
-    return out
-
 
 def save_visuals(results_root: Path):
     for p in results_root.rglob("*_fake_B.png"):
@@ -826,7 +780,7 @@ def main():
 
     if args.skip_pix2pix:
         print("[summary] skip_pix2pix enabled: saving pseudo_B directly for debugging.")
-        final_img = export_smooth_2x(pseudo_B_bgr.copy())
+        final_img = pseudo_B_bgr.copy()
         results_root = None
     else:
         results_root = run_pix2pix_test(
@@ -847,11 +801,9 @@ def main():
         if final_img is None:
             raise RuntimeError(f"Could not read generated image: {fake_path}")
 
-        final_img = export_smooth_2x(final_img)
-
     out_dir = out_root / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"generated_seed{args.seed}_smooth2x.png"
+    out_path = out_dir / f"generated_seed{args.seed}.png"
     cv2.imwrite(str(out_path), final_img)
     print(f"Saved generated result to: {out_path}")
 
@@ -863,6 +815,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 """
 
 python notebooks/StyleGan/generate_pix2pix.py \
@@ -1109,32 +1063,8 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --max_transform_candidates 8 \
   --horizontal_shift_only \
   --max_horizontal_shift 900 \
-  --no_overlap
+  --no_overlap 
 
-  
-
-  TRAY
-  python notebooks/Pix2Pix/generate_pix2pix.py \
-  --images_dir data/raw/Shampoo \
-  --coco_json data/raw/Shampoo/result.json \
-  --mode random_mask \
-  --classes Shampoo \
-  --count 3 \
-  --seed 669 \
-  --out_dataset datasets/_gen_empty_tray \
-  --epoch latest \
-  --canvas_h 1024 \
-  --canvas_w 1024 \
-  --rand_scale_min 1.0 \
-  --rand_scale_max 1.0 \
-  --rand_rot_min -40.0 \
-  --rand_rot_max 40.0 \
-  --rand_max_tries_per_obj 60 \
-  --x_search_step 12 \
-  --max_transform_candidates 8 \
-  --horizontal_shift_only \
-  --max_horizontal_shift 900 \
-  --no_overlap
 
 
 

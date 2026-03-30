@@ -21,8 +21,6 @@ class Pix2PixModel(BaseModel):
     - GAN loss is used for both real and synthetic samples, with reduced
       weight on synthetic samples via syn_gan_weight.
     - Optional masked L1, gradient, Laplacian, SSIM, and region-stat losses.
-    - For tray-only samples (empty object mask), losses fall back to full-image
-      supervision so empty tray samples contribute meaningful gradients.
     """
 
     @staticmethod
@@ -93,13 +91,8 @@ class Pix2PixModel(BaseModel):
         self.appearance_nc = int(getattr(opt, "appearance_nc", 1))
         self._g_step = 0
 
-        #include tray channel in generator input
-        input_nc = opt.input_nc
-        if getattr(opt, "use_tray_mask", False):
-            input_nc += 1
-
         self.netG = networks.define_G(
-            input_nc,
+            opt.input_nc,
             opt.output_nc,
             opt.ngf,
             opt.netG,
@@ -114,12 +107,8 @@ class Pix2PixModel(BaseModel):
             self._load_pretrained_netG(pretrained)
 
         if self.isTrain:
-            d_input_nc = opt.input_nc
-            if getattr(opt, "use_tray_mask", False):
-                d_input_nc += 1
-
             self.netD = networks.define_D(
-                d_input_nc + opt.output_nc,
+                opt.input_nc + opt.output_nc,
                 opt.ndf,
                 opt.netD,
                 opt.n_layers_D,
@@ -146,7 +135,6 @@ class Pix2PixModel(BaseModel):
         self.tray_T = None
         self.instance_masks = None
         self.is_synthetic = False
-        self.is_tray = False
         self.has_real_B = False
 
         z = torch.tensor(0.0, device=self.device)
@@ -213,11 +201,6 @@ class Pix2PixModel(BaseModel):
         is_synth = input.get("is_synthetic", False)
         self.is_synthetic = bool(
             is_synth.flatten()[0].item() if torch.is_tensor(is_synth) else is_synth
-        )
-
-        is_tray = input.get("is_tray", False)
-        self.is_tray = bool(
-            is_tray.flatten()[0].item() if torch.is_tensor(is_tray) else is_tray
         )
 
         b_key = "B" if AtoB else "A"
@@ -296,44 +279,6 @@ class Pix2PixModel(BaseModel):
             return mask_1ch.expand(-1, x.shape[1], -1, -1)
         return mask_1ch
 
-    def _region_from_object_or_full(self):
-        """
-        Build supervision region.
-
-        Normal object samples:
-            region = object mask (optionally tray-clamped)
-
-        Empty-tray samples / empty-mask samples:
-            region = full image (or tray mask if provided)
-
-        Returns:
-            M_obj_1: 1ch object mask
-            M_obj:   expanded object mask to image channels
-            T:       expanded tray mask or ones
-            region:  effective supervision region
-            is_empty_object: bool
-        """
-        _, M_obj_1 = self._build_object_mask_from_A()
-
-        if self.tray_T is not None:
-            T_1 = self.tray_T
-        else:
-            T_1 = torch.ones_like(M_obj_1)
-
-        M_obj_1 = M_obj_1 * T_1
-        obj_sum = torch.sum(M_obj_1).detach()
-        is_empty_object = bool(obj_sum.item() < 1e-6)
-
-        M_obj = self._expand_like(M_obj_1, self.fake_B)
-        T = self._expand_like(T_1, self.fake_B)
-
-        if is_empty_object:
-            region = T
-        else:
-            region = M_obj
-
-        return M_obj_1, M_obj, T, region, is_empty_object
-
     # ─────────────────────────────────────────────────────────────────────────
     # Differential operators
     # ─────────────────────────────────────────────────────────────────────────
@@ -374,16 +319,11 @@ class Pix2PixModel(BaseModel):
     # ─────────────────────────────────────────────────────────────────────────
 
     def forward(self):
-        #CONCAT T INTO INPUT
+        self.fake_B = self.netG(self.real_A)
+        _, M = self._build_object_mask_from_A()
         if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            net_input = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            net_input = self.real_A
-
-        self.fake_B = self.netG(net_input)
-
-        _, _, _, region, _ = self._region_from_object_or_full()
-        self.mask_M = region
+            M = M * self.tray_T
+        self.mask_M = M
 
     # ─────────────────────────────────────────────────────────────────────────
     # Gradient penalty (R1)
@@ -393,6 +333,7 @@ class Pix2PixModel(BaseModel):
         real_AB = real_AB.detach().requires_grad_(True)
         pred_real = self.netD(real_AB)
 
+        # handle multiscale / nested outputs
         if isinstance(pred_real, list):
             pred_real_last = pred_real[-1]
             if isinstance(pred_real_last, list):
@@ -415,17 +356,12 @@ class Pix2PixModel(BaseModel):
         smooth = float(getattr(self.opt, "d_label_smooth", 0.1))
         lam_gp = float(getattr(self.opt, "lambda_gp", 0.0))
 
-        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            cond = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            cond = self.real_A
-
-        fake_AB = torch.cat((cond, self.fake_B.detach()), 1)
+        fake_AB = torch.cat((self.real_A, self.fake_B.detach()), 1)
         pred_fake = self.netD(fake_AB)
         self.loss_D_fake = self.criterionGAN(pred_fake, False)
 
         if self.has_real_B:
-            real_AB = torch.cat((cond, self.real_B), 1)
+            real_AB = torch.cat((self.real_A, self.real_B), 1)
             pred_real = self.netD(real_AB)
 
             if smooth > 0:
@@ -461,12 +397,7 @@ class Pix2PixModel(BaseModel):
         z = torch.tensor(0.0, device=self.device)
         syn_weight = float(getattr(self.opt, "syn_gan_weight", 0.3))
 
-        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            cond = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            cond = self.real_A
-
-        fake_AB = torch.cat((cond, self.fake_B), 1)
+        fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
         gan_raw = self.criterionGAN(pred_fake, True)
         gan_scale = 1.0 if (not self.is_synthetic and self.has_real_B) else syn_weight
@@ -477,26 +408,27 @@ class Pix2PixModel(BaseModel):
         self.loss_G_ssim = z.clone()
         self.loss_G_stats = z.clone()
 
-        M_obj_1, M_obj, T, region, is_empty_object = self._region_from_object_or_full()
+        _, M_obj_1 = self._build_object_mask_from_A()
+        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
+            M_obj_1 = M_obj_1 * self.tray_T
+
+        M_obj = self._expand_like(M_obj_1, self.fake_B)
+        T = self._expand_like(self.tray_T, self.fake_B) if self.tray_T is not None else torch.ones_like(M_obj)
+        region = M_obj * T
         eps = 1e-6
 
         # L1
         if self.has_real_B:
             if getattr(self.opt, "use_masked_l1", False):
-                if is_empty_object:
-                    # tray-only / no-object case: supervise full tray/image region only
-                    obj_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * region) / (torch.sum(region) + eps)
-                    self.loss_G_L1 = obj_l1 * self.opt.lambda_L1
-                else:
-                    obj_r = region
-                    bg_r = (1.0 - M_obj) * T
+                obj_r = region
+                bg_r = (1.0 - M_obj) * T
 
-                    obj_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * obj_r) / (torch.sum(obj_r) + eps)
-                    bg_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * bg_r) / (torch.sum(bg_r) + eps)
+                obj_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * obj_r) / (torch.sum(obj_r) + eps)
+                bg_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * bg_r) / (torch.sum(bg_r) + eps)
 
-                    self.loss_G_L1 = (
-                        obj_l1 + float(getattr(self.opt, "lambda_bg", 1.5)) * bg_l1
-                    ) * self.opt.lambda_L1
+                self.loss_G_L1 = (
+                    obj_l1 + float(getattr(self.opt, "lambda_bg", 1.5)) * bg_l1
+                ) * self.opt.lambda_L1
             else:
                 self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
         else:

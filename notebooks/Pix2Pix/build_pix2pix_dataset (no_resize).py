@@ -4,11 +4,11 @@ import numpy as np
 import random
 
 # ===== INPUTS =====
-IMG_DIR  = Path("data/raw/Shampoo_nobackground")
-MASK_DIR = Path("data/interim/Shampoo_nobackground/masks")
+IMG_DIR  = Path("data/raw/Empty")
+MASK_DIR = Path("data/interim/Empty/masks")
 
 # ===== OUTPUT =====
-OUT_ROOT  = Path("datasets/Shampoo_nobackground")
+OUT_ROOT  = Path("datasets/Empty")
 TRAIN_DIR = OUT_ROOT / "train"
 TEST_DIR  = OUT_ROOT / "test"
 TRAIN_DIR.mkdir(parents=True, exist_ok=True)
@@ -21,16 +21,30 @@ random.seed(SEED)
 np.random.seed(SEED)
 
 # Fixed canvas size: MUST be >= all source image sizes
+#Shampoo
+"""
 CANVAS_W = 1024
 CANVAS_H = 1536
+"""
+
+#Tray
+CANVAS_W = 1584
+CANVAS_H = 1152
 
 # White / light-gray padding for X-ray style background
 PAD_VALUE = 255  # use 235 if you want slightly gray instead of pure white
 
 # FOR SHAMPOO:
+"""
 PALETTE_BGR = {
     0: (0, 0, 0),      # background
     1: (0, 255, 0),    # green
+}
+"""
+# FOR TRAY
+PALETTE_BGR = {
+    0: (0, 0, 0),      # background
+    1: (255, 0, 0),    # green
 }
 
 # store dynamically generated colors (for unknown ids)

@@ -6,13 +6,13 @@ import numpy as np
 # =========================
 # Paths
 # =========================
-IMAGES_DIR = Path("data/raw/Shampoo_nobackground")                 # your images
-COCO_JSON  = Path("data/raw/Shampoo_nobackground/result.json")     # COCO export
+IMAGES_DIR = Path("data/raw/Empty")                 # your images
+COCO_JSON  = Path("data/raw/Empty/result.json")     # COCO export
 
-OUT_MASKS   = Path("data/interim/Shampoo_nobackground/masks")         # raw label-id masks (0..K)  (will look black)
-OUT_VIZ     = Path("data/interim/Shampoo_nobackground/masks_viz")     # grayscale view (0..255)
-OUT_COLOR   = Path("data/interim/Shampoo_nobackground/masks_color")   # colored mask (per-class color)
-OUT_OVERLAY = Path("data/interim/Shampoo_nobackground/masks_overlay") # colored mask overlaid on image
+OUT_MASKS   = Path("data/interim/Empty/masks")         # raw label-id masks (0..K)  (will look black)
+OUT_VIZ     = Path("data/interim/Empty/masks_viz")     # grayscale view (0..255)
+OUT_COLOR   = Path("data/interim/Empty/masks_color")   # colored mask (per-class color)
+OUT_OVERLAY = Path("data/interim/Empty/masks_overlay") # colored mask overlaid on image
 
 for d in [OUT_MASKS, OUT_VIZ, OUT_COLOR, OUT_OVERLAY]:
     d.mkdir(parents=True, exist_ok=True)
@@ -151,6 +151,46 @@ def contains_rle_annotations():
             return True
     return False
 
+def augment_no_scale(image, mask):
+    import cv2
+    import numpy as np
+
+    h, w = image.shape[:2]
+
+    # --- Rotation only (no scaling, no shifting) ---
+    angle = np.random.uniform(-3, 3)
+    center = (w // 2, h // 2)
+    R = cv2.getRotationMatrix2D(center, angle, 1.0)  # scale must stay 1.0
+
+    image = cv2.warpAffine(
+        image,
+        R,
+        (w, h),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0
+    )
+    mask = cv2.warpAffine(
+        mask,
+        R,
+        (w, h),
+        flags=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0
+    )
+
+    # --- Mild brightness / contrast ---
+    alpha = np.random.uniform(0.95, 1.05)
+    beta = np.random.uniform(-5, 5)
+    image = np.clip(alpha * image + beta, 0, 255).astype(np.uint8)
+
+    # --- Optional very slight blur ---
+    if np.random.rand() < 0.2:
+        image = cv2.GaussianBlur(image, (3, 3), 0.3)
+
+    return image, mask
+
+
 
 if contains_rle_annotations():
     print("   Detected RLE-style segmentations (segmentation is a dict).")
@@ -160,11 +200,15 @@ if contains_rle_annotations():
 # =========================
 # Main
 # =========================
+AUG_PER_IMAGE = 45   # number of augmented samples per original image
+
 image_ids = list(images.keys())
 print(f"Found {len(image_ids)} COCO images in {COCO_JSON}")
 print(f"Category remap (COCO id -> train id): {cat_id_to_train}")
+print(f"Augmentations per image: {AUG_PER_IMAGE}")
 
 n_written = 0
+n_aug_written = 0
 n_missing = 0
 n_failed  = 0
 n_empty   = 0
@@ -215,7 +259,7 @@ for image_id in image_ids:
             cv2.fillPoly(mask, [pts], train_id)
 
     # -----------------------
-    # Save outputs
+    # Save original outputs
     # -----------------------
 
     # 1) raw label ids (0..K) -> will look black in a viewer, but correct for ML
@@ -236,19 +280,56 @@ for image_id in image_ids:
     out_overlay = OUT_OVERLAY / f"{img_path.stem}.png"
     cv2.imwrite(str(out_overlay), overlay)
 
-    # Debug line
+    # Debug line for original
     uniq = np.unique(mask)
     if mask.max() == 0:
-        n_empty += 1
-    print(f" {img_path.name} | max={int(mask.max())} | nonzero={int(np.count_nonzero(mask))} | uniq={uniq[:10]}")
+        print(f" {img_path.name} | EMPTY MASK | uniq={uniq[:10]}")
+    else:
+        print(f" {img_path.name} | ORIGINAL | max={int(mask.max())} | nonzero={int(np.count_nonzero(mask))} | uniq={uniq[:10]}")
 
     n_written += 1
 
+    # -----------------------
+    # Save augmented outputs
+    # -----------------------
+    for i in range(AUG_PER_IMAGE):
+        aug_img, aug_mask = augment_no_scale(img.copy(), mask.copy())
+
+        aug_name = f"{img_path.stem}_aug{i+1}"
+
+        aug_img_path = IMAGES_DIR / f"{aug_name}.png"
+        cv2.imwrite(str(aug_img_path), aug_img)
+
+        # 1) raw mask
+        aug_out_mask = OUT_MASKS / f"{aug_name}.png"
+        cv2.imwrite(str(aug_out_mask), aug_mask)
+
+        # 2) grayscale viz
+        aug_out_viz = OUT_VIZ / f"{aug_name}_viz.png"
+        cv2.imwrite(str(aug_out_viz), make_viz(aug_mask))
+
+        # 3) colored mask
+        aug_color_mask = colorize_mask(aug_mask, PALETTE)
+        aug_out_color = OUT_COLOR / f"{aug_name}.png"
+        cv2.imwrite(str(aug_out_color), aug_color_mask)
+
+        # 4) overlay on augmented image
+        aug_overlay = cv2.addWeighted(aug_img, 0.7, aug_color_mask, 0.3, 0)
+        aug_out_overlay = OUT_OVERLAY / f"{aug_name}.png"
+        cv2.imwrite(str(aug_out_overlay), aug_overlay)
+
+        aug_uniq = np.unique(aug_mask)
+        print(f"    -> {aug_name}.png | AUG | max={int(aug_mask.max())} | nonzero={int(np.count_nonzero(aug_mask))} | uniq={aug_uniq[:10]}")
+
+        n_aug_written += 1
+
 print("\n===== Summary =====")
-print(f"Wrote masks:   {n_written}")
-print(f"Missing imgs:  {n_missing}")
-print(f"Read failed:   {n_failed}")
-print(f"Empty masks:   {n_empty}")
+print(f"Wrote original masks:   {n_written}")
+print(f"Wrote augmented masks:  {n_aug_written}")
+print(f"Total outputs:          {n_written + n_aug_written}")
+print(f"Missing imgs:           {n_missing}")
+print(f"Read failed:            {n_failed}")
+print(f"Empty masks:            {n_empty}")
 print("Outputs:")
 print(f" - raw masks:     {OUT_MASKS}")
 print(f" - grayscale viz: {OUT_VIZ}")

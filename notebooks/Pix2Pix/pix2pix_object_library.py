@@ -374,7 +374,7 @@ python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo_
 python notebooks/Pix2Pix/pix2pix_object_library.py \
   --images_dir data/raw/Shampoo_nobackground \
   --coco_json data/raw/Shampoo_nobackground/result.json \
-  --out_dir data/raw/Shampoo_nobackground/Cropped_Library \
+  --out_dir data/raw/Shampoo_nobackground/Cropped_Library --use_category_color   --cat_to_palette_json data/raw/Shampoo_nobackground/color_palette.json \
   --pad 8 \
   --min_area 50 \
   --use_category_color \

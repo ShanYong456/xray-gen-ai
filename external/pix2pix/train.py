@@ -525,20 +525,23 @@ python external/pix2pix/train.py \
   --appearance_zero_prob 0.85 \
   --appearance_weak_prob 0.125 \
   --appearance_proto_prob 0.025 \
+  --tray_mask_dir data/interim/Empty/masks_viz \
   --cutout_dir data/raw/Shampoo_nobackground/Cropped \
   --continue_train --epoch latest
 
 
 
+STAGE A SHAMPOO
+
 python external/pix2pix/train.py \
   --dataroot datasets/Shampoo_nobackground \
-  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage5_Syn \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage8_Syn \
   --model pix2pix --dataset_mode aligned --direction AtoB \
   --input_nc 5 --output_nc 3 \
   --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
   --preprocess none --load_size 0 --crop_size 0 --no_flip \
   --batch_size 1 --pool_size 0 --gan_mode lsgan \
-  --lr 1e-5 --beta1 0.5 --n_epochs 80 --n_epochs_decay 80 \
+  --lr 1e-5 --beta1 0.5 --n_epochs 100 --n_epochs_decay 100 \
   --class_nc 1 --thickness_nc 1 \
   --use_thickness_channel --use_edge_channel --use_coord_channels \
   --return_instance_masks --mask_thr 0.05 \
@@ -548,16 +551,88 @@ python external/pix2pix/train.py \
   --use_ssim_loss --lambda_ssim 3 \
   --use_region_stats --lambda_stats 3 \
   --d_label_smooth 0.1 \
-  --synthetic_min_items 2 --synthetic_max_items 4 \
+  --appearance_zero_prob 0.95 \
+  --appearance_weak_prob 0.025 \
+  --appearance_proto_prob 0.025 \
+  --synthetic_min_items 1 --synthetic_max_items 5 \
   --pad_to_canvas --canvas_w 1024 --canvas_h 1536 --canvas_fill 0 \
-  --synthetic_prob 0.85 \
-  --synthetic_no_overlap \
+  --synthetic_prob 0.95 --synthetic_scale_min 1.0 --synthetic_scale_max 1.0 \
+  --synthetic_no_overlap --synthetic_rot_min 0 --synthetic_rot_max 0 \
   --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
-  --pretrained_netG checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage5_Syn/latest_net_G.pth
+   --continue_train --epoch latest
 
---pretrained_netG checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V2_unguide_stage1/latest_net_G.pth \
---synthetic_prob 0.1 \
---cutout_dir data/raw/Shampoo_nobackground/Cropped
+
+
+
+  
+python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_EmptyTray_Iso \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage10_SynTray \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 5 --output_nc 3 \
+  --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+  --preprocess none --load_size 0 --crop_size 0 --no_flip \
+  --batch_size 1 --pool_size 0 --gan_mode lsgan \
+  --lr 1e-5 --beta1 0.5 --n_epochs 100 --n_epochs_decay 100 \
+  --class_nc 1 --thickness_nc 1 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels \
+  --return_instance_masks --mask_thr 0.05 \
+  --use_masked_l1 --lambda_L1 30 --lambda_bg 0 \
+  --use_grad_loss --lambda_grad 10 \
+  --use_lap_loss --lambda_lap 6 \
+  --use_ssim_loss --lambda_ssim 3 \
+  --use_region_stats --lambda_stats 3 \
+  --d_label_smooth 0.1 \
+  --appearance_zero_prob 0.95 \
+  --appearance_weak_prob 0.025 \
+  --appearance_proto_prob 0.025 \
+  --use_tray_mask \
+  --tray_mask_dir data/interim/Empty/masks_viz \
+  --synthetic_min_items 1 --synthetic_max_items 5 \
+  --pad_to_canvas --canvas_w 1584 --canvas_h 1152 --canvas_fill 0 \
+  --synthetic_prob 0.95 --synthetic_scale_min 1.0 --synthetic_scale_max 1.0 \
+  --synthetic_no_overlap --synthetic_rot_min 0 --synthetic_rot_max 0 \
+  --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+  --pretrained_netG checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage8_Syn/latest_net_G.pth
+
+
+python external/pix2pix/train.py \
+  --dataroot datasets/Shampoo_EmptyTray_Iso \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage10_SynTray \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 5 --output_nc 3 \
+  --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+  --preprocess none --load_size 0 --crop_size 0 --no_flip \
+  --batch_size 1 --pool_size 0 --gan_mode lsgan \
+  --lr 1e-5 --beta1 0.5 --n_epochs 100 --n_epochs_decay 100 \
+  --class_nc 1 --thickness_nc 1 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels \
+  --return_instance_masks --mask_thr 0.05 \
+  --use_masked_l1 --lambda_L1 30 --lambda_bg 0 \
+  --use_grad_loss --lambda_grad 10 \
+  --use_lap_loss --lambda_lap 6 \
+  --use_ssim_loss --lambda_ssim 3 \
+  --use_region_stats --lambda_stats 3 \
+  --d_label_smooth 0.1 \
+  --appearance_zero_prob 0.95 \
+  --appearance_weak_prob 0.025 \
+  --appearance_proto_prob 0.025 \
+  --use_tray_mask \
+  --tray_mask_dir data/interim/Empty/masks \
+  --tray_mask_sample_prob 0.8 \
+  --tray_real_sample_prob 0.2 \
+  --synthetic_min_items 1 --synthetic_max_items 5 \
+  --pad_to_canvas --canvas_w 1584 --canvas_h 1152 --canvas_fill 0 \
+  --synthetic_prob 0.95 --synthetic_scale_min 1.0 --synthetic_scale_max 1.0 \
+  --synthetic_no_overlap --synthetic_rot_min 0 --synthetic_rot_max 0 \
+  --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+  --pretrained_netG checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage8_Syn/latest_net_G.pth
+  
+  --pretrained_netG checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage8_Syn/latest_net_G.pth
+  
+   --continue_train --epoch latest
+
+-
 
 
   # WITHOUT EMPTY TRAY

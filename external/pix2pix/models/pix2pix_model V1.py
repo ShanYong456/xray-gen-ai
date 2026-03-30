@@ -93,13 +93,8 @@ class Pix2PixModel(BaseModel):
         self.appearance_nc = int(getattr(opt, "appearance_nc", 1))
         self._g_step = 0
 
-        #include tray channel in generator input
-        input_nc = opt.input_nc
-        if getattr(opt, "use_tray_mask", False):
-            input_nc += 1
-
         self.netG = networks.define_G(
-            input_nc,
+            opt.input_nc,
             opt.output_nc,
             opt.ngf,
             opt.netG,
@@ -114,12 +109,8 @@ class Pix2PixModel(BaseModel):
             self._load_pretrained_netG(pretrained)
 
         if self.isTrain:
-            d_input_nc = opt.input_nc
-            if getattr(opt, "use_tray_mask", False):
-                d_input_nc += 1
-
             self.netD = networks.define_D(
-                d_input_nc + opt.output_nc,
+                opt.input_nc + opt.output_nc,
                 opt.ndf,
                 opt.netD,
                 opt.n_layers_D,
@@ -374,14 +365,7 @@ class Pix2PixModel(BaseModel):
     # ─────────────────────────────────────────────────────────────────────────
 
     def forward(self):
-        #CONCAT T INTO INPUT
-        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            net_input = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            net_input = self.real_A
-
-        self.fake_B = self.netG(net_input)
-
+        self.fake_B = self.netG(self.real_A)
         _, _, _, region, _ = self._region_from_object_or_full()
         self.mask_M = region
 
@@ -415,17 +399,12 @@ class Pix2PixModel(BaseModel):
         smooth = float(getattr(self.opt, "d_label_smooth", 0.1))
         lam_gp = float(getattr(self.opt, "lambda_gp", 0.0))
 
-        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            cond = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            cond = self.real_A
-
-        fake_AB = torch.cat((cond, self.fake_B.detach()), 1)
+        fake_AB = torch.cat((self.real_A, self.fake_B.detach()), 1)
         pred_fake = self.netD(fake_AB)
         self.loss_D_fake = self.criterionGAN(pred_fake, False)
 
         if self.has_real_B:
-            real_AB = torch.cat((cond, self.real_B), 1)
+            real_AB = torch.cat((self.real_A, self.real_B), 1)
             pred_real = self.netD(real_AB)
 
             if smooth > 0:
@@ -461,12 +440,7 @@ class Pix2PixModel(BaseModel):
         z = torch.tensor(0.0, device=self.device)
         syn_weight = float(getattr(self.opt, "syn_gan_weight", 0.3))
 
-        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            cond = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            cond = self.real_A
-
-        fake_AB = torch.cat((cond, self.fake_B), 1)
+        fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
         gan_raw = self.criterionGAN(pred_fake, True)
         gan_scale = 1.0 if (not self.is_synthetic and self.has_real_B) else syn_weight

@@ -5,10 +5,10 @@ import numpy as np
 # =========================
 # Config
 # =========================
-INPUT_DIR = Path("data/raw/Shampoo_NOBGR")  # your raw images
+INPUT_DIR = Path("data/raw/Empty")  # your raw images
 
-OUT_GRAY  = Path("data/interim/Shampoo_NOBGR/Gray")
-OUT_COLOR = Path("data/interim/Shampoo_NOBGR/Color")
+OUT_GRAY  = Path("data/interim/Empty/Gray")
+OUT_COLOR = Path("data/interim/Empty/Color")
 
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tiff"}
 #TARGET_SIZE = (1500, 1000)  # (width, height)

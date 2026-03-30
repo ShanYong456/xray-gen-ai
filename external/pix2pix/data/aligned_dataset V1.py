@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-from click import parser
 import cv2
 import numpy as np
 import torch
@@ -97,8 +96,6 @@ class AlignedDataset(BaseDataset):
         parser.add_argument("--canvas_h", type=int, default=1536)
         parser.add_argument("--canvas_fill", type=int, default=0)
 
-        parser.add_argument("--tray_mask_sample_prob", type=float, default=0.8)
-        parser.add_argument("--tray_real_sample_prob", type=float, default=0.2)
         return parser
 
     def __init__(self, opt):
@@ -682,18 +679,6 @@ class AlignedDataset(BaseDataset):
             T_img = T_img.resize(target_size, resample=Image.NEAREST)
         return T_img
 
-    def _build_tray_T_from_Aimg(self, A_img: Image.Image) -> Image.Image:
-        """
-        Build tray T from the current real tray sample's A image.
-        Assumes non-black pixels in A represent the tray/object support region.
-        """
-        A = np.array(A_img).astype(np.uint8)
-        if A.ndim == 3:
-            m = (np.any(A > 0, axis=2)).astype(np.uint8) * 255
-        else:
-            m = (A > 0).astype(np.uint8) * 255
-        return Image.fromarray(m, mode="L")
-
     def _build_synthetic_pair_simple(self, size_hw, T_img: Image.Image):
         H, W = size_hw
         T = self._get_tray_bin(T_img).astype(bool) if T_img is not None else np.ones((H, W), dtype=bool)
@@ -790,22 +775,7 @@ class AlignedDataset(BaseDataset):
 
         T_img = None
         if self.use_tray_mask:
-            p_mask = float(getattr(self.opt, "tray_mask_sample_prob", 0.8))
-            p_real = float(getattr(self.opt, "tray_real_sample_prob", 0.2))
-
-            # normalize just in case
-            s = max(p_mask + p_real, 1e-8)
-            p_mask /= s
-            p_real /= s
-
-            r = np.random.rand()
-
-            # 20%: if this is a real tray sample, derive T from the current sample
-            if self._is_tray_sample(AB_path) and r < p_real:
-                T_img = self._build_tray_T_from_Aimg(A_img)
-            else:
-                # 80%: use external tray mask from tray_mask_dir/tray_mask_path
-                T_img = self._load_tray_T(A_img.size, ab_path=AB_path)
+            T_img = self._load_tray_T(A_img.size, ab_path=AB_path)
 
         if use_synth:
             synth_h, synth_w = A_img.size[1], A_img.size[0]
