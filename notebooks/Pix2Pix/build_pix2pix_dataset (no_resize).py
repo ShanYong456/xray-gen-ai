@@ -2,17 +2,36 @@ from pathlib import Path
 import cv2
 import numpy as np
 import random
+import json
 
 # ===== INPUTS =====
-IMG_DIR  = Path("data/raw/Empty")
-MASK_DIR = Path("data/interim/Empty/masks")
+IMG_DIR = Path("data/raw/SHAMPOOWITHTRAY")
+
+# Separate binary mask folders
+SHAMPOO_MASK_DIR = Path("data/interim/SHAMPOOWITHTRAY/shampoo_masks")
+TRAY_MASK_DIR = Path("data/interim/SHAMPOOWITHTRAY/tray_masks")
 
 # ===== OUTPUT =====
-OUT_ROOT  = Path("datasets/Empty")
+OUT_ROOT = Path("datasets/SHAMPOOWITHTRAY")
 TRAIN_DIR = OUT_ROOT / "train"
-TEST_DIR  = OUT_ROOT / "test"
-TRAIN_DIR.mkdir(parents=True, exist_ok=True)
-TEST_DIR.mkdir(parents=True, exist_ok=True)
+TEST_DIR = OUT_ROOT / "test"
+
+# Save matched padded masks with EXACT SAME final filename as AB
+MASK_ROOT = OUT_ROOT / "matched_masks"
+TRAIN_SHAMPOO_MATCHED_DIR = MASK_ROOT / "train" / "shampoo"
+TRAIN_TRAY_MATCHED_DIR = MASK_ROOT / "train" / "tray"
+TEST_SHAMPOO_MATCHED_DIR = MASK_ROOT / "test" / "shampoo"
+TEST_TRAY_MATCHED_DIR = MASK_ROOT / "test" / "tray"
+
+# Manifest
+MANIFEST_PATH = OUT_ROOT / "build_manifest.json"
+
+for d in [
+    TRAIN_DIR, TEST_DIR,
+    TRAIN_SHAMPOO_MATCHED_DIR, TRAIN_TRAY_MATCHED_DIR,
+    TEST_SHAMPOO_MATCHED_DIR, TEST_TRAY_MATCHED_DIR,
+]:
+    d.mkdir(parents=True, exist_ok=True)
 
 # ===== SETTINGS =====
 TEST_RATIO = 0.2
@@ -21,41 +40,32 @@ random.seed(SEED)
 np.random.seed(SEED)
 
 # Fixed canvas size: MUST be >= all source image sizes
-#Shampoo
-"""
-CANVAS_W = 1024
-CANVAS_H = 1536
-"""
-
-#Tray
 CANVAS_W = 1584
 CANVAS_H = 1152
 
 # White / light-gray padding for X-ray style background
-PAD_VALUE = 255  # use 235 if you want slightly gray instead of pure white
+PAD_VALUE = 255
 
-# FOR SHAMPOO:
-"""
-PALETTE_BGR = {
-    0: (0, 0, 0),      # background
-    1: (0, 255, 0),    # green
-}
-"""
-# FOR TRAY
-PALETTE_BGR = {
-    0: (0, 0, 0),      # background
-    1: (255, 0, 0),    # green
-}
+# A-side encoding for pix2pix image input:
+#   B = tray
+#   G = shampoo
+#   R = overlap
+def build_A_image(shampoo_mask, tray_mask):
+    shampoo = (shampoo_mask > 0)
+    tray = (tray_mask > 0)
 
-# store dynamically generated colors (for unknown ids)
-DYNAMIC_COLORS = {}
+    A = np.zeros((shampoo.shape[0], shampoo.shape[1], 3), dtype=np.uint8)
 
+    # tray only → blue
+    A[tray & ~shampoo] = [255, 0, 0]
 
-def deterministic_color(idx):
-    """Generate stable unique color for unknown label ids."""
-    rng = np.random.RandomState(idx * 999)
-    color = rng.randint(40, 255, size=3)
-    return tuple(int(x) for x in color)
+    # shampoo only → green
+    A[shampoo & ~tray] = [0, 255, 0]
+
+    # overlap → red (IMPORTANT CHANGE)
+    A[shampoo & tray] = [0, 0, 255]
+
+    return A
 
 
 def ensure_single_channel(mask):
@@ -66,33 +76,14 @@ def ensure_single_channel(mask):
     return mask
 
 
-def id_to_color(mask_ids):
-    """
-    Convert label-id mask -> color mask
-    Unknown ids automatically assigned unique stable colors
-    """
-    ids = mask_ids.astype(np.int32)
-    h, w = ids.shape
-    out = np.zeros((h, w, 3), dtype=np.uint8)
-
-    unique_ids = np.unique(ids)
-    for uid in unique_ids:
-        if uid in PALETTE_BGR:
-            out[ids == uid] = PALETTE_BGR[uid]
-        else:
-            if uid not in DYNAMIC_COLORS:
-                DYNAMIC_COLORS[uid] = deterministic_color(uid)
-                print(f"[WARN] Unknown label id {uid} -> assigned color {DYNAMIC_COLORS[uid]}")
-            out[ids == uid] = DYNAMIC_COLORS[uid]
-
-    return out
+def binarize_mask(mask):
+    mask = ensure_single_channel(mask)
+    if mask is None:
+        return None
+    return (mask > 0).astype(np.uint8)
 
 
 def pad_image_to_canvas(img, canvas_w, canvas_h, pad_value=255):
-    """
-    Keep original image unchanged and pad outward to target canvas.
-    No resizing, no warping.
-    """
     h, w = img.shape[:2]
 
     if w > canvas_w or h > canvas_h:
@@ -116,65 +107,221 @@ def pad_image_to_canvas(img, canvas_w, canvas_h, pad_value=255):
     return canvas
 
 
-def make_AB(mask_path: Path, img_path: Path, out_path: Path) -> bool:
+def make_ab_and_save_masks(
+    shampoo_mask_path: Path,
+    tray_mask_path: Path,
+    img_path: Path,
+    ab_out_path: Path,
+    shampoo_out_path: Path,
+    tray_out_path: Path,
+) -> bool:
     img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
     if img is None:
         print("WARN: failed reading image:", img_path)
         return False
 
-    mask = cv2.imread(str(mask_path), cv2.IMREAD_UNCHANGED)
-    mask = ensure_single_channel(mask)
-    if mask is None:
-        print("WARN: failed reading mask:", mask_path)
+    shampoo_mask = cv2.imread(str(shampoo_mask_path), cv2.IMREAD_UNCHANGED)
+    tray_mask = cv2.imread(str(tray_mask_path), cv2.IMREAD_UNCHANGED)
+
+    shampoo_mask = binarize_mask(shampoo_mask)
+    tray_mask = binarize_mask(tray_mask)
+
+    if shampoo_mask is None:
+        print("WARN: failed reading shampoo mask:", shampoo_mask_path)
+        return False
+    if tray_mask is None:
+        print("WARN: failed reading tray mask:", tray_mask_path)
         return False
 
-    # Ensure mask and image spatial sizes match BEFORE padding
-    if mask.shape[:2] != img.shape[:2]:
-        print(f"WARN: size mismatch img={img.shape[:2]} mask={mask.shape[:2]} for {img_path.name}")
+    if shampoo_mask.shape[:2] != img.shape[:2]:
+        print(f"WARN: shampoo size mismatch img={img.shape[:2]} mask={shampoo_mask.shape[:2]} for {img_path.name}")
         return False
 
-    # Convert label ids to RGB mask at ORIGINAL size
-    A3 = id_to_color(mask)
+    if tray_mask.shape[:2] != img.shape[:2]:
+        print(f"WARN: tray size mismatch img={img.shape[:2]} mask={tray_mask.shape[:2]} for {img_path.name}")
+        return False
 
-    # Pad both A and B to the SAME canvas, no resize
-    A3_pad  = pad_image_to_canvas(A3, CANVAS_W, CANVAS_H, pad_value=0)
+    # Build A-side training image
+    A3 = build_A_image(shampoo_mask, tray_mask)
+
+    # Pad to same canvas
+    A3_pad = pad_image_to_canvas(A3, CANVAS_W, CANVAS_H, pad_value=0)
     img_pad = pad_image_to_canvas(img, CANVAS_W, CANVAS_H, pad_value=PAD_VALUE)
+
+    shampoo_pad = pad_image_to_canvas((shampoo_mask * 255).astype(np.uint8), CANVAS_W, CANVAS_H, pad_value=0)
+    tray_pad = pad_image_to_canvas((tray_mask * 255).astype(np.uint8), CANVAS_W, CANVAS_H, pad_value=0)
 
     # Concatenate A|B
     AB = np.concatenate([A3_pad, img_pad], axis=1)
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    return bool(cv2.imwrite(str(out_path), AB))
+    ab_out_path.parent.mkdir(parents=True, exist_ok=True)
+    shampoo_out_path.parent.mkdir(parents=True, exist_ok=True)
+    tray_out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    ok_ab = bool(cv2.imwrite(str(ab_out_path), AB))
+    ok_shampoo = bool(cv2.imwrite(str(shampoo_out_path), shampoo_pad))
+    ok_tray = bool(cv2.imwrite(str(tray_out_path), tray_pad))
+
+    if not ok_ab:
+        print("WARN: failed writing AB:", ab_out_path)
+    if not ok_shampoo:
+        print("WARN: failed writing shampoo mask:", shampoo_out_path)
+    if not ok_tray:
+        print("WARN: failed writing tray mask:", tray_out_path)
+
+    return ok_ab and ok_shampoo and ok_tray
 
 
-# ===== collect pairs =====
-pairs = []
-for mp in sorted(MASK_DIR.glob("*.png")):
-    ip = IMG_DIR / mp.name
-    if ip.exists():
-        pairs.append((mp, ip))
+def build_file_map(folder: Path):
+    exts = [".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"]
+    by_name = {}
+    by_stem = {}
 
-print("Pairs found:", len(pairs))
-random.shuffle(pairs)
+    for ext in exts:
+        for p in folder.glob(f"*{ext}"):
+            by_name[p.name] = p
+            by_stem[p.stem] = p
+        for p in folder.glob(f"*{ext.upper()}"):
+            by_name[p.name] = p
+            by_stem[p.stem] = p
 
-n_test = max(1, int(len(pairs) * TEST_RATIO))
-test_pairs = pairs[:n_test]
-train_pairs = pairs[n_test:]
+    return by_name, by_stem
 
 
-def write_split(split_pairs, out_dir, prefix):
+def collect_triplets():
+    """
+    Match image, shampoo mask, tray mask by:
+    1. exact filename
+    2. stem
+    Only keep samples where all 3 exist.
+    """
+    img_by_name, img_by_stem = build_file_map(IMG_DIR)
+    shampoo_by_name, shampoo_by_stem = build_file_map(SHAMPOO_MASK_DIR)
+    tray_by_name, tray_by_stem = build_file_map(TRAY_MASK_DIR)
+
+    candidate_stems = set(img_by_stem.keys()) | set(shampoo_by_stem.keys()) | set(tray_by_stem.keys())
+    triplets = []
+    missing = []
+
+    for stem in sorted(candidate_stems):
+        ip = img_by_stem.get(stem, None)
+
+        sp = shampoo_by_name.get(ip.name, None) if ip is not None else None
+        tp = tray_by_name.get(ip.name, None) if ip is not None else None
+
+        if sp is None:
+            sp = shampoo_by_stem.get(stem, None)
+        if tp is None:
+            tp = tray_by_stem.get(stem, None)
+
+        if ip is not None and sp is not None and tp is not None:
+            triplets.append((ip, sp, tp))
+        else:
+            missing.append({
+                "stem": stem,
+                "has_image": ip is not None,
+                "has_shampoo_mask": sp is not None,
+                "has_tray_mask": tp is not None,
+            })
+
+    return triplets, missing
+
+
+triplets, missing_items = collect_triplets()
+
+print("Triplets found:", len(triplets))
+if missing_items:
+    print("Incomplete triplets:", len(missing_items))
+    for x in missing_items[:20]:
+        print("  MISSING:", x)
+
+random.shuffle(triplets)
+
+if len(triplets) == 0:
+    raise RuntimeError("No valid image+shampoo_mask+tray_mask triplets found.")
+
+n_test = max(1, int(len(triplets) * TEST_RATIO))
+test_triplets = triplets[:n_test]
+train_triplets = triplets[n_test:]
+
+manifest = {
+    "seed": SEED,
+    "test_ratio": TEST_RATIO,
+    "canvas_w": CANVAS_W,
+    "canvas_h": CANVAS_H,
+    "pad_value": PAD_VALUE,
+    "img_dir": str(IMG_DIR),
+    "shampoo_mask_dir": str(SHAMPOO_MASK_DIR),
+    "tray_mask_dir": str(TRAY_MASK_DIR),
+    "num_triplets": len(triplets),
+    "num_train": len(train_triplets),
+    "num_test": len(test_triplets),
+    "entries": [],
+    "missing_items": missing_items,
+}
+
+
+def write_split(split_triplets, out_dir, shampoo_dir, tray_dir, prefix):
     ok = 0
-    for i, (mp, ip) in enumerate(split_pairs):
+    split_name = "train" if prefix == "tr" else "test"
+
+    for i, (ip, sp, tp) in enumerate(split_triplets):
         out_name = f"{ip.stem}_{prefix}_{i:06d}.png"
-        ok += int(make_AB(mp, ip, out_dir / out_name))
+
+        ab_out_path = out_dir / out_name
+        shampoo_out_path = shampoo_dir / out_name
+        tray_out_path = tray_dir / out_name
+
+        success = make_ab_and_save_masks(
+            shampoo_mask_path=sp,
+            tray_mask_path=tp,
+            img_path=ip,
+            ab_out_path=ab_out_path,
+            shampoo_out_path=shampoo_out_path,
+            tray_out_path=tray_out_path,
+        )
+        ok += int(success)
+
+        manifest["entries"].append({
+            "split": split_name,
+            "final_name": out_name,
+            "source_image": ip.name,
+            "source_shampoo_mask": sp.name,
+            "source_tray_mask": tp.name,
+            "ab_path": str(ab_out_path),
+            "shampoo_mask_path": str(shampoo_out_path),
+            "tray_mask_path": str(tray_out_path),
+            "success": bool(success),
+        })
+
     return ok
 
 
-ok_train = write_split(train_pairs, TRAIN_DIR, "tr")
-ok_test  = write_split(test_pairs, TEST_DIR,  "te")
+ok_train = write_split(
+    train_triplets,
+    TRAIN_DIR,
+    TRAIN_SHAMPOO_MATCHED_DIR,
+    TRAIN_TRAY_MATCHED_DIR,
+    "tr",
+)
+
+ok_test = write_split(
+    test_triplets,
+    TEST_DIR,
+    TEST_SHAMPOO_MATCHED_DIR,
+    TEST_TRAY_MATCHED_DIR,
+    "te",
+)
+
+MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
 
 print("\nDone.")
 print("Train wrote:", ok_train, "->", TRAIN_DIR.resolve())
-print("Test  wrote:", ok_test,  "->", TEST_DIR.resolve())
+print("Test  wrote:", ok_test, "->", TEST_DIR.resolve())
+print("Train shampoo masks ->", TRAIN_SHAMPOO_MATCHED_DIR.resolve())
+print("Train tray masks    ->", TRAIN_TRAY_MATCHED_DIR.resolve())
+print("Test shampoo masks  ->", TEST_SHAMPOO_MATCHED_DIR.resolve())
+print("Test tray masks     ->", TEST_TRAY_MATCHED_DIR.resolve())
+print("Manifest ->", MANIFEST_PATH.resolve())
 print(f"\nPix2Pix tip: --preprocess none --no_flip --load_size 0 --crop_size 0")
 print(f"Canvas used: {CANVAS_W}x{CANVAS_H}")

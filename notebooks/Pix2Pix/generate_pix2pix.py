@@ -1136,6 +1136,16 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --max_horizontal_shift 900 \
   --no_overlap
 
+  python notebooks/Pix2Pix/generate_pix2pixV2.py \
+  --generate_mode tray \
+  --tray_mask_dir data/interim/Empty/masks \
+  --tray_mask_dilate_px 0 \
+  --tray_cc_close_px 2 \
+  --tray_mask_thr 0.5 \
+  --seed 777 \
+  --out_dataset datasets/_gen_tray_only \
+  --epoch latest \
+  --keep_intermediates
 
 
 python notebooks/Pix2Pix/generate_pix2pix.py \

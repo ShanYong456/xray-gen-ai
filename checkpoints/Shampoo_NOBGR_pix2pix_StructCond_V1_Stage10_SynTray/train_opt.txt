@@ -3,17 +3,17 @@
     appearance_blur_sigma: 8.0                           
        appearance_dropout: 0.5                           
             appearance_nc: 1                             
-    appearance_proto_prob: 0.025                         	[default: 0.15]
-     appearance_weak_prob: 0.025                         	[default: 0.35]
-     appearance_zero_prob: 0.95                          	[default: 0.35]
+    appearance_proto_prob: 0.15                          
+     appearance_weak_prob: 0.35                          
+     appearance_zero_prob: 0.35                          
                batch_size: 1                             
                     beta1: 0.5                           
 build_appearance_prototypes: False                         
               canvas_fill: 0                             
-                 canvas_h: 1152                          	[default: 1536]
-                 canvas_w: 1584                          	[default: 1024]
+                 canvas_h: 2048                          	[default: 1536]
+                 canvas_w: 2048                          	[default: 1024]
           checkpoints_dir: ./checkpoints                 
-                 class_nc: 1                             
+                 class_nc: 2                             	[default: 1]
            continue_train: False                         
                 crop_size: 0                             	[default: 256]
                cutout_dir: data/raw/Shampoo_nobackground/Cropped_Library	[default: ]
@@ -33,7 +33,7 @@ build_appearance_prototypes: False
                  gan_mode: lsgan                         
                 init_gain: 0.02                          
                 init_type: normal                        
-                 input_nc: 5                             	[default: 3]
+                 input_nc: 6                             	[default: 3]
                   isTrain: True                          	[default: None]
                 lambda_L1: 30.0                          
                 lambda_bg: 0.0                           	[default: 1.5]
@@ -44,7 +44,7 @@ build_appearance_prototypes: False
              lambda_stats: 3.0                           
                 load_iter: 0                             	[default: 0]
                 load_size: 0                             	[default: 286]
-                       lr: 1e-05                         	[default: 0.0002]
+                       lr: 5e-06                         	[default: 0.0002]
                      lr_D: None                          
                      lr_G: None                          
            lr_decay_iters: 50                            
@@ -58,8 +58,8 @@ build_appearance_prototypes: False
 max_appearance_prototypes: 200                           
          max_dataset_size: inf                           
                     model: pix2pix                       	[default: cycle_gan]
-                 n_epochs: 100                           
-           n_epochs_decay: 100                           
+                 n_epochs: 50                            	[default: 100]
+           n_epochs_decay: 50                            	[default: 100]
                n_layers_D: 4                             	[default: 3]
                      name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage10_SynTray	[default: experiment_name]
                       ndf: 64                            
@@ -85,16 +85,16 @@ max_appearance_prototypes: 200
            serial_batches: False                         
                    suffix:                               
            syn_gan_weight: 0.3                           
-      synthetic_max_items: 5                             	[default: 3]
+      synthetic_max_items: 3                             
       synthetic_min_items: 1                             
            synthetic_mode: random_mask                   
      synthetic_no_overlap: True                          	[default: False]
-           synthetic_prob: 0.95                          	[default: 0.0]
+           synthetic_prob: 0.3                           	[default: 0.0]
         synthetic_rot_max: 0.0                           	[default: 360.0]
         synthetic_rot_min: 0.0                           
 synthetic_same_class_prob: 0.0                           
-      synthetic_scale_max: 1.0                           	[default: 1.4]
-      synthetic_scale_min: 1.0                           	[default: 0.6]
+      synthetic_scale_max: 0.6                           	[default: 1.4]
+      synthetic_scale_min: 0.6                           
              thickness_nc: 1                             
          tray_bbox_margin: 2                             
          tray_cc_close_px: 2                             
@@ -103,12 +103,10 @@ synthetic_same_class_prob: 0.0
             tray_mask_dir: data/interim/Empty/masks      	[default: ]
          tray_mask_invert: False                         
            tray_mask_path:                               
-    tray_mask_sample_prob: 0.8                           
             tray_mask_thr: 0.5                           
          tray_nudge_iters: 6                             
       tray_nudge_max_step: 25                            
        tray_obj_dilate_px: 0                             
-    tray_real_sample_prob: 0.2                           
         tray_shift_max_px: 400                           
          update_html_freq: 1000                          
    use_appearance_channel: False                         

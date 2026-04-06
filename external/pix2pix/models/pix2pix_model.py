@@ -21,8 +21,6 @@ class Pix2PixModel(BaseModel):
     - GAN loss is used for both real and synthetic samples, with reduced
       weight on synthetic samples via syn_gan_weight.
     - Optional masked L1, gradient, Laplacian, SSIM, and region-stat losses.
-    - For tray-only samples (empty object mask), losses fall back to full-image
-      supervision so empty tray samples contribute meaningful gradients.
     """
 
     @staticmethod
@@ -93,13 +91,8 @@ class Pix2PixModel(BaseModel):
         self.appearance_nc = int(getattr(opt, "appearance_nc", 1))
         self._g_step = 0
 
-        #include tray channel in generator input
-        input_nc = opt.input_nc
-        if getattr(opt, "use_tray_mask", False):
-            input_nc += 1
-
         self.netG = networks.define_G(
-            input_nc,
+            opt.input_nc,
             opt.output_nc,
             opt.ngf,
             opt.netG,
@@ -114,12 +107,8 @@ class Pix2PixModel(BaseModel):
             self._load_pretrained_netG(pretrained)
 
         if self.isTrain:
-            d_input_nc = opt.input_nc
-            if getattr(opt, "use_tray_mask", False):
-                d_input_nc += 1
-
             self.netD = networks.define_D(
-                d_input_nc + opt.output_nc,
+                opt.input_nc + opt.output_nc,
                 opt.ndf,
                 opt.netD,
                 opt.n_layers_D,
@@ -146,7 +135,6 @@ class Pix2PixModel(BaseModel):
         self.tray_T = None
         self.instance_masks = None
         self.is_synthetic = False
-        self.is_tray = False
         self.has_real_B = False
 
         z = torch.tensor(0.0, device=self.device)
@@ -215,11 +203,6 @@ class Pix2PixModel(BaseModel):
             is_synth.flatten()[0].item() if torch.is_tensor(is_synth) else is_synth
         )
 
-        is_tray = input.get("is_tray", False)
-        self.is_tray = bool(
-            is_tray.flatten()[0].item() if torch.is_tensor(is_tray) else is_tray
-        )
-
         b_key = "B" if AtoB else "A"
         if b_key in input and input[b_key] is not None:
             self.real_B = input[b_key].to(self.device)
@@ -245,7 +228,7 @@ class Pix2PixModel(BaseModel):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _appearance_channel_start_idx(self):
-        start = 1
+        start = self.class_nc
         if bool(getattr(self.opt, "use_edge_channel", False)):
             start += 1
         if self.use_thickness_channel:
@@ -271,14 +254,22 @@ class Pix2PixModel(BaseModel):
                 )
             return None, torch.clamp(M, 0.0, 1.0).float()
 
-        A01 = (self.real_A[:, :1] + 1.0) * 0.5
+        # NEW: aggregate first class_nc channels instead of assuming 1 object channel
+        A01 = (self.real_A[:, :self.class_nc] + 1.0) * 0.5
+        A01 = torch.clamp(A01, 0.0, 1.0)
+
+        if self.class_nc > 1:
+            A_obj = torch.clamp(torch.sum(A01, dim=1, keepdim=True), 0.0, 1.0)
+        else:
+            A_obj = A01[:, :1]
+
         thr = float(getattr(self.opt, "mask_thr", 0.05))
         if getattr(self.opt, "use_soft_mask", False):
             M = torch.sigmoid(
-                float(getattr(self.opt, "mask_soft_beta", 30.0)) * (A01 - thr)
+                float(getattr(self.opt, "mask_soft_beta", 30.0)) * (A_obj - thr)
             )
         else:
-            M = (A01 > thr).float()
+            M = (A_obj > thr).float()
 
         blur_k = int(getattr(self.opt, "mask_blur_ksize", 0))
         if blur_k > 1:
@@ -287,7 +278,8 @@ class Pix2PixModel(BaseModel):
                 blur_k,
                 float(getattr(self.opt, "mask_blur_sigma", 1.2))
             )
-        return self.real_A[:, :1], torch.clamp(M, 0.0, 1.0)
+
+        return A_obj, torch.clamp(M, 0.0, 1.0)
 
     def _expand_like(self, mask_1ch, x):
         if mask_1ch is None:
@@ -295,44 +287,6 @@ class Pix2PixModel(BaseModel):
         if mask_1ch.shape[1] == 1 and x.shape[1] != 1:
             return mask_1ch.expand(-1, x.shape[1], -1, -1)
         return mask_1ch
-
-    def _region_from_object_or_full(self):
-        """
-        Build supervision region.
-
-        Normal object samples:
-            region = object mask (optionally tray-clamped)
-
-        Empty-tray samples / empty-mask samples:
-            region = full image (or tray mask if provided)
-
-        Returns:
-            M_obj_1: 1ch object mask
-            M_obj:   expanded object mask to image channels
-            T:       expanded tray mask or ones
-            region:  effective supervision region
-            is_empty_object: bool
-        """
-        _, M_obj_1 = self._build_object_mask_from_A()
-
-        if self.tray_T is not None:
-            T_1 = self.tray_T
-        else:
-            T_1 = torch.ones_like(M_obj_1)
-
-        M_obj_1 = M_obj_1 * T_1
-        obj_sum = torch.sum(M_obj_1).detach()
-        is_empty_object = bool(obj_sum.item() < 1e-6)
-
-        M_obj = self._expand_like(M_obj_1, self.fake_B)
-        T = self._expand_like(T_1, self.fake_B)
-
-        if is_empty_object:
-            region = T
-        else:
-            region = M_obj
-
-        return M_obj_1, M_obj, T, region, is_empty_object
 
     # ─────────────────────────────────────────────────────────────────────────
     # Differential operators
@@ -374,16 +328,11 @@ class Pix2PixModel(BaseModel):
     # ─────────────────────────────────────────────────────────────────────────
 
     def forward(self):
-        #CONCAT T INTO INPUT
+        self.fake_B = self.netG(self.real_A)
+        _, M = self._build_object_mask_from_A()
         if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            net_input = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            net_input = self.real_A
-
-        self.fake_B = self.netG(net_input)
-
-        _, _, _, region, _ = self._region_from_object_or_full()
-        self.mask_M = region
+            M = M * self.tray_T
+        self.mask_M = M
 
     # ─────────────────────────────────────────────────────────────────────────
     # Gradient penalty (R1)
@@ -393,6 +342,7 @@ class Pix2PixModel(BaseModel):
         real_AB = real_AB.detach().requires_grad_(True)
         pred_real = self.netD(real_AB)
 
+        # handle multiscale / nested outputs
         if isinstance(pred_real, list):
             pred_real_last = pred_real[-1]
             if isinstance(pred_real_last, list):
@@ -415,17 +365,12 @@ class Pix2PixModel(BaseModel):
         smooth = float(getattr(self.opt, "d_label_smooth", 0.1))
         lam_gp = float(getattr(self.opt, "lambda_gp", 0.0))
 
-        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            cond = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            cond = self.real_A
-
-        fake_AB = torch.cat((cond, self.fake_B.detach()), 1)
+        fake_AB = torch.cat((self.real_A, self.fake_B.detach()), 1)
         pred_fake = self.netD(fake_AB)
         self.loss_D_fake = self.criterionGAN(pred_fake, False)
 
         if self.has_real_B:
-            real_AB = torch.cat((cond, self.real_B), 1)
+            real_AB = torch.cat((self.real_A, self.real_B), 1)
             pred_real = self.netD(real_AB)
 
             if smooth > 0:
@@ -461,12 +406,7 @@ class Pix2PixModel(BaseModel):
         z = torch.tensor(0.0, device=self.device)
         syn_weight = float(getattr(self.opt, "syn_gan_weight", 0.3))
 
-        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
-            cond = torch.cat([self.real_A, self.tray_T], dim=1)
-        else:
-            cond = self.real_A
-
-        fake_AB = torch.cat((cond, self.fake_B), 1)
+        fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
         gan_raw = self.criterionGAN(pred_fake, True)
         gan_scale = 1.0 if (not self.is_synthetic and self.has_real_B) else syn_weight
@@ -477,26 +417,27 @@ class Pix2PixModel(BaseModel):
         self.loss_G_ssim = z.clone()
         self.loss_G_stats = z.clone()
 
-        M_obj_1, M_obj, T, region, is_empty_object = self._region_from_object_or_full()
+        _, M_obj_1 = self._build_object_mask_from_A()
+        if getattr(self.opt, "use_tray_mask", False) and self.tray_T is not None:
+            M_obj_1 = M_obj_1 * self.tray_T
+
+        M_obj = self._expand_like(M_obj_1, self.fake_B)
+        T = self._expand_like(self.tray_T, self.fake_B) if self.tray_T is not None else torch.ones_like(M_obj)
+        region = M_obj * T
         eps = 1e-6
 
         # L1
         if self.has_real_B:
             if getattr(self.opt, "use_masked_l1", False):
-                if is_empty_object:
-                    # tray-only / no-object case: supervise full tray/image region only
-                    obj_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * region) / (torch.sum(region) + eps)
-                    self.loss_G_L1 = obj_l1 * self.opt.lambda_L1
-                else:
-                    obj_r = region
-                    bg_r = (1.0 - M_obj) * T
+                obj_r = region
+                bg_r = (1.0 - M_obj) * T
 
-                    obj_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * obj_r) / (torch.sum(obj_r) + eps)
-                    bg_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * bg_r) / (torch.sum(bg_r) + eps)
+                obj_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * obj_r) / (torch.sum(obj_r) + eps)
+                bg_l1 = torch.sum(torch.abs(self.fake_B - self.real_B) * bg_r) / (torch.sum(bg_r) + eps)
 
-                    self.loss_G_L1 = (
-                        obj_l1 + float(getattr(self.opt, "lambda_bg", 1.5)) * bg_l1
-                    ) * self.opt.lambda_L1
+                self.loss_G_L1 = (
+                    obj_l1 + float(getattr(self.opt, "lambda_bg", 1.5)) * bg_l1
+                ) * self.opt.lambda_L1
             else:
                 self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
         else:
@@ -593,8 +534,23 @@ class Pix2PixModel(BaseModel):
 
     def _load_pretrained_netG(self, pretrained_path: str):
         """
-        Load old checkpoint with shape mismatch tolerance
-        (e.g. first conv channel expansion: 8 -> 6 won't work, but smaller -> larger can).
+        Load old class_nc=1 checkpoint into new class_nc=2 generator.
+
+        Old Stage8 layout:
+        input_nc = 5
+        [obj, edge, thickness, coord_x, coord_y]
+
+        New Stage10 layout:
+        input_nc = 6
+        [shampoo, tray, edge, thickness, coord_x, coord_y]
+
+        Mapping:
+        old obj      -> new shampoo
+        old obj      -> new tray
+        old edge     -> new edge
+        old thickness-> new thickness
+        old coord_x  -> new coord_x
+        old coord_y  -> new coord_y
         """
         state = torch.load(pretrained_path, map_location=self.device)
         if isinstance(state, dict) and "state_dict" in state:
@@ -602,6 +558,13 @@ class Pix2PixModel(BaseModel):
 
         net_state = self.netG.state_dict()
         new_state = {}
+
+        # Find first conv key robustly
+        first_conv_key = None
+        for k, v in net_state.items():
+            if v.ndim == 4:
+                first_conv_key = k
+                break
 
         for k, v in state.items():
             if k not in net_state:
@@ -611,28 +574,57 @@ class Pix2PixModel(BaseModel):
                 new_state[k] = v
                 continue
 
-            # First conv: expand input channels only if old < new
-            if "model.model.0.weight" in k and v.ndim == 4 and net_state[k].ndim == 4:
-                nw = net_state[k].clone()
-                c_old = v.shape[1]
-                c_new = nw.shape[1]
-                if (
-                    nw.shape[0] == v.shape[0]
-                    and nw.shape[2:] == v.shape[2:]
-                    and c_old < c_new
-                ):
-                    nw[:, :c_old] = v
-                    nw[:, c_old:] = 0.0
-                    new_state[k] = nw
-                    print(f"[pretrain] expanded first conv {v.shape} → {nw.shape}")
+            if k == first_conv_key and v.ndim == 4 and net_state[k].ndim == 4:
+                dst = net_state[k].clone()
+                dst.zero_()
+
+                out_c_new, in_c_new, kh_new, kw_new = dst.shape
+                out_c_old, in_c_old, kh_old, kw_old = v.shape
+
+                if out_c_new != out_c_old or kh_new != kh_old or kw_new != kw_old:
+                    print(f"[pretrain] skip first conv due to incompatible shape: "
+                        f"{k} old={tuple(v.shape)} new={tuple(dst.shape)}")
                     continue
 
-            print(f"[pretrain] skipped: {k} {v.shape} vs {net_state[k].shape}")
+                # Exact intended mapping: old 5ch -> new 6ch
+                if in_c_old == 5 and in_c_new == 6:
+                    # old obj -> shampoo
+                    dst[:, 0:1, :, :] = v[:, 0:1, :, :]
+
+                    # old obj -> tray
+                    dst[:, 1:2, :, :] = v[:, 0:1, :, :]
+
+                    # old edge -> new edge
+                    dst[:, 2:3, :, :] = v[:, 1:2, :, :]
+
+                    # old thickness -> new thickness
+                    dst[:, 3:4, :, :] = v[:, 2:3, :, :]
+
+                    # old coord_x -> new coord_x
+                    dst[:, 4:5, :, :] = v[:, 3:4, :, :]
+
+                    # old coord_y -> new coord_y
+                    dst[:, 5:6, :, :] = v[:, 4:5, :, :]
+
+                    new_state[k] = dst
+                    print(f"[pretrain] adapted first conv 5->6: {k} old={tuple(v.shape)} new={tuple(dst.shape)}")
+                    continue
+
+                # Generic fallback: overlapping prefix copy
+                copy_in = min(in_c_old, in_c_new)
+                dst[:, :copy_in, :, :] = v[:, :copy_in, :, :]
+                if in_c_new > copy_in:
+                    torch.nn.init.normal_(dst[:, copy_in:, :, :], mean=0.0, std=0.02)
+                new_state[k] = dst
+                print(f"[pretrain] prefix-copied first conv {k}: old={tuple(v.shape)} new={tuple(dst.shape)}")
+                continue
+
+            print(f"[pretrain] skipped: {k} {tuple(v.shape)} vs {tuple(net_state[k].shape)}")
 
         missing, unexpected = self.netG.load_state_dict(new_state, strict=False)
         print(
             f"[pretrain] loaded from {pretrained_path} | "
-            f"missing={len(missing)} unexpected={len(unexpected)}"
+            f"loaded={len(new_state)} missing={len(missing)} unexpected={len(unexpected)}"
         )
 
     def get_current_visuals(self):

@@ -19,41 +19,47 @@ except ImportError:
 # =============================================================================
 # CONFIG — must match your training options exactly
 # =============================================================================
-SIZE = 1024
 
-# Shampoo generation size
-CANVAS_H = 1024
-CANVAS_W = 1024
-
-# Tray generation size
-TRAY_CANVAS_W = 1792
-TRAY_CANVAS_H = 1280
-
-MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage10_SynTray"
-PIX2PIX_DIR = Path("external/pix2pix")
-
-TRAY_MASK_DIR = Path("data/interim/Empty/masks")
-
-RAND_MAX_TRIES_PER_OBJ = 120
-RAND_SCALE_MIN, RAND_SCALE_MAX = 1.0, 1.0
-RAND_ROT_MIN, RAND_ROT_MAX = 0.0, 25.0
-
-X_SEARCH_STEP = 8
-MAX_TRANSFORM_CANDIDATES = 12
-Y_FALLBACK_OFFSETS = (0, -64, 64, -128, 128, -256, 256, -384, 384, -512, 512)
-Y_SOFT_SEARCH_RADIUS = 320
-Y_SOFT_SEARCH_STEP = 24
+SIZE_H = 1024
+SIZE_W = 1024
 
 PALETTE_BGR = {
     0: (0, 0, 0),
-    1: (0, 255, 0),
+    1: (0, 255, 0),   # shampoo
+    2: (255, 0, 0),   # tray
 }
+
+
+
+CANVAS_H = SIZE_H
+CANVAS_W = SIZE_W
+
+MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage10_SynTray_1024"
+PIX2PIX_DIR = Path("external/pix2pix")
+
+RAND_MAX_TRIES_PER_OBJ = 30
+RAND_SCALE_MIN, RAND_SCALE_MAX = 0.85, 0.85
+RAND_ROT_MIN, RAND_ROT_MAX = 0.0, 40.0
+
+X_SEARCH_STEP = 12
+MAX_TRANSFORM_CANDIDATES = 8
+Y_SOFT_SEARCH_RADIUS = 0
+Y_SOFT_SEARCH_STEP = 1
+Y_FALLBACK_OFFSETS = [0]
 
 TRAIN_CFG = dict(
     input_nc=6,
     norm="instance",
     use_appearance_channel=True,
-    use_tray_mask=False,
+    use_tray_mask=True,
+    class_nc=2,
+    thickness_nc=1,
+    canvas_h=1024,
+    canvas_w=1024,
+    pad_to_canvas=True,
+    tray_mask_thr=0.0,
+    tray_cc_close_px=2,
+    tray_mask_dilate_px=0,
 )
 
 
@@ -116,8 +122,8 @@ def dilate_bin(m01, px):
     k = np.ones((2 * px + 1, 2 * px + 1), np.uint8)
     return cv2.dilate(m01.astype(np.uint8), k, iterations=1)
 
-
-def preprocess_tray_mask(mask_gray, thr=0.5, invert=False, close_px=2, dilate_px=3):
+"""
+def preprocess_tray_mask(mask_gray, thr=0.5, invert=False, close_px=2, dilate_px=0):
     T = (mask_gray > int(np.clip(thr * 255, 0, 255))).astype(np.uint8)
     T = cv2.morphologyEx(T, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
     T = cv2.dilate(T, np.ones((7, 7), np.uint8), iterations=1)
@@ -126,9 +132,27 @@ def preprocess_tray_mask(mask_gray, thr=0.5, invert=False, close_px=2, dilate_px
     T = largest_cc(T)
     T = morph_close(T, close_px)
     return dilate_bin(T, dilate_px).astype(bool)
+"""
 
+def preprocess_tray_mask(mask_gray, thr=0.5, invert=False, close_px=2, dilate_px=0):
+    # match training behavior (NO heavy smoothing)
+    T = (mask_gray > int(np.clip(thr * 255, 0, 255))).astype(np.uint8)
 
-def load_tray_masks(tray_dir: Path, out_h: int, out_w: int, thr=0.5, invert=False, close_px=2, dilate_px=3):
+    if invert:
+        T = 1 - T
+
+    # keep only largest component (same as dataset)
+    T = largest_cc(T)
+
+    # light cleanup ONLY (controlled by args)
+    T = morph_close(T, close_px)
+
+    # optional dilation (usually 0 in your training)
+    T = dilate_bin(T, dilate_px)
+
+    return T.astype(bool)
+
+def load_tray_masks(tray_dir: Path, out_h: int, out_w: int, thr=0.5, invert=False, close_px=2, dilate_px=0):
     paths = sorted(tray_dir.glob("*.png"))
     if not paths:
         raise SystemExit(f"No tray mask PNGs in {tray_dir}")
@@ -150,32 +174,9 @@ def load_tray_masks(tray_dir: Path, out_h: int, out_w: int, thr=0.5, invert=Fals
 
 def build_tray_condition_from_mask(mask_bool: np.ndarray) -> np.ndarray:
     h, w = mask_bool.shape
-    mask = mask_bool.astype(np.float32)
-
-    ch0 = mask
-    edge = cv2.Canny((mask * 255).astype(np.uint8), 100, 200) / 255.0
-
-    dist = cv2.distanceTransform((mask > 0).astype(np.uint8), cv2.DIST_L2, 5)
-    if dist.max() > 0:
-        dist = dist / dist.max()
-
-    yy, xx = np.meshgrid(
-        np.linspace(-1, 1, h),
-        np.linspace(-1, 1, w),
-        indexing="ij"
-    )
-
-    A = np.stack([
-        ch0,
-        edge.astype(np.float32),
-        dist.astype(np.float32),
-        xx.astype(np.float32),
-        yy.astype(np.float32),
-    ], axis=2)
-
-    A_img = (A * 255).astype(np.uint8)
-    A_vis = A_img[:, :, :3]
-    return A_vis
+    out = np.zeros((h, w, 3), dtype=np.uint8)
+    out[mask_bool] = PALETTE_BGR[2]   
+    return out
 
 
 # =============================================================================
@@ -392,8 +393,8 @@ def build_scene(rng, tray_masks, cutouts,
                 y_soft_search_step=Y_SOFT_SEARCH_STEP,
                 x_search_step=X_SEARCH_STEP,
                 max_transform_candidates=MAX_TRANSFORM_CANDIDATES,
-                preserve_original_y_x_only=True,
-                ignore_tray=True,
+                preserve_original_y_x_only=False,
+                ignore_tray=False,
                 canvas_h=1024,
                 canvas_w=1024):
     if ignore_tray:
@@ -410,6 +411,9 @@ def build_scene(rng, tray_masks, cutouts,
     canvas_mask = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
     canvas_app = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
     occ = np.zeros((canvas_h, canvas_w), dtype=bool)
+
+    if not ignore_tray:
+        canvas_mask[tray] = PALETTE_BGR[2]   # draw tray first as blue
 
     n_obj = rng.randint(n_min, n_max + 1) if n_min != n_max else n_min
     items = cutouts[:n_obj] if n_obj <= len(cutouts) else [rng.choice(cutouts) for _ in range(n_obj)]
@@ -448,10 +452,33 @@ def build_scene(rng, tray_masks, cutouts,
                     step=y_soft_search_step,
                     rng=rng,
                 )
+
                 for dy in y_fallback_offsets:
                     yy = max(0, min(canvas_h - h, y_base + dy))
                     if yy not in y_candidates:
                         y_candidates.append(yy)
+
+                # extra fallback: if original y is near image edge, also search around tray center
+                if not ignore_tray:
+                    ys_t, xs_t = np.where(tray)
+                    if len(xs_t) > 0 and len(ys_t) > 0:
+                        tray_y0 = int(ys_t.min())
+                        tray_y1 = int(ys_t.max())
+                        tray_center_y = (tray_y0 + tray_y1) // 2
+                        tray_fit_y = max(0, min(canvas_h - h, tray_center_y - h // 2))
+
+                        extra_y = build_soft_y_candidates(
+                            canvas_h=canvas_h,
+                            obj_h=h,
+                            y_base=tray_fit_y,
+                            radius=max(80, y_soft_search_radius),
+                            step=max(4, y_soft_search_step),
+                            rng=rng,
+                        )
+
+                        for yy in extra_y:
+                            if yy not in y_candidates:
+                                y_candidates.append(yy)
             else:
                 row_step = max(4, x_search_step)
                 y_candidates = list(range(0, canvas_h - h + 1, row_step))
@@ -519,11 +546,12 @@ def build_scene(rng, tray_masks, cutouts,
     if require_all and placed_count < len(items):
         raise RuntimeError(
             f"Only placed {placed_count}/{len(items)} items. "
-            f"Try increasing --canvas_w, --max_horizontal_shift, reducing rotation, or allowing overlap."
+            f"Try increasing --canvas_w, --max_horizontal_shift, reducing rotation, "
+            f"allowing overlap, disabling preserve_original_y_x_only, or using --ignore_tray."
         )
 
     pseudo_B_bgr = cv2.cvtColor(canvas_app, cv2.COLOR_GRAY2BGR)
-    return canvas_mask, canvas_app, pseudo_B_bgr, placed_count
+    return canvas_mask, canvas_app, pseudo_B_bgr, placed_count, tray
 
 
 # =============================================================================
@@ -537,9 +565,13 @@ def clean_test_dir(test_dir: Path):
 
 
 def cleanup_intermediate_outputs(out_root: Path, results_root: Path, keep_preview=False):
-    for path in [out_root / "test", results_root / "images"]:
-        if path.exists():
-            shutil.rmtree(path, ignore_errors=True)
+    test_dir = out_root / "test"
+    if test_dir.exists():
+        shutil.rmtree(test_dir, ignore_errors=True)
+
+    images_dir = results_root / "images"
+    if images_dir.exists():
+        shutil.rmtree(images_dir, ignore_errors=True)
 
     for html_dir in [results_root, results_root.parent]:
         if html_dir.exists():
@@ -570,16 +602,14 @@ def write_single_test_image(
             f"Got mask={canvas_mask.shape[:2]} pseudo_B={pseudo_B_bgr.shape[:2]}"
         )
 
-    # Correct pix2pix format: A | B
     ab = np.concatenate([canvas_mask, pseudo_B_bgr], axis=1)
-
     out_path = test_dir / f"{stem}.png"
     cv2.imwrite(str(out_path), ab)
 
     if tray_mask_bool is not None:
         T_path = test_dir / f"{stem}_T.png"
         cv2.imwrite(str(T_path), (tray_mask_bool.astype(np.uint8) * 255))
-        print(f"[T] wrote tray mask: {T_path.name}")
+        print(f"[T] wrote tray mask preview: {T_path.name}")
 
     print(f"[single] wrote test image: {out_path.name}")
     return stem
@@ -623,9 +653,11 @@ def run_pix2pix_test(
     epoch="latest",
     use_display_mapper=True,
     num_test=None,
-    tray_mask_dir=""
+    tray_mask_dir="",
+    use_tray_mask=True,
 ):
     cfg = TRAIN_CFG
+
     cmd = [
         "python", str(PIX2PIX_DIR / "test.py"),
         f"--dataroot={temp_dataset_dir}",
@@ -643,24 +675,27 @@ def run_pix2pix_test(
         "--no_flip",
         f"--epoch={epoch}",
         "--eval",
-        "--class_nc=1",
+        "--class_nc=2",
         "--thickness_nc=1",
         "--use_thickness_channel",
         "--use_edge_channel",
         "--use_coord_channels",
         "--return_instance_masks",
         "--mask_thr=0.05",
+        f"--canvas_h={cfg['canvas_h']}",
+        f"--canvas_w={cfg['canvas_w']}",
+        "--pad_to_canvas",
     ]
 
-    # IMPORTANT: enable appearance channel because checkpoint expects 6 channels
-    if cfg.get("use_appearance_channel", False):
-        cmd += ["--appearance_nc=1", "--use_appearance_channel"]
-
-    if tray_mask_dir:
+    if use_tray_mask:
         cmd += [
             "--use_tray_mask",
-            f"--tray_mask_dir={tray_mask_dir}",
+            f"--tray_mask_thr={cfg['tray_mask_thr']}",
+            f"--tray_cc_close_px={cfg['tray_cc_close_px']}",
+            f"--tray_mask_dilate_px={cfg['tray_mask_dilate_px']}",
         ]
+        if tray_mask_dir:
+            cmd.append(f"--tray_mask_dir={tray_mask_dir}")
 
     if num_test is not None:
         cmd.append(f"--num_test={num_test}")
@@ -670,9 +705,18 @@ def run_pix2pix_test(
 
     print("Running:", " ".join(cmd))
     subprocess.check_call(cmd)
-    results_dir = Path("results") / MODEL_NAME / f"test_{epoch}"
-    print(f"\nResults: {results_dir.resolve()}")
-    return results_dir
+    return Path("results") / MODEL_NAME / f"test_{epoch}"
+
+    if num_test is not None:
+        cmd.append(f"--num_test={num_test}")
+
+    if not use_display_mapper:
+        cmd.append("--no_use_display_mapper")
+
+    print("Running:", " ".join(cmd))
+    subprocess.check_call(cmd)
+    return Path("results") / MODEL_NAME / f"test_{epoch}"
+
 
 # =============================================================================
 # Helpers for tray-only generation
@@ -692,7 +736,7 @@ def build_tray_scene_from_mask(mask_path: Path,
                                thr=0.5,
                                invert=False,
                                close_px=2,
-                               dilate_px=3):
+                               dilate_px=0):
     m = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
     if m is None:
         raise SystemExit(f"Could not read tray mask: {mask_path}")
@@ -702,8 +746,8 @@ def build_tray_scene_from_mask(mask_path: Path,
 
     tray_bool = preprocess_tray_mask(m, thr=thr, invert=invert, close_px=close_px, dilate_px=dilate_px)
     canvas_mask = build_tray_condition_from_mask(tray_bool)
-    pseudo_B_bgr = np.full((out_h, out_w, 3), 255, dtype=np.uint8)
-    return canvas_mask, pseudo_B_bgr
+    pseudo_B_bgr = np.zeros((out_h, out_w, 3), dtype=np.uint8)
+    return canvas_mask, pseudo_B_bgr, tray_bool
 
 
 # =============================================================================
@@ -714,9 +758,7 @@ def main():
     global CANVAS_H, CANVAS_W
 
     ap = argparse.ArgumentParser()
-
-    # FIX 1: this argument must exist in the real file being executed
-    ap.add_argument("--generate_mode", type=str, default="shampoo", choices=["shampoo", "tray"])
+    ap.add_argument("--generate_mode", choices=["shampoo", "tray"], required=True)
 
     ap.add_argument("--images_dir", type=str, default="")
     ap.add_argument("--coco_json", type=str, default="")
@@ -727,29 +769,27 @@ def main():
     ap.add_argument("--out_dataset", type=str, default="datasets/_gen_real")
     ap.add_argument("--epoch", type=str, default="latest")
     ap.add_argument("--mode", type=str, default="random_mask", choices=["random_mask"])
+    ap.add_argument("--canvas_h", type=int, default=1024)
+    ap.add_argument("--canvas_w", type=int, default=1024)
 
-    ap.add_argument("--canvas_h", type=int, default=CANVAS_H)
-    ap.add_argument("--canvas_w", type=int, default=CANVAS_W)
-
-    ap.add_argument("--rand_scale_min", type=float, default=RAND_SCALE_MIN)
-    ap.add_argument("--rand_scale_max", type=float, default=RAND_SCALE_MAX)
-    ap.add_argument("--rand_rot_min", type=float, default=RAND_ROT_MIN)
-    ap.add_argument("--rand_rot_max", type=float, default=RAND_ROT_MAX)
-    ap.add_argument("--rand_max_tries_per_obj", type=int, default=RAND_MAX_TRIES_PER_OBJ)
-    ap.add_argument("--x_search_step", type=int, default=X_SEARCH_STEP)
-    ap.add_argument("--max_transform_candidates", type=int, default=MAX_TRANSFORM_CANDIDATES)
+    ap.add_argument("--rand_scale_min", type=float, default=0.85)
+    ap.add_argument("--rand_scale_max", type=float, default=0.85)
+    ap.add_argument("--rand_rot_min", type=float, default=0.0)
+    ap.add_argument("--rand_rot_max", type=float, default=40.0)
+    ap.add_argument("--rand_max_tries_per_obj", type=int, default=30)
     ap.add_argument("--no_overlap", action="store_true")
     ap.add_argument("--horizontal_shift_only", action="store_true")
     ap.add_argument("--max_horizontal_shift", type=int, default=200)
-    ap.add_argument("--y_soft_search_radius", type=int, default=Y_SOFT_SEARCH_RADIUS)
-    ap.add_argument("--y_soft_search_step", type=int, default=Y_SOFT_SEARCH_STEP)
-
-    ap.add_argument("--tray_mask_dir", type=str, default=str(TRAY_MASK_DIR))
+    ap.add_argument("--x_search_step", type=int, default=12)
+    ap.add_argument("--max_transform_candidates", type=int, default=8)
+    ap.add_argument("--y_soft_search_radius", type=int, default=0)
+    ap.add_argument("--y_soft_search_step", type=int, default=1)
     ap.add_argument("--tray_mask_path", type=str, default="")
-    ap.add_argument("--tray_mask_thr", type=float, default=0.5)
+    ap.add_argument("--tray_mask_thr", type=float, default=0.0)
     ap.add_argument("--tray_mask_invert", action="store_true")
     ap.add_argument("--tray_cc_close_px", type=int, default=2)
     ap.add_argument("--tray_mask_dilate_px", type=int, default=0)
+    ap.add_argument("--tray_mask_dir", type=str, default="")
 
     ap.add_argument("--disable_test_appearance", action="store_true")
     ap.add_argument("--no_use_display_mapper", action="store_false", dest="use_display_mapper")
@@ -766,22 +806,8 @@ def main():
 
     args = ap.parse_args()
 
-    args.preserve_original_y_x_only = True
-
-    if args.generate_mode == "shampoo":
-        args.ignore_tray = True
-        CANVAS_H = int(args.canvas_h)
-        CANVAS_W = int(args.canvas_w)
-    else:
-        CANVAS_H = TRAY_CANVAS_H
-        CANVAS_W = TRAY_CANVAS_W
-
-    if args.generate_mode == "shampoo":
-        if CANVAS_H != SIZE or CANVAS_W != SIZE:
-            raise SystemExit(
-                f"Shampoo mode requires --canvas_h {SIZE} --canvas_w {SIZE}. "
-                f"Got --canvas_h {CANVAS_H} --canvas_w {CANVAS_W}."
-            )
+    CANVAS_H = int(args.canvas_h)
+    CANVAS_W = int(args.canvas_w)
 
     rng = random.Random(args.seed)
     out_root = Path(args.out_dataset)
@@ -791,12 +817,12 @@ def main():
         if not args.images_dir or not args.coco_json:
             raise SystemExit("--images_dir and --coco_json are required for --generate_mode shampoo")
 
-        images_dir = Path(args.images_dir)
-        coco = json.loads(Path(args.coco_json).read_text())
-        want_classes = [c.strip() for c in args.classes.split(",") if c.strip()] or None
+        if (not args.ignore_tray) and (not args.tray_mask_dir):
+            raise SystemExit("--tray_mask_dir is required for shampoo mode unless --ignore_tray is used")
 
-        tray_masks = []
-        if not args.ignore_tray:
+        if args.ignore_tray:
+            tray_masks = [np.ones((CANVAS_H, CANVAS_W), dtype=bool)]
+        else:
             tray_masks, _ = load_tray_masks(
                 Path(args.tray_mask_dir),
                 out_h=CANVAS_H,
@@ -806,6 +832,10 @@ def main():
                 close_px=args.tray_cc_close_px,
                 dilate_px=args.tray_mask_dilate_px,
             )
+
+        images_dir = Path(args.images_dir)
+        coco = json.loads(Path(args.coco_json).read_text())
+        want_classes = [c.strip() for c in args.classes.split(",") if c.strip()] or None
 
         allow_overlap = not args.no_overlap
         counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
@@ -834,7 +864,7 @@ def main():
                 f"orig_w={s['orig_w']} orig_h={s['orig_h']} src_W={s['src_W']} src_H={s['src_H']}"
             )
 
-        canvas_mask, canvas_app, pseudo_B_bgr, placed_count = build_scene(
+        canvas_mask, canvas_app, pseudo_B_bgr, placed_count, used_tray = build_scene(
             rng=rng,
             tray_masks=tray_masks,
             cutouts=selected,
@@ -846,7 +876,7 @@ def main():
             scale_max=args.rand_scale_max,
             rot_min=args.rand_rot_min,
             rot_max=args.rand_rot_max,
-            use_real_appearance=False,
+            use_real_appearance=True,
             horizontal_shift_only=args.horizontal_shift_only,
             max_horizontal_shift=args.max_horizontal_shift,
             require_all=True,
@@ -860,43 +890,37 @@ def main():
             canvas_w=CANVAS_W,
         )
 
+        tray_mask_bool = None if args.ignore_tray else used_tray
         print(f"[summary] shampoo mode | requested {len(selected)} items, placed {placed_count}")
-        
 
     else:
         if args.tray_mask_path:
             tray_mask_path = Path(args.tray_mask_path)
         else:
+            if not args.tray_mask_dir:
+                raise SystemExit("Provide either --tray_mask_path or --tray_mask_dir for tray mode.")
             tray_mask_path = choose_tray_mask_path(Path(args.tray_mask_dir), args.seed)
 
         print(f"[tray] using mask: {tray_mask_path}")
-        canvas_mask, pseudo_B_bgr = build_tray_scene_from_mask(
+        canvas_mask, pseudo_B_bgr, tray_mask_bool = build_tray_scene_from_mask(
             tray_mask_path,
-            out_w=TRAY_CANVAS_W,
-            out_h=TRAY_CANVAS_H,
-            thr=args.tray_mask_thr,
-            invert=args.tray_mask_invert,
-            close_px=args.tray_cc_close_px,
-            dilate_px=args.tray_mask_dilate_px,
-        )
-        tray_mask_img = cv2.imread(str(tray_mask_path), cv2.IMREAD_GRAYSCALE)
-        tray_mask_bool = preprocess_tray_mask(
-            tray_mask_img,
+            out_w=CANVAS_W,
+            out_h=CANVAS_H,
             thr=args.tray_mask_thr,
             invert=args.tray_mask_invert,
             close_px=args.tray_cc_close_px,
             dilate_px=args.tray_mask_dilate_px,
         )
         print("[summary] tray mode | generated tray conditioning image from mask")
-        
+
     if args.keep_preview or args.keep_intermediates:
         preview_dir = out_root / "preview"
         preview_dir.mkdir(parents=True, exist_ok=True)
-        # Save only first 3 channels for visualization (safe for OpenCV)
         mask_vis = canvas_mask[:, :, :3]
-
         cv2.imwrite(str(preview_dir / f"mask_seed{args.seed}.png"), mask_vis)
         cv2.imwrite(str(preview_dir / f"pseudo_B_seed{args.seed}.png"), pseudo_B_bgr)
+        if tray_mask_bool is not None:
+            cv2.imwrite(str(preview_dir / f"tray_seed{args.seed}.png"), (tray_mask_bool.astype(np.uint8) * 255))
 
     test_dir = out_root / "test"
     stem = write_single_test_image(
@@ -904,7 +928,6 @@ def main():
         canvas_mask,
         pseudo_B_bgr,
         tray_mask_bool=tray_mask_bool,
-        stem="scene_0000"
     )
 
     if args.skip_pix2pix:
@@ -917,7 +940,8 @@ def main():
             epoch=args.epoch,
             use_display_mapper=args.use_display_mapper,
             num_test=1,
-            tray_mask_dir=""
+            tray_mask_dir=str(test_dir) if (tray_mask_bool is not None) else "",
+            use_tray_mask=(tray_mask_bool is not None),
         )
 
         if args.keep_intermediates:
@@ -1174,7 +1198,7 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --rand_rot_max 45 \
   --test_appearance_mode zero --disable_test_appearance
 
-python notebooks/Pix2Pix/generate_pix2pix.py \
+python notebooks/Pix2Pix/generate_pix2pixV2.py \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
   --mode random_mask \
@@ -1185,15 +1209,15 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --epoch latest \
   --canvas_h 1024 \
   --canvas_w 1024 \
-  --rand_scale_min 1.0 \
-  --rand_scale_max 1.0 \
+  --rand_scale_min 8.5 \
+  --rand_scale_max 8.5 \
   --rand_rot_min 0.0 \
   --rand_rot_max 2.0 \
   --rand_max_tries_per_obj 60 \
   --x_search_step 12 \
   --max_transform_candidates 8 \
   --horizontal_shift_only \
-  --max_horizontal_shift 900 \
+  --max_horizontal_shift 120 \
   --no_overlap
 
   
@@ -1221,6 +1245,7 @@ python notebooks/Pix2Pix/generate_pix2pix.py \
   --max_horizontal_shift 900 \
   --no_overlap
 
+  
 
 GENERATE SHAMPOO
 python notebooks/Pix2Pix/generate_pix2pixV2.py \
@@ -1228,37 +1253,68 @@ python notebooks/Pix2Pix/generate_pix2pixV2.py \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
   --classes Shampoo \
-  --count 3 \
-  --seed 777 \
+  --count 4 \
+  --seed 152 \
   --out_dataset datasets/_gen_shampoo_only \
   --epoch latest \
   --canvas_h 1024 \
   --canvas_w 1024 \
-  --tray_mask_dir data/interim/Empty/masks \
-  --rand_scale_min 1.0 \
-  --rand_scale_max 1.0 \
-  --rand_rot_min 0.0 \
-  --rand_rot_max 2.0 \
-  --rand_max_tries_per_obj 60 \
+  --rand_scale_min 0.85 \
+  --rand_scale_max 0.85 \
+  --rand_rot_min 0 \
+  --rand_rot_max 40 \
+  --rand_max_tries_per_obj 30 \
+  --horizontal_shift_only \
+  --max_horizontal_shift 150 \
   --x_search_step 12 \
   --max_transform_candidates 8 \
+  --no_overlap \
+  --ignore_tray \
+  --keep_intermediates
+
+
+GENERATE SHAMPOO & TRAY
+python notebooks/Pix2Pix/generate_pix2pixV2.py \
+  --generate_mode shampoo \
+  --images_dir data/raw/Shampoo \
+  --coco_json data/raw/Shampoo/result.json \
+  --classes Shampoo \
+  --count 3 \
+  --seed 88 \
+  --out_dataset datasets/_gen_stage10_shampoo_tray \
+  --epoch latest \
+  --canvas_h 1152 \
+  --canvas_w 1584 \
+  --tray_mask_dir data/interim/Empty/masks \
+  --tray_mask_thr 0 \
+  --tray_cc_close_px 2 \
+  --tray_mask_dilate_px 0 \
+  --rand_scale_min 0.85 \
+  --rand_scale_max 0.85 \
+  --rand_rot_min 0 \
+  --rand_rot_max 40 \
+  --rand_max_tries_per_obj 30 \
   --horizontal_shift_only \
-  --max_horizontal_shift 900 \
-  --no_overlap
+  --max_horizontal_shift 150 \
+  --x_search_step 12 \
+  --max_transform_candidates 8 \
+  --no_overlap \
+  --keep_intermediates
 
   
 EMPTY TRAY:
 python notebooks/Pix2Pix/generate_pix2pixV2.py \
   --generate_mode tray \
   --tray_mask_dir data/interim/Empty/masks \
-  --tray_mask_dilate_px 0 \
+  --tray_mask_thr 0 \
   --tray_cc_close_px 2 \
-  --tray_mask_thr 0.5 \
-  --seed 777 \
-  --out_dataset datasets/_gen_tray_only \
+  --tray_mask_dilate_px 0 \
+  --seed 15 \
+  --out_dataset datasets/_gen_stage10_tray_only \
   --epoch latest \
+  --canvas_h 1152 \
+  --canvas_w 1584 \
   --keep_intermediates
-
 
   To print out classes that you have:
   python - <<'PY'
