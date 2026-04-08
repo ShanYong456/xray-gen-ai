@@ -10,16 +10,16 @@
                     beta1: 0.5                           
 build_appearance_prototypes: False                         
               canvas_fill: 0                             
-                 canvas_h: 1152                          	[default: 1536]
-                 canvas_w: 1584                          	[default: 1024]
+                 canvas_h: 1024                          	[default: 1536]
+                 canvas_w: 1024                          
           checkpoints_dir: ./checkpoints                 
-                 class_nc: 1                             
+                 class_nc: 2                             	[default: 1]
            continue_train: True                          	[default: False]
                 crop_size: 0                             	[default: 256]
                cutout_dir: data/raw/Shampoo_nobackground/Cropped_Library	[default: ]
            d_label_smooth: 0.1                           
-           d_update_ratio: 1                             
-                 dataroot: datasets/Shampoo_EmptyTray_Iso	[default: None]
+           d_update_ratio: 2                             	[default: 1]
+                 dataroot: datasets/SHAMPOOWITHTRAY      	[default: None]
              dataset_mode: aligned                       
                 direction: AtoB                          
   disable_test_appearance: False                         
@@ -33,9 +33,9 @@ build_appearance_prototypes: False
                  gan_mode: lsgan                         
                 init_gain: 0.02                          
                 init_type: normal                        
-                 input_nc: 5                             	[default: 3]
+                 input_nc: 6                             	[default: 3]
                   isTrain: True                          	[default: None]
-                lambda_L1: 30.0                          
+                lambda_L1: 45.0                          	[default: 30.0]
                 lambda_bg: 0.0                           	[default: 1.5]
                 lambda_gp: 0.0                           
               lambda_grad: 10.0                          
@@ -44,7 +44,7 @@ build_appearance_prototypes: False
              lambda_stats: 3.0                           
                 load_iter: 0                             	[default: 0]
                 load_size: 0                             	[default: 286]
-                       lr: 3e-06                         	[default: 0.0002]
+                       lr: 5e-06                         	[default: 0.0002]
                      lr_D: None                          
                      lr_G: None                          
            lr_decay_iters: 50                            
@@ -58,10 +58,10 @@ build_appearance_prototypes: False
 max_appearance_prototypes: 200                           
          max_dataset_size: inf                           
                     model: pix2pix                       	[default: cycle_gan]
-                 n_epochs: 20                            	[default: 100]
-           n_epochs_decay: 20                            	[default: 100]
+                 n_epochs: 100                           
+           n_epochs_decay: 100                           
                n_layers_D: 4                             	[default: 3]
-                     name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage11_TrayConsolidate	[default: experiment_name]
+                     name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage13TEST	[default: experiment_name]
                       ndf: 64                            
                      netD: n_layers                      	[default: basic]
                      netG: unet_256                      
@@ -88,27 +88,27 @@ shampoo_max_horizontal_shift: 0
 shampoo_max_vertical_shift: 0                             
                    suffix:                               
            syn_gan_weight: 0.3                           
-       synthetic_erode_px: 6                             
+       synthetic_erode_px: 2                             	[default: 6]
 synthetic_fallback_shrink: 0.85                          
-   synthetic_item_retries: 12                            
-      synthetic_max_items: 4                             	[default: 3]
+   synthetic_item_retries: 6                             	[default: 12]
+      synthetic_max_items: 1                             	[default: 3]
       synthetic_min_items: 1                             
            synthetic_mode: random_mask                   
      synthetic_no_overlap: True                          	[default: False]
-    synthetic_place_tries: 120                           
+    synthetic_place_tries: 30                            	[default: 120]
            synthetic_prob: 0.5                           	[default: 0.0]
-        synthetic_rot_max: 0.0                           	[default: 360.0]
+        synthetic_rot_max: 360.0                         
         synthetic_rot_min: 0.0                           
 synthetic_same_class_prob: 0.0                           
-      synthetic_scale_max: 1.0                           	[default: 1.4]
-      synthetic_scale_min: 1.0                           	[default: 0.6]
+      synthetic_scale_max: 0.85                          	[default: 1.4]
+      synthetic_scale_min: 0.85                          	[default: 0.6]
 synthetic_sort_large_first: False                         
              thickness_nc: 1                             
          tray_bbox_margin: 2                             
          tray_cc_close_px: 2                             
       tray_mask_autoshift: False                         
       tray_mask_dilate_px: 0                             
-            tray_mask_dir: datasets/Shampoo_EmptyTray_Iso/tray_masks/train	[default: ]
+            tray_mask_dir: datasets/SHAMPOOWITHTRAY/matched_masks/train/tray	[default: ]
          tray_mask_invert: False                         
            tray_mask_path:                               
             tray_mask_thr: 0.5                           

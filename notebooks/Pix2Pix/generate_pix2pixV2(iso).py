@@ -9,43 +9,58 @@ import cv2
 import numpy as np
 from PIL import Image
 
+try:
+    from halo_remover import remove_halo_with_mask
+    HAS_HALO_REMOVER = True
+except ImportError:
+    HAS_HALO_REMOVER = False
+
 
 # =============================================================================
-# CONFIG — must match training options exactly
+# CONFIG — must match your training options exactly
 # =============================================================================
 
 SIZE_H = 1024
 SIZE_W = 1024
 
-# Stored with cv2.imwrite => BGR
 PALETTE_BGR = {
     0: (0, 0, 0),
-    1: (0, 255, 0),    # shampoo -> RGB green
-    2: (255, 0, 0),    # tray    -> RGB blue
+    1: (0, 255, 0),   # shampoo
+    2: (255, 0, 0),   # tray
 }
-OVERLAP_BGR = (255, 255, 0)  # cyan in RGB after cv2 write
 
-MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage13TEST"
+
+
+CANVAS_H = SIZE_H
+CANVAS_W = SIZE_W
+
+MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage10_SynTray_1024"
 PIX2PIX_DIR = Path("external/pix2pix")
+
+RAND_MAX_TRIES_PER_OBJ = 30
+RAND_SCALE_MIN, RAND_SCALE_MAX = 0.85, 0.85
+RAND_ROT_MIN, RAND_ROT_MAX = 0.0, 40.0
+
+X_SEARCH_STEP = 12
+MAX_TRANSFORM_CANDIDATES = 8
+Y_SOFT_SEARCH_RADIUS = 0
+Y_SOFT_SEARCH_STEP = 1
+Y_FALLBACK_OFFSETS = [0]
 
 TRAIN_CFG = dict(
     input_nc=6,
     norm="instance",
-    use_appearance_channel=False,
+    use_appearance_channel=True,
     use_tray_mask=True,
     class_nc=2,
     thickness_nc=1,
     canvas_h=1024,
     canvas_w=1024,
     pad_to_canvas=True,
-    tray_mask_thr=0.5,
+    tray_mask_thr=0.0,
     tray_cc_close_px=2,
     tray_mask_dilate_px=0,
 )
-
-# Search params
-X_SEARCH_STEP = 12
-MAX_TRANSFORM_CANDIDATES = 8
 
 
 # =============================================================================
@@ -82,7 +97,7 @@ def tight_crop(mask_bin):
 
 
 # =============================================================================
-# Tray helpers
+# Tray mask helpers
 # =============================================================================
 
 def largest_cc(m01):
@@ -96,47 +111,9 @@ def largest_cc(m01):
 
 def morph_close(m01, px):
     if px <= 0:
-        return m.astype(np.uint8) if (m := m01) is not None else m01
+        return m01.astype(np.uint8)
     k = np.ones((2 * px + 1, 2 * px + 1), np.uint8)
     return cv2.morphologyEx(m01.astype(np.uint8), cv2.MORPH_CLOSE, k)
-
-
-def compute_fit_to_canvas(src_w: int, src_h: int, target_w: int, target_h: int):
-    scale = min(target_w / src_w, target_h / src_h)
-    new_w = max(1, int(round(src_w * scale)))
-    new_h = max(1, int(round(src_h * scale)))
-    x_off = (target_w - new_w) // 2
-    y_off = (target_h - new_h) // 2
-    return scale, new_w, new_h, x_off, y_off
-
-
-def map_bbox_to_canvas(x0, y0, x1, y1, src_w, src_h, target_w, target_h):
-    scale, _, _, x_off, y_off = compute_fit_to_canvas(src_w, src_h, target_w, target_h)
-
-    nx0 = int(round(x0 * scale)) + x_off
-    ny0 = int(round(y0 * scale)) + y_off
-    nx1 = int(round(x1 * scale)) + x_off
-    ny1 = int(round(y1 * scale)) + y_off
-
-    return nx0, ny0, nx1, ny1, scale, x_off, y_off
-
-def resize_and_pad_mask(mask, target_h, target_w):
-    h, w = mask.shape[:2]
-
-    scale = min(target_w / w, target_h / h)
-    new_w = int(w * scale)
-    new_h = int(h * scale)
-
-    resized = cv2.resize(mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
-
-    canvas = np.zeros((target_h, target_w), dtype=resized.dtype)
-
-    y_offset = (target_h - new_h) // 2
-    x_offset = (target_w - new_w) // 2
-
-    canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized
-
-    return canvas
 
 
 def dilate_bin(m01, px):
@@ -145,16 +122,35 @@ def dilate_bin(m01, px):
     k = np.ones((2 * px + 1, 2 * px + 1), np.uint8)
     return cv2.dilate(m01.astype(np.uint8), k, iterations=1)
 
-
+"""
 def preprocess_tray_mask(mask_gray, thr=0.5, invert=False, close_px=2, dilate_px=0):
     T = (mask_gray > int(np.clip(thr * 255, 0, 255))).astype(np.uint8)
+    T = cv2.morphologyEx(T, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
+    T = cv2.dilate(T, np.ones((7, 7), np.uint8), iterations=1)
     if invert:
         T = 1 - T
     T = largest_cc(T)
     T = morph_close(T, close_px)
-    T = dilate_bin(T, dilate_px)
-    return T.astype(bool)
+    return dilate_bin(T, dilate_px).astype(bool)
+"""
 
+def preprocess_tray_mask(mask_gray, thr=0.5, invert=False, close_px=2, dilate_px=0):
+    # match training behavior (NO heavy smoothing)
+    T = (mask_gray > int(np.clip(thr * 255, 0, 255))).astype(np.uint8)
+
+    if invert:
+        T = 1 - T
+
+    # keep only largest component (same as dataset)
+    T = largest_cc(T)
+
+    # light cleanup ONLY (controlled by args)
+    T = morph_close(T, close_px)
+
+    # optional dilation (usually 0 in your training)
+    T = dilate_bin(T, dilate_px)
+
+    return T.astype(bool)
 
 def load_tray_masks(tray_dir: Path, out_h: int, out_w: int, thr=0.5, invert=False, close_px=2, dilate_px=0):
     paths = sorted(tray_dir.glob("*.png"))
@@ -167,7 +163,7 @@ def load_tray_masks(tray_dir: Path, out_h: int, out_w: int, thr=0.5, invert=Fals
         if m is None:
             continue
         if m.shape != (out_h, out_w):
-            m = resize_and_pad_mask(m, out_h, out_w)
+            m = cv2.resize(m, (out_w, out_h), interpolation=cv2.INTER_NEAREST)
         masks.append(preprocess_tray_mask(m, thr, invert, close_px, dilate_px))
         valid_paths.append(p)
     if not masks:
@@ -179,7 +175,7 @@ def load_tray_masks(tray_dir: Path, out_h: int, out_w: int, thr=0.5, invert=Fals
 def build_tray_condition_from_mask(mask_bool: np.ndarray) -> np.ndarray:
     h, w = mask_bool.shape
     out = np.zeros((h, w, 3), dtype=np.uint8)
-    out[mask_bool] = PALETTE_BGR[2]
+    out[mask_bool] = PALETTE_BGR[2]   
     return out
 
 
@@ -187,22 +183,14 @@ def build_tray_condition_from_mask(mask_bool: np.ndarray) -> np.ndarray:
 # Cutout library
 # =============================================================================
 
-def normalize_xray_intensity(img_np):
-    img = img_np.astype(np.float32)
-    p1, p99 = np.percentile(img, (1, 99))
-    img = np.clip(img, p1, p99)
-    img = (img - p1) / (p99 - p1 + 1e-6)
-    return (img * 255).astype(np.uint8)
-
-
 def build_real_cutout_library(coco, images_dir: Path):
     images_by_id = {im["id"]: im for im in coco.get("images", [])}
     cats = coco.get("categories", [])
     cats_by_id = {c["id"]: c for c in cats}
     sorted_cats = sorted(cats, key=lambda c: c["id"])
     cat_to_train = {c["id"]: i + 1 for i, c in enumerate(sorted_cats)}
-
     ann_by_img = {}
+
     for ann in coco.get("annotations", []):
         seg = ann.get("segmentation")
         if not seg or isinstance(seg, dict):
@@ -241,24 +229,18 @@ def build_real_cutout_library(coco, images_dir: Path):
             mask_crop = inst[y0:y1 + 1, x0:x1 + 1]
             gray_crop = img_gray[y0:y1 + 1, x0:x1 + 1].copy()
             gray_crop[mask_crop == 0] = 0
-            gray_crop = normalize_xray_intensity(gray_crop)
 
             cat_id = ann.get("category_id")
             train_id = int(cat_to_train.get(cat_id, 1))
+            color_bgr = np.array(PALETTE_BGR.get(train_id, (255, 255, 255)), dtype=np.uint8)
+
+            mask_bgr = np.zeros((*mask_crop.shape, 3), dtype=np.uint8)
+            mask_bgr[mask_crop > 0] = color_bgr
 
             orig_w = int(x1 - x0 + 1)
             orig_h = int(y1 - y0 + 1)
             orig_cx = 0.5 * (x0 + x1)
             orig_cy = 0.5 * (y0 + y1)
-
-            fit_x0, fit_y0, fit_x1, fit_y1, fit_scale, fit_x_off, fit_y_off = map_bbox_to_canvas(
-                x0, y0, x1, y1, W, H, SIZE_W, SIZE_H
-            )
-
-            fit_w = int(fit_x1 - fit_x0 + 1)
-            fit_h = int(fit_y1 - fit_y0 + 1)
-            fit_cx = 0.5 * (fit_x0 + fit_x1)
-            fit_cy = 0.5 * (fit_y0 + fit_y1)
 
             lib.append({
                 "train_id": train_id,
@@ -266,6 +248,7 @@ def build_real_cutout_library(coco, images_dir: Path):
                 "image_id": img_id,
                 "file_name": Path(im.get("file_name", "")).name,
                 "mask_bin": mask_crop,
+                "mask_bgr": mask_bgr,
                 "gray": gray_crop,
                 "orig_x0": int(x0),
                 "orig_y0": int(y0),
@@ -277,42 +260,27 @@ def build_real_cutout_library(coco, images_dir: Path):
                 "orig_cy": float(orig_cy),
                 "src_W": int(W),
                 "src_H": int(H),
-                "fit_scale": float(fit_scale),
-                "fit_x_off": int(fit_x_off),
-                "fit_y_off": int(fit_y_off),
-                "fit_x0": int(fit_x0),
-                "fit_y0": int(fit_y0),
-                "fit_x1": int(fit_x1),
-                "fit_y1": int(fit_y1),
-                "fit_w": int(fit_w),
-                "fit_h": int(fit_h),
-                "fit_cx": float(fit_cx),
-                "fit_cy": float(fit_cy),
             })
 
     if not lib:
         raise SystemExit("No valid cutouts from COCO + images_dir")
 
-    # Only shampoo is useful here
-    lib = [x for x in lib if int(x["train_id"]) == 1]
-    if not lib:
-        raise SystemExit("No shampoo cutouts found in COCO/images_dir.")
-
-    print(f"[cutouts] built {len(lib)} shampoo instances")
+    print(f"[cutouts] built {len(lib)} instances")
     return lib
 
 
 # =============================================================================
-# Cutout transforms
+# Cutout transform
 # =============================================================================
 
 def transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max):
+    base_w = int(item["mask_bgr"].shape[1])
+    base_h = int(item["mask_bgr"].shape[0])
+
     mask_bin = (item["mask_bin"] > 127).astype(np.uint8) * 255
     gray = item["gray"].copy()
 
-    base_fit_scale = float(item.get("fit_scale", 1.0))
-    s = rng.uniform(scale_min, scale_max) * base_fit_scale
-    base_h, base_w = mask_bin.shape[:2]
+    s = rng.uniform(scale_min, scale_max)
     aug_w = max(1, int(round(base_w * s)))
     aug_h = max(1, int(round(base_h * s)))
 
@@ -342,21 +310,27 @@ def transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max):
     if not len(xs):
         return None
 
+    dom = np.array(PALETTE_BGR.get(item["train_id"], (255, 255, 255)), dtype=np.uint8)
+    clean_bgr = np.zeros((m.shape[0], m.shape[1], 3), dtype=np.uint8)
+    clean_bgr[m > 0] = dom
+
     gray[m == 0] = 0
 
     y1, y2, x1, x2 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    out_mask = clean_bgr[y1:y2, x1:x2].copy()
     out_gray = gray[y1:y2, x1:x2].copy()
-    out_soft = (mask_soft[y1:y2, x1:x2] / 255.0).astype(np.float32)
-    out_hard = (m[y1:y2, x1:x2] > 0)
 
     return {
+        "mask_bgr": out_mask,
         "gray": out_gray,
-        "soft_mask": out_soft,
-        "hard_mask": out_hard,
-        "h": out_gray.shape[0],
-        "w": out_gray.shape[1],
+        "h": out_mask.shape[0],
+        "w": out_mask.shape[1],
     }
 
+
+# =============================================================================
+# Scene builder
+# =============================================================================
 
 def build_transform_candidates(item, rng, scale_min, scale_max, rot_min, rot_max, num_candidates):
     candidates = []
@@ -367,20 +341,19 @@ def build_transform_candidates(item, rng, scale_min, scale_max, rot_min, rot_max
     return candidates
 
 
-# =============================================================================
-# Placement helpers
-# =============================================================================
-
-def build_candidate_xs(x_min, x_max, x_base, step, rng):
+def build_candidate_xs(x_min, x_max, x_base, step, rng, randomize=True):
     candidate_xs = list(range(x_min, x_max + 1, step))
     x_base = max(x_min, min(x_max, x_base))
     candidate_xs.append(x_base)
     candidate_xs = sorted(set(candidate_xs), key=lambda xx: abs(xx - x_base))
 
-    chunks = [candidate_xs[i:i + 8] for i in range(0, len(candidate_xs), 8)]
-    for chunk in chunks:
-        rng.shuffle(chunk)
-    return [x for chunk in chunks for x in chunk]
+    if randomize:
+        chunks = [candidate_xs[i:i + 8] for i in range(0, len(candidate_xs), 8)]
+        for chunk in chunks:
+            rng.shuffle(chunk)
+        candidate_xs = [x for chunk in chunks for x in chunk]
+
+    return candidate_xs
 
 
 def build_soft_y_candidates(canvas_h, obj_h, y_base, radius, step, rng):
@@ -408,41 +381,45 @@ def build_soft_y_candidates(canvas_h, obj_h, y_base, radius, step, rng):
     return [y for chunk in chunks for y in chunk]
 
 
-# =============================================================================
-# Scene builder — MATCHES STAGE13 SEMANTICS
-# =============================================================================
+def build_scene(rng, tray_masks, cutouts,
+                n_min, n_max, allow_overlap, max_tries,
+                scale_min, scale_max, rot_min, rot_max,
+                use_real_appearance=True,
+                horizontal_shift_only=True,
+                max_horizontal_shift=200,
+                require_all=True,
+                y_fallback_offsets=Y_FALLBACK_OFFSETS,
+                y_soft_search_radius=Y_SOFT_SEARCH_RADIUS,
+                y_soft_search_step=Y_SOFT_SEARCH_STEP,
+                x_search_step=X_SEARCH_STEP,
+                max_transform_candidates=MAX_TRANSFORM_CANDIDATES,
+                preserve_original_y_x_only=False,
+                ignore_tray=False,
+                canvas_h=1024,
+                canvas_w=1024):
+    if ignore_tray:
+        tray = np.ones((canvas_h, canvas_w), dtype=bool)
+    else:
+        tray = rng.choice(tray_masks)
+        if tray.shape[:2] != (canvas_h, canvas_w):
+            tray = cv2.resize(
+                tray.astype(np.uint8) * 255,
+                (canvas_w, canvas_h),
+                interpolation=cv2.INTER_NEAREST,
+            ) > 0
 
-def build_scene(
-    rng,
-    tray_masks,
-    cutouts,
-    scale_min,
-    scale_max,
-    rot_min,
-    rot_max,
-    horizontal_shift_only=True,
-    max_horizontal_shift=150,
-    no_overlap=True,
-    x_search_step=X_SEARCH_STEP,
-    max_transform_candidates=MAX_TRANSFORM_CANDIDATES,
-    canvas_h=1024,
-    canvas_w=1024,
-):
-    tray = rng.choice(tray_masks)
-
-    # A side
     canvas_mask = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
-    canvas_mask[tray] = PALETTE_BGR[2]  # tray-only = blue in RGB after write
-
-    # pseudo_B side for debugging only; model does not use appearance channel here
-    tray_preview = np.full((canvas_h, canvas_w), 235, dtype=np.float32)
-    tray_preview[~tray] = 0
-    canvas_app = tray_preview.copy()
-
+    canvas_app = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
     occ = np.zeros((canvas_h, canvas_w), dtype=bool)
 
+    if not ignore_tray:
+        canvas_mask[tray] = PALETTE_BGR[2]   # draw tray first as blue
+
+    n_obj = rng.randint(n_min, n_max + 1) if n_min != n_max else n_min
+    items = cutouts[:n_obj] if n_obj <= len(cutouts) else [rng.choice(cutouts) for _ in range(n_obj)]
+
     placed_count = 0
-    for idx, item in enumerate(cutouts):
+    for idx, item in enumerate(items):
         placed = False
         transformed_candidates = build_transform_candidates(
             item=item,
@@ -451,7 +428,7 @@ def build_scene(
             scale_max=scale_max,
             rot_min=rot_min,
             rot_max=rot_max,
-            num_candidates=max(1, max_transform_candidates),
+            num_candidates=max(1, min(max_tries, max_transform_candidates)),
         )
 
         for t in transformed_candidates:
@@ -459,80 +436,97 @@ def build_scene(
             if h >= canvas_h or w >= canvas_w or h < 2 or w < 2:
                 continue
 
-            obj_mask = t["hard_mask"]
-            obj_soft = t["soft_mask"]
-            obj_gray = t["gray"].astype(np.float32)
+            obj_mask = np.any(t["mask_bgr"] > 0, axis=2)
 
-            y_base = int(round(float(item.get("fit_cy", item["orig_cy"])) - h / 2.0))
+            y_base = int(round(float(item["orig_cy"]) - h / 2.0))
             y_base = max(0, min(canvas_h - h, y_base))
 
-            if horizontal_shift_only:
+            if preserve_original_y_x_only:
+                y_candidates = [y_base]
+            elif horizontal_shift_only:
                 y_candidates = build_soft_y_candidates(
                     canvas_h=canvas_h,
                     obj_h=h,
                     y_base=y_base,
-                    radius=0,
-                    step=1,
+                    radius=y_soft_search_radius,
+                    step=y_soft_search_step,
                     rng=rng,
                 )
+
+                for dy in y_fallback_offsets:
+                    yy = max(0, min(canvas_h - h, y_base + dy))
+                    if yy not in y_candidates:
+                        y_candidates.append(yy)
+
+                # extra fallback: if original y is near image edge, also search around tray center
+                if not ignore_tray:
+                    ys_t, xs_t = np.where(tray)
+                    if len(xs_t) > 0 and len(ys_t) > 0:
+                        tray_y0 = int(ys_t.min())
+                        tray_y1 = int(ys_t.max())
+                        tray_center_y = (tray_y0 + tray_y1) // 2
+                        tray_fit_y = max(0, min(canvas_h - h, tray_center_y - h // 2))
+
+                        extra_y = build_soft_y_candidates(
+                            canvas_h=canvas_h,
+                            obj_h=h,
+                            y_base=tray_fit_y,
+                            radius=max(80, y_soft_search_radius),
+                            step=max(4, y_soft_search_step),
+                            rng=rng,
+                        )
+
+                        for yy in extra_y:
+                            if yy not in y_candidates:
+                                y_candidates.append(yy)
             else:
-                y_candidates = list(range(0, canvas_h - h + 1, max(1, x_search_step)))
+                row_step = max(4, x_search_step)
+                y_candidates = list(range(0, canvas_h - h + 1, row_step))
                 if y_base not in y_candidates:
                     y_candidates.append(y_base)
                 rng.shuffle(y_candidates)
 
-            x_base_scaled = int(round(float(item.get("fit_x0", item["orig_x0"]))))
-            x_base_scaled = max(0, min(canvas_w - w, x_base_scaled))
-            x_min = max(0, x_base_scaled - max_horizontal_shift)
-            x_max = min(canvas_w - w, x_base_scaled + max_horizontal_shift)
-            if x_min > x_max:
-                continue
+            x_base = max(0, min(canvas_w - w, int(round(float(item["orig_x0"])))))
 
-            candidate_xs = build_candidate_xs(x_min, x_max, x_base_scaled, max(1, x_search_step), rng)
+            if preserve_original_y_x_only:
+                x_min = 0
+                x_max = canvas_w - w
+                candidate_xs = build_candidate_xs(x_min, x_max, x_base, max(1, x_search_step), rng, True)
+            elif horizontal_shift_only:
+                x_base_scaled = int(round(float(item["orig_x0"]) * canvas_w / max(1, item["src_W"])))
+                x_base_scaled = max(0, min(canvas_w - w, x_base_scaled))
+                x_min = max(0, x_base_scaled - max_horizontal_shift)
+                x_max = min(canvas_w - w, x_base_scaled + max_horizontal_shift)
+                if x_min > x_max:
+                    continue
+                candidate_xs = build_candidate_xs(x_min, x_max, x_base_scaled, max(1, x_search_step), rng, True)
+            else:
+                candidate_xs = list(range(0, canvas_w - w + 1, max(1, x_search_step)))
+                if x_base not in candidate_xs:
+                    candidate_xs.append(x_base)
+                rng.shuffle(candidate_xs)
 
             for y in y_candidates:
                 for x in candidate_xs:
-                    roi_tray = tray[y:y + h, x:x + w]
-                    if roi_tray.shape[:2] != obj_mask.shape or not roi_tray.any():
-                        continue
-                    if not np.all(roi_tray[obj_mask]):
-                        continue
+                    if not ignore_tray:
+                        roi_tray = tray[y:y + h, x:x + w]
+                        if roi_tray.shape[:2] != obj_mask.shape or not roi_tray.any():
+                            continue
+                        if not np.all(roi_tray[obj_mask]):
+                            continue
 
                     roi_occ = occ[y:y + h, x:x + w]
-                    if no_overlap and np.any(roi_occ & obj_mask):
+                    if not allow_overlap and np.any(roi_occ & obj_mask):
                         continue
 
-                    # IMPORTANT:
-                    # Stage13 training expects shampoo-over-tray overlap as CYAN in A
-                    region_A = canvas_mask[y:y + h, x:x + w]
-                    region_A[obj_mask] = OVERLAP_BGR
-
-                    # pseudo_B preview only
-                    region_B = canvas_app[y:y + h, x:x + w].astype(np.float32)
-
-                    tray01 = np.clip(region_B / 255.0, 1e-4, 1.0)
-                    obj01 = np.clip(obj_gray / 255.0, 1e-4, 1.0)
-
-                    tray_abs = -np.log(tray01)
-                    obj_abs = -np.log(obj01)
-
-                    scale_est = max(h / max(1, item["orig_h"]), w / max(1, item["orig_w"]))
-                    atten_scale = float(scale_est ** 0.7)
-
-                    target_abs = tray_abs + obj_abs * atten_scale
-                    blended_abs = tray_abs * (1.0 - obj_soft) + target_abs * obj_soft
-                    blended = np.exp(-blended_abs)
-
-                    obj_norm = (obj_gray - obj_gray.min()) / (obj_gray.max() - obj_gray.min() + 1e-6)
-                    blended = blended - (obj_norm * 0.03 * obj_soft)
-                    blended = np.clip(blended, 0.0, 1.0)
-
-                    canvas_app[y:y + h, x:x + w] = blended * 255.0
-
+                    canvas_mask[y:y + h, x:x + w][obj_mask] = t["mask_bgr"][obj_mask]
+                    if use_real_appearance:
+                        canvas_app[y:y + h, x:x + w][obj_mask] = t["gray"][obj_mask]
                     occ[y:y + h, x:x + w][obj_mask] = True
+
                     placed = True
                     placed_count += 1
-                    print(f"[place] item {idx + 1}/{len(cutouts)} placed at x={x}, y={y}, w={w}, h={h}")
+                    print(f"[place] item {idx + 1}/{len(items)} placed at x={x}, y={y}, w={w}, h={h}")
                     break
                 if placed:
                     break
@@ -540,14 +534,24 @@ def build_scene(
                 break
 
         if not placed:
-            raise RuntimeError(
-                f"Failed to place item {idx + 1}/{len(cutouts)} | "
-                f"file={item.get('file_name')} orig_x0={item.get('orig_x0')} "
-                f"orig_y0={item.get('orig_y0')} orig_w={item.get('orig_w')} orig_h={item.get('orig_h')}"
+            print(
+                f"[place] item {idx+1}/{len(items)} FAILED | "
+                f"file={item.get('file_name')} "
+                f"orig_x0={item.get('orig_x0')} orig_y0={item.get('orig_y0')} "
+                f"orig_w={item.get('orig_w')} orig_h={item.get('orig_h')}"
             )
 
-    pseudo_B_bgr = cv2.cvtColor(normalize_xray_intensity(canvas_app), cv2.COLOR_GRAY2BGR)
-    return canvas_mask, canvas_app.astype(np.uint8), pseudo_B_bgr, placed_count, tray
+    print(f"[place] placed {placed_count}/{len(items)} items")
+
+    if require_all and placed_count < len(items):
+        raise RuntimeError(
+            f"Only placed {placed_count}/{len(items)} items. "
+            f"Try increasing --canvas_w, --max_horizontal_shift, reducing rotation, "
+            f"allowing overlap, disabling preserve_original_y_x_only, or using --ignore_tray."
+        )
+
+    pseudo_B_bgr = cv2.cvtColor(canvas_app, cv2.COLOR_GRAY2BGR)
+    return canvas_mask, canvas_app, pseudo_B_bgr, placed_count, tray
 
 
 # =============================================================================
@@ -588,7 +592,7 @@ def write_single_test_image(
     canvas_mask: np.ndarray,
     pseudo_B_bgr: np.ndarray,
     tray_mask_bool: np.ndarray = None,
-    stem: str = "scene_0000",
+    stem: str = "scene_0000"
 ):
     clean_test_dir(test_dir)
 
@@ -628,6 +632,18 @@ def export_smooth_2x(img: np.ndarray) -> np.ndarray:
     return up
 
 
+def save_visuals(results_root: Path):
+    for p in results_root.rglob("*_fake_B.png"):
+        img_bgr = cv2.imread(str(p))
+        if img_bgr is None:
+            continue
+        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        Image.fromarray(img_rgb).save(str(p.with_name(p.stem + "_rgb.png")))
+        color = cv2.applyColorMap(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY), cv2.COLORMAP_INFERNO)
+        cv2.imwrite(str(p.with_name(p.stem + "_colormap.png")), color)
+        print(f"Saved visuals for: {p.name}")
+
+
 # =============================================================================
 # Pix2pix inference
 # =============================================================================
@@ -635,6 +651,7 @@ def export_smooth_2x(img: np.ndarray) -> np.ndarray:
 def run_pix2pix_test(
     temp_dataset_dir,
     epoch="latest",
+    use_display_mapper=True,
     num_test=None,
     tray_mask_dir="",
     use_tray_mask=True,
@@ -670,12 +687,6 @@ def run_pix2pix_test(
         "--pad_to_canvas",
     ]
 
-    if cfg.get("use_appearance_channel", False):
-        cmd += [
-            "--use_appearance_channel",
-            "--appearance_nc=1",
-        ]
-
     if use_tray_mask:
         cmd += [
             "--use_tray_mask",
@@ -689,13 +700,26 @@ def run_pix2pix_test(
     if num_test is not None:
         cmd.append(f"--num_test={num_test}")
 
+    if not use_display_mapper:
+        cmd.append("--no_use_display_mapper")
+
+    print("Running:", " ".join(cmd))
+    subprocess.check_call(cmd)
+    return Path("results") / MODEL_NAME / f"test_{epoch}"
+
+    if num_test is not None:
+        cmd.append(f"--num_test={num_test}")
+
+    if not use_display_mapper:
+        cmd.append("--no_use_display_mapper")
+
     print("Running:", " ".join(cmd))
     subprocess.check_call(cmd)
     return Path("results") / MODEL_NAME / f"test_{epoch}"
 
 
 # =============================================================================
-# Tray-only generation
+# Helpers for tray-only generation
 # =============================================================================
 
 def choose_tray_mask_path(tray_mask_dir: Path, seed: int):
@@ -706,7 +730,13 @@ def choose_tray_mask_path(tray_mask_dir: Path, seed: int):
     return rng.choice(paths)
 
 
-def build_tray_scene_from_mask(mask_path: Path, out_w: int, out_h: int, thr=0.5, invert=False, close_px=2, dilate_px=0):
+def build_tray_scene_from_mask(mask_path: Path,
+                               out_w: int,
+                               out_h: int,
+                               thr=0.5,
+                               invert=False,
+                               close_px=2,
+                               dilate_px=0):
     m = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
     if m is None:
         raise SystemExit(f"Could not read tray mask: {mask_path}")
@@ -725,19 +755,20 @@ def build_tray_scene_from_mask(mask_path: Path, out_w: int, out_h: int, thr=0.5,
 # =============================================================================
 
 def main():
+    global CANVAS_H, CANVAS_W
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--generate_mode", choices=["shampoo", "tray"], required=True)
 
     ap.add_argument("--images_dir", type=str, default="")
     ap.add_argument("--coco_json", type=str, default="")
-    ap.add_argument("--classes", type=str, default="Shampoo")
+    ap.add_argument("--classes", type=str, default="")
     ap.add_argument("--count", type=str, default="1")
 
-    ap.add_argument("--seed", type=int, default=123)
-    ap.add_argument("--out_dataset", type=str, default="datasets/_gen_stage13_shampoo_tray")
+    ap.add_argument("--seed", type=int, default=125)
+    ap.add_argument("--out_dataset", type=str, default="datasets/_gen_real")
     ap.add_argument("--epoch", type=str, default="latest")
-
-    # Keep args for compatibility, but force actual generation to training size
+    ap.add_argument("--mode", type=str, default="random_mask", choices=["random_mask"])
     ap.add_argument("--canvas_h", type=int, default=1024)
     ap.add_argument("--canvas_w", type=int, default=1024)
 
@@ -746,31 +777,37 @@ def main():
     ap.add_argument("--rand_rot_min", type=float, default=0.0)
     ap.add_argument("--rand_rot_max", type=float, default=40.0)
     ap.add_argument("--rand_max_tries_per_obj", type=int, default=30)
-
     ap.add_argument("--no_overlap", action="store_true")
     ap.add_argument("--horizontal_shift_only", action="store_true")
-    ap.add_argument("--max_horizontal_shift", type=int, default=150)
+    ap.add_argument("--max_horizontal_shift", type=int, default=200)
     ap.add_argument("--x_search_step", type=int, default=12)
     ap.add_argument("--max_transform_candidates", type=int, default=8)
-
+    ap.add_argument("--y_soft_search_radius", type=int, default=0)
+    ap.add_argument("--y_soft_search_step", type=int, default=1)
     ap.add_argument("--tray_mask_path", type=str, default="")
-    ap.add_argument("--tray_mask_thr", type=float, default=0.5)
+    ap.add_argument("--tray_mask_thr", type=float, default=0.0)
     ap.add_argument("--tray_mask_invert", action="store_true")
     ap.add_argument("--tray_cc_close_px", type=int, default=2)
     ap.add_argument("--tray_mask_dilate_px", type=int, default=0)
     ap.add_argument("--tray_mask_dir", type=str, default="")
 
+    ap.add_argument("--disable_test_appearance", action="store_true")
+    ap.add_argument("--no_use_display_mapper", action="store_false", dest="use_display_mapper")
+    ap.set_defaults(use_display_mapper=True)
+
+    ap.add_argument("--preserve_original_y_x_only", action="store_true",
+                    help="Keep each item at original-size/original-y and search only along x.")
+    ap.add_argument("--ignore_tray", action="store_true",
+                    help="Ignore tray-mask constraints during shampoo placement.")
     ap.add_argument("--keep_intermediates", action="store_true")
     ap.add_argument("--keep_preview", action="store_true")
-    ap.add_argument("--skip_pix2pix", action="store_true")
+    ap.add_argument("--skip_pix2pix", action="store_true",
+                    help="Skip pix2pix and save the pseudo_B directly for debugging.")
 
     args = ap.parse_args()
 
-    # FORCE match training size
-    canvas_h = TRAIN_CFG["canvas_h"]
-    canvas_w = TRAIN_CFG["canvas_w"]
-    if args.canvas_h != canvas_h or args.canvas_w != canvas_w:
-        print(f"[warn] forcing canvas from ({args.canvas_h},{args.canvas_w}) to training size ({canvas_h},{canvas_w})")
+    CANVAS_H = int(args.canvas_h)
+    CANVAS_W = int(args.canvas_w)
 
     rng = random.Random(args.seed)
     out_root = Path(args.out_dataset)
@@ -778,25 +815,30 @@ def main():
 
     if args.generate_mode == "shampoo":
         if not args.images_dir or not args.coco_json:
-            raise SystemExit("--images_dir and --coco_json are required for shampoo mode")
-        if not args.tray_mask_dir:
-            raise SystemExit("--tray_mask_dir is required for shampoo mode")
+            raise SystemExit("--images_dir and --coco_json are required for --generate_mode shampoo")
 
-        tray_masks, _ = load_tray_masks(
-            Path(args.tray_mask_dir),
-            out_h=canvas_h,
-            out_w=canvas_w,
-            thr=args.tray_mask_thr,
-            invert=args.tray_mask_invert,
-            close_px=args.tray_cc_close_px,
-            dilate_px=args.tray_mask_dilate_px,
-        )
+        if (not args.ignore_tray) and (not args.tray_mask_dir):
+            raise SystemExit("--tray_mask_dir is required for shampoo mode unless --ignore_tray is used")
+
+        if args.ignore_tray:
+            tray_masks = [np.ones((CANVAS_H, CANVAS_W), dtype=bool)]
+        else:
+            tray_masks, _ = load_tray_masks(
+                Path(args.tray_mask_dir),
+                out_h=CANVAS_H,
+                out_w=CANVAS_W,
+                thr=args.tray_mask_thr,
+                invert=args.tray_mask_invert,
+                close_px=args.tray_cc_close_px,
+                dilate_px=args.tray_mask_dilate_px,
+            )
 
         images_dir = Path(args.images_dir)
         coco = json.loads(Path(args.coco_json).read_text())
         want_classes = [c.strip() for c in args.classes.split(",") if c.strip()] or None
-        counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
 
+        allow_overlap = not args.no_overlap
+        counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
         real_cutouts = build_real_cutout_library(coco, images_dir)
 
         if want_classes:
@@ -812,34 +854,43 @@ def main():
                     raise SystemExit(f"Class '{cls}' only has {len(cands)} cutouts, but requested {n}")
                 selected.extend(rng.sample(cands, n))
         else:
-            selected = real_cutouts[: int(counts_raw[0])]
+            selected = real_cutouts
 
         print("[selected]")
         for i, s in enumerate(selected, 1):
             print(
                 f"  item {i}: class={s['class_name']} file={s['file_name']} "
                 f"orig_x0={s['orig_x0']} orig_y0={s['orig_y0']} "
-                f"orig_w={s['orig_w']} orig_h={s['orig_h']}"
+                f"orig_w={s['orig_w']} orig_h={s['orig_h']} src_W={s['src_W']} src_H={s['src_H']}"
             )
 
         canvas_mask, canvas_app, pseudo_B_bgr, placed_count, used_tray = build_scene(
             rng=rng,
             tray_masks=tray_masks,
             cutouts=selected,
+            n_min=len(selected),
+            n_max=len(selected),
+            allow_overlap=allow_overlap,
+            max_tries=args.rand_max_tries_per_obj,
             scale_min=args.rand_scale_min,
             scale_max=args.rand_scale_max,
             rot_min=args.rand_rot_min,
             rot_max=args.rand_rot_max,
+            use_real_appearance=True,
             horizontal_shift_only=args.horizontal_shift_only,
             max_horizontal_shift=args.max_horizontal_shift,
-            no_overlap=args.no_overlap,
+            require_all=True,
+            y_soft_search_radius=max(1, int(args.y_soft_search_radius)),
+            y_soft_search_step=max(1, int(args.y_soft_search_step)),
             x_search_step=max(1, int(args.x_search_step)),
             max_transform_candidates=max(1, int(args.max_transform_candidates)),
-            canvas_h=canvas_h,
-            canvas_w=canvas_w,
+            preserve_original_y_x_only=args.preserve_original_y_x_only,
+            ignore_tray=args.ignore_tray,
+            canvas_h=CANVAS_H,
+            canvas_w=CANVAS_W,
         )
 
-        tray_mask_bool = used_tray
+        tray_mask_bool = None if args.ignore_tray else used_tray
         print(f"[summary] shampoo mode | requested {len(selected)} items, placed {placed_count}")
 
     else:
@@ -853,24 +904,23 @@ def main():
         print(f"[tray] using mask: {tray_mask_path}")
         canvas_mask, pseudo_B_bgr, tray_mask_bool = build_tray_scene_from_mask(
             tray_mask_path,
-            out_w=canvas_w,
-            out_h=canvas_h,
+            out_w=CANVAS_W,
+            out_h=CANVAS_H,
             thr=args.tray_mask_thr,
             invert=args.tray_mask_invert,
             close_px=args.tray_cc_close_px,
             dilate_px=args.tray_mask_dilate_px,
         )
-        canvas_app = np.zeros((canvas_h, canvas_w), dtype=np.uint8)
         print("[summary] tray mode | generated tray conditioning image from mask")
 
     if args.keep_preview or args.keep_intermediates:
         preview_dir = out_root / "preview"
         preview_dir.mkdir(parents=True, exist_ok=True)
-        cv2.imwrite(str(preview_dir / f"mask_seed{args.seed}.png"), canvas_mask)
+        mask_vis = canvas_mask[:, :, :3]
+        cv2.imwrite(str(preview_dir / f"mask_seed{args.seed}.png"), mask_vis)
         cv2.imwrite(str(preview_dir / f"pseudo_B_seed{args.seed}.png"), pseudo_B_bgr)
-        cv2.imwrite(str(preview_dir / f"canvas_app_seed{args.seed}.png"), canvas_app)
         if tray_mask_bool is not None:
-            cv2.imwrite(str(preview_dir / f"tray_seed{args.seed}.png"), tray_mask_bool.astype(np.uint8) * 255)
+            cv2.imwrite(str(preview_dir / f"tray_seed{args.seed}.png"), (tray_mask_bool.astype(np.uint8) * 255))
 
     test_dir = out_root / "test"
     stem = write_single_test_image(
@@ -888,10 +938,14 @@ def main():
         results_root = run_pix2pix_test(
             temp_dataset_dir=out_root,
             epoch=args.epoch,
+            use_display_mapper=args.use_display_mapper,
             num_test=1,
             tray_mask_dir=str(test_dir) if (tray_mask_bool is not None) else "",
             use_tray_mask=(tray_mask_bool is not None),
         )
+
+        if args.keep_intermediates:
+            save_visuals(results_root)
 
         fake_path = resolve_fake_image_path(results_root / "images", stem)
         if fake_path is None:
@@ -1225,14 +1279,14 @@ python notebooks/Pix2Pix/generate_pix2pixV2.py \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
   --classes Shampoo \
-  --count 1 \
-  --seed 123 \
-  --out_dataset datasets/_gen_stage13_shampoo_tray \
+  --count 3 \
+  --seed 88 \
+  --out_dataset datasets/_gen_stage10_shampoo_tray \
   --epoch latest \
-  --canvas_h 1024 \
-  --canvas_w 1024 \
-  --tray_mask_dir datasets/SHAMPOOWITHTRAY/matched_masks/train/tray \
-  --tray_mask_thr 0.5 \
+  --canvas_h 1152 \
+  --canvas_w 1584 \
+  --tray_mask_dir data/interim/Empty/masks \
+  --tray_mask_thr 0 \
   --tray_cc_close_px 2 \
   --tray_mask_dilate_px 0 \
   --rand_scale_min 0.85 \

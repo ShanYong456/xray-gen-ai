@@ -56,14 +56,14 @@ def build_A_image(shampoo_mask, tray_mask):
 
     A = np.zeros((shampoo.shape[0], shampoo.shape[1], 3), dtype=np.uint8)
 
-    # tray only → blue
-    A[tray & ~shampoo] = [255, 0, 0]
-
-    # shampoo only → green
+    # shampoo only -> green
     A[shampoo & ~tray] = [0, 255, 0]
 
-    # overlap → red (IMPORTANT CHANGE)
-    A[shampoo & tray] = [0, 0, 255]
+    # tray only -> blue
+    A[tray & ~shampoo] = [255, 0, 0]
+
+    # overlap -> cyan
+    A[shampoo & tray] = [255, 255, 0]
 
     return A
 

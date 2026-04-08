@@ -667,7 +667,7 @@ STAGE2
   --synthetic_erode_px 2 \
   --synthetic_fallback_shrink 0.85 \
   --pad_to_canvas --canvas_w 1024 --canvas_h 1024 --canvas_fill 0 \
-  --synthetic_prob 0.50 --synthetic_scale_min 0.85 --synthetic_scale_max 0.85 --tray_scale 1.0 \
+  --synthetic_prob 0.85 --synthetic_scale_min 0.85 --synthetic_scale_max 0.85 --tray_scale 1.0 \
   --synthetic_no_overlap --synthetic_rot_min 0 --synthetic_rot_max 40 \
   --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
   --continue_train --epoch latest
@@ -677,8 +677,93 @@ STAGE2
   
    --continue_train --epoch latest
 
--
+STAGE 3
 
+python external/pix2pix/train.py \
+  --dataroot datasets/SHAMPOOWITHTRAY \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage11_SynTray_1024 \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 6 --output_nc 3 \
+  --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+  --preprocess none --load_size 0 --crop_size 0 --no_flip \
+  --batch_size 1 --pool_size 0 --gan_mode lsgan \
+  --lr 5e-6 --beta1 0.5 --n_epochs 100 --n_epochs_decay 100 \
+  --class_nc 2 --thickness_nc 1 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels \
+  --return_instance_masks --mask_thr 0.05 \
+  --use_masked_l1 --lambda_L1 30 --lambda_bg 0 \
+  --use_grad_loss --lambda_grad 10 \
+  --use_lap_loss --lambda_lap 6 \
+  --use_ssim_loss --lambda_ssim 3 \
+  --use_region_stats --lambda_stats 3 \
+  --d_label_smooth 0.1 \
+  --use_tray_mask \
+  --tray_mask_dir datasets/SHAMPOOWITHTRAY/matched_masks/train/tray \
+  --tray_mask_thr 0 \
+  --tray_cc_close_px 2 \
+  --tray_mask_dilate_px 0 \
+  --shampoo_horizontal_shift_only \
+  --shampoo_max_horizontal_shift 150 \
+  --shampoo_max_vertical_shift 0 \
+  --synthetic_min_items 1 --synthetic_max_items 2 \
+  --synthetic_place_tries 30 \
+  --synthetic_item_retries 4 \
+  --synthetic_erode_px 2 \
+  --synthetic_fallback_shrink 0.85 \
+  --pad_to_canvas --canvas_w 1024 --canvas_h 1024 --canvas_fill 0 \
+  --synthetic_prob 0 --synthetic_scale_min 0.85 --synthetic_scale_max 0.85 --tray_scale 1.0 \
+  --synthetic_no_overlap --synthetic_rot_min 0 --synthetic_rot_max 40 \
+  --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+  --continue_train --epoch latest
+
+
+
+  Stage 4
+
+python external/pix2pix/train.py \
+--dataroot datasets/SHAMPOOWITHTRAY \
+--name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage12_SynTray_1024 \
+--model pix2pix --dataset_mode aligned --direction AtoB \
+--input_nc 6 --output_nc 3 --class_nc 2 --thickness_nc 1 \
+--netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+--preprocess none --load_size 0 --crop_size 0 --no_flip \
+--batch_size 1 --pool_size 0 --gan_mode lsgan \
+--lr 5e-6 --beta1 0.5 --n_epochs 100 --n_epochs_decay 100 \
+--use_thickness_channel --use_edge_channel --use_coord_channels --return_instance_masks \
+--use_masked_l1 --lambda_L1 30 --lambda_bg 0 \
+--use_grad_loss --lambda_grad 10 --use_lap_loss --lambda_lap 6 \
+--use_ssim_loss --lambda_ssim 3 --use_region_stats --lambda_stats 3 \
+--d_label_smooth 0.1 --d_update_ratio 2 \
+--use_tray_mask --tray_mask_dir datasets/SHAMPOOWITHTRAY/matched_masks/train/tray \
+--synthetic_min_items 1 --synthetic_max_items 1 \
+--synthetic_place_tries 10 --synthetic_item_retries 4 --synthetic_erode_px 2 \
+--synthetic_prob 0.35 --synthetic_no_overlap \
+--pad_to_canvas --canvas_w 1792 --canvas_h 1280 \
+--cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+--continue_train --epoch latest --synthetic_scale_min 2.0 --synthetic_scale_max 2.0
+
+
+python external/pix2pix/train.py \
+--dataroot datasets/SHAMPOOWITHTRAY \
+--name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage12TEST \
+--model pix2pix --dataset_mode aligned --direction AtoB \
+--input_nc 6 --output_nc 3 --class_nc 2 --thickness_nc 1 \
+--netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+--preprocess none --load_size 0 --crop_size 0 --no_flip \
+--batch_size 1 --pool_size 0 --gan_mode lsgan \
+--lr 5e-6 --beta1 0.5 --n_epochs 100 --n_epochs_decay 100 \
+--use_thickness_channel --use_edge_channel --use_coord_channels --return_instance_masks \
+--use_masked_l1 --lambda_L1 45 --lambda_bg 0 \
+--use_grad_loss --lambda_grad 10 --use_lap_loss --lambda_lap 6 \
+--use_ssim_loss --lambda_ssim 3 --use_region_stats --lambda_stats 3 \
+--d_label_smooth 0.1 --d_update_ratio 2 \
+--use_tray_mask --tray_mask_dir datasets/SHAMPOOWITHTRAY/matched_masks/train/tray \
+--synthetic_min_items 1 --synthetic_max_items 1 \
+--synthetic_place_tries 30 --synthetic_item_retries 6 --synthetic_erode_px 2 \
+--synthetic_prob 0.2 --synthetic_no_overlap \
+--pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
+--cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+--continue_train --epoch latest --synthetic_scale_min 0.85 --synthetic_scale_max 0.85
 
   # WITHOUT EMPTY TRAY
    python external/pix2pix/train.py \

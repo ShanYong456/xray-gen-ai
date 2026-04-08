@@ -190,12 +190,6 @@ class AlignedDataset(BaseDataset):
         self.tray_mask_img = None
         self.tray_mask_paths = []
 
-        # FAST lookup map (replace O(N) scan per sample)
-        self.tray_mask_map = {}
-        if self.tray_mask_paths:
-            for p in self.tray_mask_paths:
-                self.tray_mask_map[p.stem] = str(p)
-
         if self.use_tray_mask:
             tray_dir = str(getattr(opt, "tray_mask_dir", "")).strip()
             tray_path = str(getattr(opt, "tray_mask_path", "")).strip()
@@ -234,32 +228,28 @@ class AlignedDataset(BaseDataset):
                 max_items=int(getattr(opt, "max_appearance_prototypes", 200))
             )
             print(f"[appearance] built {len(self.appearance_prototypes)} prototypes")
-    
-
-    def normalize_xray_intensity(self, img_np):
-        img = img_np.astype(np.float32)
-
-        p1, p99 = np.percentile(img, (1, 99))
-        img = np.clip(img, p1, p99)
-
-        img = (img - p1) / (p99 - p1 + 1e-6)
-
-        return (img * 255).astype(np.uint8)
 
     def _resolve_tray_mask_for_ab(self, ab_path: str) -> Image.Image:
         if self.tray_mask_img is not None:
             return self.tray_mask_img.copy()
 
+        if not self.tray_mask_paths:
+            raise RuntimeError("Tray mask folder mode enabled, but no tray masks were loaded.")
+
         ab_stem = Path(ab_path).stem
 
-        # O(1) lookup
-        hit = self.tray_mask_map.get(ab_stem, None)
-        if hit is not None:
-            return Image.open(hit).convert("L")
+        for p in self.tray_mask_paths:
+            if p.stem == ab_stem:
+                return Image.open(str(p)).convert("L")
 
-        # fallback (rare)
-        return Image.open(str(self.tray_mask_paths[0])).convert("L")
-        
+        for p in self.tray_mask_paths:
+            if ab_stem in p.stem or p.stem in ab_stem:
+                return Image.open(str(p)).convert("L")
+
+        print(f"[warning] no tray mask match for {ab_stem}; using first tray mask")
+        p = self.tray_mask_paths[0]
+        return Image.open(str(p)).convert("L")
+    
     def _load_tray_T(self, target_size, ab_path=None):
         if ab_path is not None:
             T_img = self._resolve_tray_mask_for_ab(ab_path)
@@ -272,32 +262,41 @@ class AlignedDataset(BaseDataset):
             else:
                 raise RuntimeError("No tray mask available.")
 
+        if T_img.size != target_size:
+            T_img = T_img.resize(target_size, resample=Image.NEAREST)
+
         tray_scale = float(getattr(self.opt, "tray_scale", 1.0))
-        T_arr = np.array(T_img)
-
         if abs(tray_scale - 1.0) > 1e-6:
-            new_w = max(1, int(round(T_arr.shape[1] * tray_scale)))
-            new_h = max(1, int(round(T_arr.shape[0] * tray_scale)))
-            T_arr = cv2.resize(T_arr, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
-            T_img = Image.fromarray(T_arr, mode="L")
+            T_arr = np.array(T_img)
+            H, W = T_arr.shape[:2]
 
-        if self.pad_to_canvas_enabled:
-            tw, th = T_img.size
-            scale = min(self.canvas_w / tw, self.canvas_h / th)
+            new_w = max(1, int(round(W * tray_scale)))
+            new_h = max(1, int(round(H * tray_scale)))
 
-            if scale < 1.0:
-                new_w = max(1, int(round(tw * scale)))
-                new_h = max(1, int(round(th * scale)))
-                T_img = T_img.resize((new_w, new_h), resample=Image.NEAREST)
+            scaled = cv2.resize(T_arr, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
 
-            T_img = pad_to_canvas(
-                T_img,
-                self.canvas_w,
-                self.canvas_h,
-                self.canvas_fill_rgb[0]
-            )
+            canvas = np.zeros((H, W), dtype=np.uint8)
+
+            # center paste / center crop
+            x0 = (W - new_w) // 2
+            y0 = (H - new_h) // 2
+
+            src_x0 = max(0, -x0)
+            src_y0 = max(0, -y0)
+            dst_x0 = max(0, x0)
+            dst_y0 = max(0, y0)
+
+            copy_w = min(new_w - src_x0, W - dst_x0)
+            copy_h = min(new_h - src_y0, H - dst_y0)
+
+            if copy_w > 0 and copy_h > 0:
+                canvas[dst_y0:dst_y0 + copy_h, dst_x0:dst_x0 + copy_w] = \
+                    scaled[src_y0:src_y0 + copy_h, src_x0:src_x0 + copy_w]
+
+            T_img = Image.fromarray(canvas, mode="L")
 
         return T_img
+
     def _maybe_pad_rgb(self, img: Image.Image) -> Image.Image:
         if not self.pad_to_canvas_enabled:
             return img
@@ -318,20 +317,14 @@ class AlignedDataset(BaseDataset):
     def _rgb_to_train_masks(self, A_rgb: np.ndarray):
         """
         Semantic colors in A annotation image:
-        shampoo only = green  (0,255,0)
-        tray only    = blue   (0,0,255)
-        overlap      = cyan   (0,255,255)
+        shampoo = green  (0,255,0)
+        tray    = blue    (0,0,255)
 
         Returns:
         shampoo_mask, tray_mask
         """
-        shampoo_only = np.all(A_rgb == [0, 255, 0], axis=2)
-        tray_only = np.all(A_rgb == [0, 0, 255], axis=2)
-        overlap = np.all(A_rgb == [0, 255, 255], axis=2)
-
-        shampoo = (shampoo_only | overlap).astype(np.uint8)
-        tray = (tray_only | overlap).astype(np.uint8)
-
+        shampoo = np.all(A_rgb == [0, 255, 0], axis=2).astype(np.uint8)
+        tray = np.all(A_rgb == [0, 0, 255], axis=2).astype(np.uint8)
         return shampoo, tray
 
     def _mask_from_Aimg(self, A_img) -> np.ndarray:
@@ -399,6 +392,7 @@ class AlignedDataset(BaseDataset):
 
             A_img = self._maybe_pad_rgb(A_img)
             B_img = self._maybe_pad_rgb(B_img)
+            B_img = self._mask_B_with_A(B_img, A_img, fill_value=0)
 
             obj_mask = self._mask_from_Aimg(A_img).astype(np.uint8)
             ys, xs = np.where(obj_mask > 0)
@@ -651,80 +645,55 @@ class AlignedDataset(BaseDataset):
         k = np.ones((2 * px + 1, 2 * px + 1), np.uint8)
         return cv2.erode(m01.astype(np.uint8), k, iterations=1)
 
-    def _valid_anchor_positions(self, T, obj_mask, occ=None, no_overlap=False):
-        H, W = T.shape
-        h, w = obj_mask.shape
+    def _valid_anchor_positions(self, T: np.ndarray, obj_mask: np.ndarray, occ: np.ndarray = None, no_overlap: bool = False):
+        """
+        Return candidate top-left anchors (x, y) where obj_mask fits fully inside T.
+        Uses binary erosion instead of blind random sampling.
+        """
+        H, W = T.shape[:2]
+        h, w = obj_mask.shape[:2]
 
         if h > H or w > W:
             return []
 
-        # Fast bbox-based candidate generation instead of huge-mask erosion
-        ys, xs = np.where(T > 0)
-        if len(xs) == 0:
+        # full-fit map: anchor is valid if every obj pixel lands inside tray
+        kernel = obj_mask.astype(np.uint8)
+        fit = cv2.erode(T.astype(np.uint8), kernel, iterations=1)
+
+        # top-left anchors live in [0:H-h], [0:W-w]
+        fit = fit[: H - h + 1, : W - w + 1]
+
+        ys, xs = np.where(fit > 0)
+        if not len(xs):
             return []
 
-        tx0, tx1 = int(xs.min()), int(xs.max())
-        ty0, ty1 = int(ys.min()), int(ys.max())
+        coords = np.stack([xs, ys], axis=1)
 
-        # Anchor search range restricted to tray bbox
-        x_start = max(0, tx0)
-        y_start = max(0, ty0)
-        x_end = min(W - w, tx1 - w + 1)
-        y_end = min(H - h, ty1 - h + 1)
+        if no_overlap and occ is not None:
+            keep = []
+            for x, y in coords:
+                if not np.any(occ[y:y + h, x:x + w] & obj_mask):
+                    keep.append((int(x), int(y)))
+            return keep
 
-        if x_end < x_start or y_end < y_start:
-            return []
-
-        # Subsample candidates for speed
-        step = max(4, int(getattr(self.opt, "x_search_step", 8))) if hasattr(self.opt, "x_search_step") else 8
-
-        coords = []
-        max_candidates = int(getattr(self.opt, "synthetic_place_tries", 10))
-
-        for y in range(y_start, y_end + 1, step):
-            for x in range(x_start, x_end + 1, step):
-                tray_patch = T[y:y+h, x:x+w]
-                if tray_patch.shape[0] != h or tray_patch.shape[1] != w:
-                    continue
-
-                # Must fit fully inside tray
-                if not np.all(tray_patch[obj_mask]):
-                    continue
-
-                if no_overlap and occ is not None:
-                    if np.any(occ[y:y+h, x:x+w] & obj_mask):
-                        continue
-
-                coords.append((x, y))
-                if len(coords) >= max_candidates:
-                    return coords
-
-        return coords
-    
+        return [(int(x), int(y)) for x, y in coords]
 
     def _read_png_keep_alpha_mask(self, p: Path):
         img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
         if img is None:
             return None, None
-
-        # grayscale image
         if img.ndim == 2:
             gray = img.copy()
             mask = gray > 0
             return gray, mask
-
-        # RGBA image
         if img.shape[2] == 4:
             alpha = img[:, :, 3] > 0
             rgb = img[:, :, :3].copy()
             rgb[~alpha] = 0
             return rgb, alpha
-
-        # normal RGB/BGR image
         rgb = img[:, :, :3].copy()
         mask = np.any(rgb > 0, axis=2)
         return rgb, mask
-
 
     def _load_cutouts(self, cutout_root: Path):
         items = []
@@ -749,13 +718,6 @@ class AlignedDataset(BaseDataset):
 
             gray_img = None
             gray_path = self._find_gray_companion(p)
-
-            # HARD REQUIREMENT:
-            # shampoo (train_id == 1) must have real grayscale companion
-            if tid == 1 and gray_path is None:
-                print(f"[skip] shampoo missing grayscale companion: {p}")
-                continue
-
             if gray_path is not None:
                 gray_raw, gray_mask = self._read_png_keep_alpha_mask(gray_path)
                 if gray_raw is not None:
@@ -786,7 +748,6 @@ class AlignedDataset(BaseDataset):
                     )
                 gray_crop = gray_img[y0:y1, x0:x1].copy()
                 gray_crop[~mask_crop] = 0
-                gray_crop = self.normalize_xray_intensity(gray_crop)
             else:
                 gray_crop = None
 
@@ -804,21 +765,11 @@ class AlignedDataset(BaseDataset):
         if not items:
             raise RuntimeError(f"No valid cutouts in {cutout_root}")
 
-        n_total = len(items)
         n_gray = sum(1 for it in items if it["gray"] is not None)
-        n_shampoo = sum(1 for it in items if it["train_id"] == 1)
-        n_shampoo_gray = sum(1 for it in items if it["train_id"] == 1 and it["gray"] is not None)
-        n_tray = sum(1 for it in items if it["train_id"] == 2)
-        n_tray_gray = sum(1 for it in items if it["train_id"] == 2 and it["gray"] is not None)
+        print(f"[synthetic] loaded {len(items)} cutouts | grayscale companions: {n_gray}")
 
-        print(f"[synthetic] total_cutouts={n_total} | with_gray={n_gray}")
-        print(f"[synthetic] shampoo={n_shampoo} | shampoo_with_gray={n_shampoo_gray}")
-        print(f"[synthetic] tray={n_tray} | tray_with_gray={n_tray_gray}")
-
-        if n_shampoo == 0:
-            raise RuntimeError("No shampoo cutouts loaded.")
-        if n_shampoo_gray < n_shampoo:
-            raise RuntimeError("Some shampoo cutouts are missing grayscale companions. Fix cutout_dir first.")
+        if n_gray == 0:
+            print("[warning] no grayscale companions found; synthetic B will fallback to flat grayscale semantic cutouts")
 
         return items
 
@@ -862,37 +813,32 @@ class AlignedDataset(BaseDataset):
             if out_gray is not None:
                 out_gray = self._rotate_preserve_gray_or_bgr(out_gray, rot, is_mask=False)
 
-        # keep both hard mask and soft mask
-        m_blur = cv2.GaussianBlur(m.astype(np.float32), (7, 7), 1.5)
-        m_soft = np.clip(m_blur / 255.0, 0.0, 1.0)
-        m_hard = (m_soft > 0.5).astype(np.uint8)
+        m = cv2.GaussianBlur(m, (5, 5), 0.8)
+        _, m = cv2.threshold(m, 127, 255, cv2.THRESH_BINARY)
 
-        ys, xs = np.where(m_hard > 0)
+        ys, xs = np.where(m > 0)
         if not len(xs):
             return None
 
-        # hard requirement: shampoo synthetic object must carry grayscale
-        if out_gray is None:
-            return None
-
         clean_bgr = out_bgr.copy()
-        clean_bgr[m_hard == 0] = 0
+        clean_bgr[m == 0] = 0
 
-        if out_gray.ndim == 3:
-            out_gray = cv2.cvtColor(out_gray, cv2.COLOR_BGR2GRAY)
-
-        clean_gray = out_gray.copy()
-        clean_gray[m_hard == 0] = 0
-        clean_gray = self.normalize_xray_intensity(clean_gray)
+        if out_gray is not None:
+            if out_gray.ndim == 3:
+                out_gray = cv2.cvtColor(out_gray, cv2.COLOR_BGR2GRAY)
+            clean_gray = out_gray.copy()
+            clean_gray[m == 0] = 0
+        else:
+            clean_gray = None
 
         y0, y1 = ys.min(), ys.max() + 1
         x0, x1 = xs.min(), xs.max() + 1
+        mask_bool = (m[y0:y1, x0:x1] > 0)
 
         return {
             "bgr": clean_bgr[y0:y1, x0:x1].copy(),
-            "gray": clean_gray[y0:y1, x0:x1].copy(),
-            "mask": m_hard[y0:y1, x0:x1].astype(bool),
-            "soft_mask": m_soft[y0:y1, x0:x1].astype(np.float32),
+            "gray": None if clean_gray is None else clean_gray[y0:y1, x0:x1].copy(),
+            "mask": mask_bool,
         }
 
     def _random_mask_augment(self, mask: np.ndarray) -> np.ndarray:
@@ -915,151 +861,161 @@ class AlignedDataset(BaseDataset):
 
     def _build_synthetic_pair_simple(self, size_hw, T_img: Image.Image):
         H, W = size_hw
+        T = self._get_tray_bin(T_img).astype(np.uint8) if T_img is not None else np.ones((H, W), dtype=np.uint8)
 
-        # binary tray mask
-        T = self._get_tray_bin(T_img).astype(np.uint8)
-        T_place = self._erode_bin(T, 2)
-        if T_place.sum() == 0:
-            T_place = T
+        # make placement region slightly conservative so bottles do not touch tray boundary too much
+        erode_px = int(getattr(self.opt, "synthetic_erode_px", 6))
+        if erode_px > 0:
+            T_place = self._erode_bin(T, erode_px).astype(bool)
+            if T_place.sum() > 0:
+                T = T_place.astype(np.uint8)
 
-        # -----------------------------
-        # A: semantic conditioning image
-        # -----------------------------
         canvas_A = np.zeros((H, W, 3), dtype=np.uint8)
-        tray_only_bgr = np.array([255, 0, 0], dtype=np.uint8)   # tray
-        overlap_bgr   = np.array([255, 255, 0], dtype=np.uint8) # shampoo-in-tray
-        canvas_A[T > 0] = tray_only_bgr
-
-        # -----------------------------
-        # B: REAL tray grayscale base
-        # -----------------------------
-        T_gray = np.array(T_img.convert("L")).astype(np.float32)
-        if T_gray.shape != (H, W):
-            T_gray = cv2.resize(T_gray, (W, H), interpolation=cv2.INTER_LINEAR)
-
-        canvas_B = T_gray.copy()
-
+        canvas_B = np.zeros((H, W, 3), dtype=np.uint8)
         occ = np.zeros((H, W), dtype=bool)
-        max_item_trials = max(4, int(getattr(self.opt, "synthetic_item_retries", 4)))
-        placed = False
 
-        for _ in range(max_item_trials):
-            item = self.cutout_items[np.random.randint(len(self.cutout_items))]
+        n_obj = np.random.randint(
+            int(getattr(self.opt, "synthetic_min_items", 1)),
+            int(getattr(self.opt, "synthetic_max_items", 3)) + 1,
+        )
 
-            # only shampoo for this simple stage
-            if int(item["train_id"]) != 1:
-                continue
+        no_overlap = bool(getattr(self.opt, "synthetic_no_overlap", False))
+        same_class_prob = float(getattr(self.opt, "synthetic_same_class_prob", 0.0))
+        place_tries = int(getattr(self.opt, "synthetic_place_tries", 120))
+        item_retries = int(getattr(self.opt, "synthetic_item_retries", 12))
+        fallback_shrink = float(getattr(self.opt, "synthetic_fallback_shrink", 0.85))
+        sort_large_first = bool(getattr(self.opt, "synthetic_sort_large_first", False))
 
-            cut = self._transform_cutout(
-                item["bgr"],
-                gray=item.get("gray", None),
-                mask=item.get("mask", None),
+        chosen_tid = None
+        if np.random.rand() < same_class_prob:
+            tids = sorted({int(it["train_id"]) for it in self.cutout_items})
+            if tids:
+                chosen_tid = int(np.random.choice(tids))
+
+        cands = [it for it in self.cutout_items if chosen_tid is None or it["train_id"] == chosen_tid]
+        if not cands:
+            print("[warning] no synthetic cutout candidates available")
+            return (
+                Image.fromarray(cv2.cvtColor(canvas_A, cv2.COLOR_BGR2RGB)),
+                Image.fromarray(cv2.cvtColor(canvas_B, cv2.COLOR_BGR2RGB)),
             )
-            if cut is None:
-                continue
 
-            cut_gray = cut["gray"]
-            obj_mask = cut["mask"]
-            obj_soft = cut.get("soft_mask", obj_mask.astype(np.float32))
-
-            if cut_gray is None:
-                continue
-
-            smin = float(getattr(self.opt, "synthetic_scale_min", 0.85))
-            smax = float(getattr(self.opt, "synthetic_scale_max", 0.85))
-            scale = smin if abs(smax - smin) < 1e-6 else float(np.random.uniform(smin, smax))
-
-            h0, w0 = obj_mask.shape
-            new_w = max(1, int(round(w0 * scale)))
-            new_h = max(1, int(round(h0 * scale)))
-
-            if new_w > W or new_h > H:
-                shrink = min(W / max(new_w, 1), H / max(new_h, 1), 1.0)
-                new_w = max(1, int(round(new_w * shrink)))
-                new_h = max(1, int(round(new_h * shrink)))
-
-            obj_mask = cv2.resize(
-                (obj_mask.astype(np.uint8) * 255),
-                (new_w, new_h),
-                interpolation=cv2.INTER_NEAREST,
-            ) > 127
-
-            obj_soft = cv2.resize(obj_soft.astype(np.float32), (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-            obj_soft = np.clip(obj_soft, 0.0, 1.0)
-
-            cut_gray = cv2.resize(cut_gray, (new_w, new_h), interpolation=cv2.INTER_LINEAR).astype(np.float32)
-            cut_gray = self.normalize_xray_intensity(cut_gray)
-
-            h, w = obj_mask.shape
-            if h <= 0 or w <= 0 or h > H or w > W:
-                continue
-
-            anchors = self._valid_anchor_positions(
-                T_place.astype(bool),
-                obj_mask,
-                occ,
-                bool(getattr(self.opt, "synthetic_no_overlap", False)),
+        if sort_large_first:
+            cands = sorted(
+                cands,
+                key=lambda it: int(np.sum(it.get("mask", np.any(it["bgr"] > 0, axis=2)))),
+                reverse=True,
             )
-            if not anchors:
+
+        placed_any = False
+
+        for obj_idx in range(n_obj):
+            placed_this_obj = False
+
+            # retry with multiple items / transformed versions before giving up on this object slot
+            for retry_idx in range(item_retries):
+                item = cands[np.random.randint(len(cands))] if not sort_large_first else cands[min(obj_idx + retry_idx, len(cands) - 1)]
+
+                cut_pack = self._transform_cutout(
+                    item["bgr"],
+                    gray=item.get("gray", None),
+                    mask=item.get("mask", None),
+                )
+                if cut_pack is None:
+                    continue
+
+                cut_A = cut_pack["bgr"]
+                cut_gray = cut_pack["gray"]
+                obj_mask = cut_pack["mask"]
+
+                # scale before placement
+                scale_min = float(getattr(self.opt, "synthetic_scale_min", 1.0))
+                scale_max = float(getattr(self.opt, "synthetic_scale_max", 1.0))
+                scale = np.random.uniform(scale_min, scale_max) if abs(scale_max - scale_min) > 1e-6 else scale_min
+
+                # if we already failed a few times, progressively shrink
+                if retry_idx > 0:
+                    scale *= (fallback_shrink ** retry_idx)
+
+                h0, w0 = cut_A.shape[:2]
+                new_w = max(1, int(round(w0 * scale)))
+                new_h = max(1, int(round(h0 * scale)))
+
+                cut_A = cv2.resize(cut_A, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
+
+                if cut_gray is not None:
+                    cut_gray = cv2.resize(cut_gray, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+
+                obj_mask = cv2.resize(
+                    (obj_mask.astype(np.uint8) * 255),
+                    (new_w, new_h),
+                    interpolation=cv2.INTER_NEAREST,
+                ) > 127
+
+                h, w = cut_A.shape[:2]
+                if h >= H or w >= W or h < 2 or w < 2 or obj_mask.sum() == 0:
+                    continue
+
+                anchors = self._valid_anchor_positions(
+                    T=T.astype(bool),
+                    obj_mask=obj_mask,
+                    occ=occ,
+                    no_overlap=no_overlap,
+                )
+
+                if not anchors:
+                    continue
+
+                # prefer a random subset instead of testing all anchors
+                if len(anchors) > place_tries:
+                    sel = np.random.choice(len(anchors), size=place_tries, replace=False)
+                    anchors = [anchors[i] for i in sel]
+
+                # score anchors: prefer lower overlap risk and more central tray placement
+                scored = []
+                tray_ys, tray_xs = np.where(T > 0)
+                tray_cx = float(tray_xs.mean()) if len(tray_xs) else W / 2.0
+                tray_cy = float(tray_ys.mean()) if len(tray_ys) else H / 2.0
+
+                for x, y in anchors:
+                    cx = x + w / 2.0
+                    cy = y + h / 2.0
+                    center_dist = (cx - tray_cx) ** 2 + (cy - tray_cy) ** 2
+
+                    overlap_pen = 0.0
+                    if no_overlap:
+                        overlap_pen = float(np.sum(occ[y:y + h, x:x + w] & obj_mask)) * 1e6
+
+                    scored.append((overlap_pen + center_dist, x, y))
+
+                scored.sort(key=lambda t: t[0])
+
+                # top few best, then random among them for diversity
+                topk = min(8, len(scored))
+                pick = scored[np.random.randint(topk)]
+                _, x, y = pick
+
+                canvas_A[y:y + h, x:x + w][obj_mask] = cut_A[obj_mask]
+
+                if cut_gray is not None:
+                    gray3 = cv2.cvtColor(cut_gray, cv2.COLOR_GRAY2BGR)
+                else:
+                    fallback_gray = cv2.cvtColor(cut_A, cv2.COLOR_BGR2GRAY)
+                    gray3 = cv2.cvtColor(fallback_gray, cv2.COLOR_GRAY2BGR)
+
+                canvas_B[y:y + h, x:x + w][obj_mask] = gray3[obj_mask]
+                occ[y:y + h, x:x + w][obj_mask] = True
+
+                placed_any = True
+                placed_this_obj = True
+                break
+
+            if not placed_this_obj:
+                # do not abort whole sample; just move on to next object slot
                 continue
 
-            x, y = anchors[np.random.randint(len(anchors))]
-
-            # confirm object really sits in tray
-            region_A = canvas_A[y:y+h, x:x+w]
-            tray_here = np.all(region_A == tray_only_bgr, axis=2)
-            if not np.all(tray_here[obj_mask]):
-                continue
-
-            # write semantic overlap into A
-            region_A[obj_mask] = overlap_bgr
-
-            # -----------------------------
-            # B compositing: attenuation-style blending
-            # -----------------------------
-            region_B = canvas_B[y:y+h, x:x+w].astype(np.float32)
-
-            tray01 = np.clip(region_B / 255.0, 1e-4, 1.0)
-            obj01  = np.clip(cut_gray / 255.0, 1e-4, 1.0)
-
-            tray_abs = -np.log(tray01)
-            obj_abs  = -np.log(obj01)
-
-            # thickness-aware scaling
-            atten_scale = float(scale ** 0.7)
-
-            # add only where object exists
-            target_abs = tray_abs + obj_abs * atten_scale
-
-            # soft blend edge
-            blended_abs = tray_abs * (1.0 - obj_soft) + target_abs * obj_soft
-
-            # back to intensity
-            blended = np.exp(-blended_abs)
-
-            # small interior reinforcement
-            obj_norm = (cut_gray - cut_gray.min()) / (cut_gray.max() - cut_gray.min() + 1e-6)
-            blended = blended - (obj_norm * 0.03 * obj_soft)
-
-            blended = np.clip(blended, 0.0, 1.0)
-            canvas_B[y:y+h, x:x+w] = blended * 255.0
-
-            occ[y:y+h, x:x+w][obj_mask] = True
-            placed = True
-            break
-
-        if not placed:
-            print("[warning] synthetic sample placed 0 objects; returning tray only")
-
-        # final cleanup
-        canvas_B = np.clip(canvas_B, 0, 255)
-
-        # small sensor-like noise
-        canvas_B = canvas_B + np.random.randn(H, W).astype(np.float32) * 1.2
-        canvas_B = np.clip(canvas_B, 0, 255)
-
-        canvas_B = self.normalize_xray_intensity(canvas_B)
-        canvas_B = cv2.cvtColor(canvas_B.astype(np.uint8), cv2.COLOR_GRAY2BGR)
+        if not placed_any:
+            print("[warning] synthetic sample placed 0 objects; returning blank canvas")
 
         return (
             Image.fromarray(cv2.cvtColor(canvas_A, cv2.COLOR_BGR2RGB)),
@@ -1336,27 +1292,19 @@ class AlignedDataset(BaseDataset):
         A_new[tray_mask > 0] = np.array([0, 0, 255], dtype=np.uint8)
 
         return Image.fromarray(A_new), Image.fromarray(B_new)
-    
-    def pad_to_128_np(self, img):
-        h, w = img.shape[:2]
-        pad_h = (128 - h % 128) % 128
-        pad_w = (128 - w % 128) % 128
-
-        if img.ndim == 3:
-            return np.pad(img, ((0,pad_h),(0,pad_w),(0,0)), mode='constant')
-        else:
-            return np.pad(img, ((0,pad_h),(0,pad_w)), mode='constant')
 
     def __getitem__(self, index):
         AB_path = self.AB_paths[index]
         AB = Image.open(AB_path).convert("RGB")
         w, h = AB.size
-
+        
         A_img = AB.crop((0, 0, w // 2, h))
         B_img = AB.crop((w // 2, 0, w, h))
 
-        # Fit + pad
+       # Fit whole real pair inside canvas first
         A_img, B_img = self._fit_pair_to_canvas(A_img, B_img, self.canvas_w, self.canvas_h)
+
+        # Then pad to exact canvas
         A_img = pad_to_canvas(A_img, self.canvas_w, self.canvas_h, self.canvas_fill_rgb)
         B_img = pad_to_canvas(B_img, self.canvas_w, self.canvas_h, self.canvas_fill_rgb)
 
@@ -1368,31 +1316,21 @@ class AlignedDataset(BaseDataset):
             T_img = self._load_tray_T(A_img.size, ab_path=AB_path)
 
         if use_synth:
-            synth_h, synth_w = A_img.size[1], A_img.size[0]
+            synth_h, synth_w = self.canvas_h, self.canvas_w
             A_img, B_img = self._build_synthetic_pair_simple((synth_h, synth_w), T_img)
+
+            # already scaled before placement inside _build_synthetic_pair_simple()
             A_img = self._maybe_pad_rgb(A_img)
             B_img = self._maybe_pad_rgb(B_img)
+
         else:
             shampoo_scale = float(getattr(self.opt, "synthetic_scale_min", 1.0))
             A_img, B_img = self._scale_shampoo_only(A_img, B_img, shampoo_scale)
+
             A_img = self._maybe_pad_rgb(A_img)
             B_img = self._maybe_pad_rgb(B_img)
 
-        A_np = np.array(A_img)
-        B_np = np.array(B_img)
-        B_np = self.normalize_xray_intensity(B_np)
-        B_img = Image.fromarray(B_np.astype(np.uint8))
-
-        A_np = self.pad_to_128_np(A_np)
-        B_np = self.pad_to_128_np(B_np)
-
-        A_img = Image.fromarray(A_np.astype(np.uint8))
-        B_img = Image.fromarray(B_np.astype(np.uint8))
-
-        if self.use_tray_mask and T_img is not None:
-            T_np = np.array(T_img)
-            T_np = self.pad_to_128_np(T_np)
-            T_img = Image.fromarray(T_np.astype(np.uint8))
+            B_img = self._mask_B_with_A(B_img, A_img, fill_value=0)
 
         if self.force_gray_rgb:
             B_img = self._to_gray_rgb(B_img)
@@ -1432,42 +1370,38 @@ class AlignedDataset(BaseDataset):
             if not is_train and bool(getattr(self.opt, "disable_test_appearance", False)):
                 app_img_t = self._zero_appearance_img(A_img_t)
 
-        # FINAL HARD FIX
-        A_np = np.array(A_img_t)
-        A_np = self.pad_to_128_np(A_np)
-        A_img_t = Image.fromarray(A_np.astype(np.uint8))
+        A, cond_chs = self._rgbmask_to_condition_tensor(A_img_t, app_img=app_img_t)
+        A_vis = B_transform(self._build_condition_vis_from_channels(cond_chs))
 
+        instance_masks = None
+        if self.return_instance_masks:
+            instance_masks = self._extract_instance_masks_tensor(A_img_t)
+
+        T = None
         if self.use_tray_mask and T_img_t is not None:
-            T_np = np.array(T_img_t)
-            T_np = self.pad_to_128_np(T_np)
-            T_img_t = Image.fromarray(T_np.astype(np.uint8))
+            T_np = self._get_tray_bin(T_img_t).astype(np.float32)
+            T = torch.from_numpy(T_np[None]).float()
 
-        B_np = B.numpy().transpose(1, 2, 0) if torch.is_tensor(B) else np.array(B_img)
-        B_np = self.pad_to_128_np(B_np)
-
-        if torch.is_tensor(B):
-            if B_np.ndim == 2:
-                B = torch.from_numpy(B_np[None, ...]).float()
-            else:
-                B = torch.from_numpy(B_np.transpose(2, 0, 1)).float()
-
-        A, cond_chs = self._rgbmask_to_condition_tensor(A_img_t, app_img_t)
+        if is_train and (index % self.debug_every == 0):
+            print(
+                f"[debug] {Path(AB_path).name} synth={use_synth} "
+                f"A_size={A_img_t.size if isinstance(A_img_t, Image.Image) else 'na'} "
+                f"B_size={B_img.size} "
+                f"A({A.min():.3f},{A.max():.3f}) B({B.min():.3f},{B.max():.3f})"
+            )
 
         out = {
             "A": A,
+            "A_vis": A_vis,
             "B": B,
             "A_paths": AB_path,
             "B_paths": AB_path,
-            "is_synthetic": torch.tensor([1 if use_synth else 0], dtype=torch.uint8),
+            "is_synthetic": use_synth,
         }
-
-        if self.use_tray_mask and T_img_t is not None:
-            T_arr = (np.array(T_img_t).astype(np.float32) / 255.0)
-            T_t = torch.from_numpy(T_arr[None, ...]).float()
-            out["T"] = T_t
-
-        if self.return_instance_masks:
-            out["instance_masks"] = self._extract_instance_masks_tensor(A_img_t)
+        if T is not None:
+            out["T"] = T
+        if instance_masks is not None:
+            out["instance_masks"] = instance_masks
 
         return out
 
