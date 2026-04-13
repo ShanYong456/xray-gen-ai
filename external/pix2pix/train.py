@@ -19,73 +19,138 @@ See training and test tips at: https://github.com/junyanz/pytorch-CycleGAN-and-p
 See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/qa.md
 """
 
+"""General-purpose training script for image-to-image translation."""
+
+import json
 import time
+from pathlib import Path
+import sys
+
+
 from options.train_options import TrainOptions
 from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
 from util.util import init_ddp, cleanup_ddp
 
+# Add project root to PYTHONPATH
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+# NEW: import FID helper
+from notebooks.Pix2Pix.fid_eval import compute_fid_for_checkpoint
+
+
+def append_fid_history(checkpoints_dir, experiment_name, record):
+    hist_path = Path(checkpoints_dir) / experiment_name / "fid_history.jsonl"
+    hist_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(hist_path, "a") as f:
+        f.write(json.dumps(record) + "\n")
+
 
 if __name__ == "__main__":
-    opt = TrainOptions().parse()  # get training options
+    opt = TrainOptions().parse()
     opt.device = init_ddp()
-    dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
-    dataset_size = len(dataset)  # get the number of images in the dataset.
+
+    dataset = create_dataset(opt)
+    dataset_size = len(dataset)
     print(f"The number of training images = {dataset_size}")
 
-    model = create_model(opt)  # create a model given opt.model and other options
-    model.setup(opt)  # regular setup: load and print networks; create schedulers
-    visualizer = Visualizer(opt)  # create a visualizer that display/save images and plots
-    total_iters = 0  # the total number of training iterations
+    model = create_model(opt)
+    model.setup(opt)
+    visualizer = Visualizer(opt)
+    total_iters = 0
+
     for epoch in range(opt.epoch_count, opt.n_epochs + opt.n_epochs_decay + 1):
-        epoch_start_time = time.time()  # timer for entire epoch
-        iter_data_time = time.time()  # timer for data loading per iteration
-        epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
+        epoch_start_time = time.time()
+        iter_data_time = time.time()
+        epoch_iter = 0
         visualizer.reset()
-        # Set epoch for DistributedSampler
+
         if hasattr(dataset, "set_epoch"):
             dataset.set_epoch(epoch)
 
-        for i, data in enumerate(dataset):  # inner loop within one epoch
-            iter_start_time = time.time()  # timer for computation per iteration
+        for i, data in enumerate(dataset):
+            iter_start_time = time.time()
+
             if total_iters % opt.print_freq == 0:
                 t_data = iter_start_time - iter_data_time
 
             total_iters += opt.batch_size
             epoch_iter += opt.batch_size
-            model.set_input(data)  # unpack data from dataset and apply preprocessing
-            model.optimize_parameters()  # calculate loss functions, get gradients, update network weights
 
-            if total_iters % opt.display_freq == 0:  # display images on visdom and save images to a HTML file
+            model.set_input(data)
+            model.optimize_parameters()
+
+            if total_iters % opt.display_freq == 0:
                 save_result = total_iters % opt.update_html_freq == 0
                 model.compute_visuals()
-                visualizer.display_current_results(model.get_current_visuals(), epoch, total_iters, save_result)
+                visualizer.display_current_results(
+                    model.get_current_visuals(), epoch, total_iters, save_result
+                )
 
-            if total_iters % opt.print_freq == 0:  # print training losses and save logging information to the disk
+            if total_iters % opt.print_freq == 0:
                 losses = model.get_current_losses()
                 t_comp = (time.time() - iter_start_time) / opt.batch_size
                 visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data)
                 visualizer.plot_current_losses(total_iters, losses)
 
-            if total_iters % opt.save_latest_freq == 0:  # cache our latest model every <save_latest_freq> iterations
+            if total_iters % opt.save_latest_freq == 0:
                 print(f"saving the latest model (epoch {epoch}, total_iters {total_iters})")
                 save_suffix = f"iter_{total_iters}" if opt.save_by_iter else "latest"
                 model.save_networks(save_suffix)
 
             iter_data_time = time.time()
 
-        model.update_learning_rate()  # update learning rates at the end of every epoch
+        model.update_learning_rate()
 
-        if epoch % opt.save_epoch_freq == 0:  # cache our model every <save_epoch_freq> epochs
+        saved_this_epoch = False
+        if epoch % opt.save_epoch_freq == 0:
             print(f"saving the model at the end of epoch {epoch}, iters {total_iters}")
             model.save_networks("latest")
             model.save_networks(epoch)
+            saved_this_epoch = True
 
-        print(f"End of epoch {epoch} / {opt.n_epochs + opt.n_epochs_decay} \t Time Taken: {time.time() - epoch_start_time:.0f} sec")
+        # NEW: FID evaluation at end of epoch
+        if getattr(opt, "fid_during_training", False):
+            should_run_fid = (epoch % int(getattr(opt, "fid_epoch_freq", 5)) == 0)
+
+            if should_run_fid:
+                # Make sure checkpoint exists for this epoch
+                if not saved_this_epoch:
+                    print(f"[FID] saving checkpoint for epoch {epoch} before FID evaluation")
+                    model.save_networks("latest")
+                    model.save_networks(epoch)
+
+                print(f"[FID] running FID for epoch {epoch} ...")
+                try:
+                    fid_result = compute_fid_for_checkpoint(
+                        args=opt,
+                        epoch=epoch,
+                        phase=getattr(opt, "fid_phase", "val"),
+                        max_images=int(getattr(opt, "fid_max_images", 200)),
+                        keep_images=bool(getattr(opt, "fid_keep_images", False)),
+                        work_dir=getattr(opt, "fid_work_dir", "fid_eval_runs"),
+                        debug_every=int(getattr(opt, "fid_debug_every", 10)),
+                    )
+
+                    append_fid_history(opt.checkpoints_dir, opt.name, fid_result)
+
+                    fid_value = fid_result.get("fid", None)
+                    if fid_value is not None:
+                        print(f"[FID] epoch {epoch}: {fid_value:.6f}")
+                    else:
+                        print(f"[FID] epoch {epoch}: unavailable")
+
+                except Exception as e:
+                    print(f"[FID] epoch {epoch} failed: {e}")
+
+        print(
+            f"End of epoch {epoch} / {opt.n_epochs + opt.n_epochs_decay} "
+            f"\t Time Taken: {time.time() - epoch_start_time:.0f} sec"
+        )
 
     cleanup_ddp()
-
 
 """
 
@@ -745,7 +810,7 @@ python external/pix2pix/train.py \
 
 python external/pix2pix/train.py \
 --dataroot datasets/SHAMPOOWITHTRAY \
---name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage12TEST \
+--name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage14TEST \
 --model pix2pix --dataset_mode aligned --direction AtoB \
 --input_nc 6 --output_nc 3 --class_nc 2 --thickness_nc 1 \
 --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
@@ -760,10 +825,72 @@ python external/pix2pix/train.py \
 --use_tray_mask --tray_mask_dir datasets/SHAMPOOWITHTRAY/matched_masks/train/tray \
 --synthetic_min_items 1 --synthetic_max_items 1 \
 --synthetic_place_tries 30 --synthetic_item_retries 6 --synthetic_erode_px 2 \
---synthetic_prob 0.2 --synthetic_no_overlap \
+--synthetic_prob 0.5 --synthetic_no_overlap \
 --pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
 --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
---continue_train --epoch latest --synthetic_scale_min 0.85 --synthetic_scale_max 0.85
+--continue_train --epoch latest --synthetic_scale_min 0.65 --synthetic_scale_max 0.65
+
+
+
+python external/pix2pix/train.py \
+--dataroot datasets/SHAMPOOWITHTRAY \
+--name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage15TEST \
+--model pix2pix --dataset_mode aligned --direction AtoB \
+--input_nc 6 --output_nc 3 --class_nc 2 --thickness_nc 1 \
+--netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+--preprocess none --load_size 0 --crop_size 0 --no_flip \
+--batch_size 1 --pool_size 0 --gan_mode lsgan \
+--lr 5e-6 --beta1 0.5 --n_epochs 100 --n_epochs_decay 100 \
+--use_thickness_channel --use_edge_channel --use_coord_channels --return_instance_masks \
+--use_masked_l1 --lambda_L1 45 --lambda_bg 0 \
+--use_grad_loss --lambda_grad 10 --use_lap_loss --lambda_lap 6 \
+--use_ssim_loss --lambda_ssim 3 --use_region_stats --lambda_stats 3 \
+--d_label_smooth 0.1 --d_update_ratio 2 \
+--use_tray_mask --tray_mask_dir datasets/SHAMPOOWITHTRAY/matched_masks/train/tray \
+--synthetic_min_items 1 --synthetic_max_items 1 \
+--synthetic_place_tries 30 --synthetic_item_retries 6 --synthetic_erode_px 2 \
+--synthetic_prob 0.65 --synthetic_no_overlap \
+--pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
+--cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+--continue_train --epoch latest \
+--synthetic_scale_min 0.75 --synthetic_scale_max 0.65 \
+--fid_during_training \
+--fid_epoch_freq 40 \
+--fid_phase train \
+--fid_max_images 358 \
+--fid_work_dir fid_eval_runs
+
+
+BLADE AND SHAMPOO ISO:
+
+python external/pix2pix/train.py \
+  --dataroot datasets/SHAMPOOBLADEWITHTRAY \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage16_BladeMaskSyn_WarmStart \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 7 --output_nc 3 --class_nc 3 --thickness_nc 1 \
+  --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+  --preprocess none --load_size 0 --crop_size 0 --no_flip \
+  --batch_size 1 --pool_size 0 --gan_mode lsgan \
+  --lr 3e-6 --beta1 0.5 --n_epochs 150 --n_epochs_decay 150 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels --return_instance_masks \
+  --use_masked_l1 --lambda_L1 45 --lambda_bg 0 \
+  --use_grad_loss --lambda_grad 10 --use_lap_loss --lambda_lap 6 \
+  --use_ssim_loss --lambda_ssim 3 --use_region_stats --lambda_stats 3 \
+  --d_label_smooth 0.1 --d_update_ratio 2 \
+  --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY/matched_masks/train/tray \
+  --synthetic_min_items 1 --synthetic_max_items 1 \
+  --synthetic_place_tries 30 --synthetic_item_retries 6 --synthetic_erode_px 2 \
+  --synthetic_prob 0 --synthetic_no_overlap \
+  --pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
+  --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+  --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY/matched_masks/train/blade \
+  --synthetic_scale_min 0.65 --synthetic_scale_max 0.75 \
+  --continue_train --epoch latest \
+  --fid_during_training \
+  --fid_epoch_freq 40 \
+  --fid_phase train \
+  --fid_max_images 300 \
+  --fid_work_dir fid_eval_runs
 
   # WITHOUT EMPTY TRAY
    python external/pix2pix/train.py \

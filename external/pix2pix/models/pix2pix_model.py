@@ -1,5 +1,7 @@
 import torch
 import torch.nn.functional as F
+import numpy as np
+import cv2
 
 from .base_model import BaseModel
 from . import networks
@@ -80,6 +82,7 @@ class Pix2PixModel(BaseModel):
             "G_grad", "G_lap", "G_ssim", "G_stats",
             "D_real", "D_fake",
         ]
+      
         self.visual_names = ["real_A", "fake_B"]
         self.model_names = ["G", "D"] if self.isTrain else ["G"]
         self.device = opt.device
@@ -90,6 +93,7 @@ class Pix2PixModel(BaseModel):
         self.use_appearance_channel = bool(getattr(opt, "use_appearance_channel", False))
         self.appearance_nc = int(getattr(opt, "appearance_nc", 1))
         self._g_step = 0
+
 
         self.netG = networks.define_G(
             opt.input_nc,
@@ -134,6 +138,7 @@ class Pix2PixModel(BaseModel):
         self.mask_M = None
         self.tray_T = None
         self.instance_masks = None
+        self.synthetic_preview_B = None
         self.is_synthetic = False
         self.has_real_B = False
 
@@ -221,6 +226,8 @@ class Pix2PixModel(BaseModel):
 
         inst = input.get("instance_masks", None)
         self.instance_masks = inst.to(self.device) if inst is not None else None
+        synth_preview = input.get("synthetic_preview_B", None)
+        self.synthetic_preview_B = synth_preview.to(self.device) if synth_preview is not None else None
         self.image_paths = input.get("A_paths" if AtoB else "B_paths", [])
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -497,7 +504,16 @@ class Pix2PixModel(BaseModel):
             self.loss_G_ssim +
             self.loss_G_stats
         )
+        self.loss_G = (
+            self.loss_G_GAN +
+            self.loss_G_L1 +
+            self.loss_G_grad +
+            self.loss_G_lap +
+            self.loss_G_ssim +
+            self.loss_G_stats
+        )
         self.loss_G.backward()
+               
 
     # ─────────────────────────────────────────────────────────────────────────
     # optimize_parameters
@@ -627,10 +643,171 @@ class Pix2PixModel(BaseModel):
             f"loaded={len(new_state)} missing={len(missing)} unexpected={len(unexpected)}"
         )
 
+    def _tensor_to_bgr_u8(self, x):
+        if x is None:
+            return None
+        t = x.detach().float().cpu()
+        if t.dim() == 4:
+            t = t[0]
+        if t.dim() == 2:
+            t = t.unsqueeze(0)
+        if t.shape[0] == 1:
+            arr = t[0].numpy()
+            arr = np.clip((arr + 1.0) * 0.5 * 255.0, 0, 255).astype(np.uint8)
+            return cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
+        arr = t.numpy().transpose(1, 2, 0)
+        arr = np.clip((arr + 1.0) * 0.5 * 255.0, 0, 255).astype(np.uint8)
+        return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+
+    def _bgr_u8_to_tensor_like(self, img_bgr, ref_tensor):
+        rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        arr = rgb.astype(np.float32) / 255.0
+        arr = arr * 2.0 - 1.0
+        arr = torch.from_numpy(arr.transpose(2, 0, 1)).unsqueeze(0)
+        return arr.to(device=ref_tensor.device, dtype=ref_tensor.dtype)
+
+    def _tensor_mask_to_u8(self, x):
+        if x is None:
+            return None
+        t = x.detach().float().cpu()
+        if t.dim() == 4:
+            t = t[0]
+        if t.dim() == 3:
+            t = t[0]
+        arr = t.numpy()
+        arr = np.clip(arr, 0.0, 1.0)
+        return np.clip(arr * 255.0, 0, 255).astype(np.uint8)
+    
+    def _safe_float(self, x, default=0.0):
+        try:
+            if x is None:
+                return float(default)
+            if torch.is_tensor(x):
+                if x.numel() == 0:
+                    return float(default)
+                return float(x.detach().mean().item())
+            return float(x)
+        except Exception:
+            return float(default)
+    
+
+    def _build_synthetic_fake_visual_bgr(self, fake_bgr, preview_bgr):
+        if fake_bgr is None:
+            return None
+        if preview_bgr is None:
+            return fake_bgr
+
+        h, w = fake_bgr.shape[:2]
+        if preview_bgr.shape[:2] != (h, w):
+            preview_bgr = cv2.resize(preview_bgr, (w, h), interpolation=cv2.INTER_LINEAR)
+
+        _, M = self._build_object_mask_from_A()
+        mask_u8 = self._tensor_mask_to_u8(M)
+        if mask_u8 is None:
+            return fake_bgr
+        if mask_u8.shape[:2] != (h, w):
+            mask_u8 = cv2.resize(mask_u8, (w, h), interpolation=cv2.INTER_LINEAR)
+
+        mask_f = mask_u8.astype(np.float32) / 255.0
+        mask_f = np.clip(mask_f, 0.0, 1.0)
+        if mask_f.max() <= 1e-6:
+            return fake_bgr
+
+        mask_f = cv2.GaussianBlur(mask_f, (0, 0), 1.2)
+        mask_f = np.clip(mask_f[..., None], 0.0, 1.0)
+
+        fake_f = fake_bgr.astype(np.float32)
+        preview_f = preview_bgr.astype(np.float32)
+
+        # Visualization-only compositing for synthetic batches:
+        # keep the inference-style tray/background from synthetic preview,
+        # but show the model's generated shampoo/object appearance.
+        comp = fake_f * mask_f + preview_f * (1.0 - mask_f)
+        return np.clip(comp, 0, 255).astype(np.uint8)
+
+    def _fit_lines_to_width(self, lines, font, target_w, font_scale, thickness, pad):
+        out = []
+        max_w = max(40, target_w - 2 * pad)
+        for line in lines:
+            words = line.split()
+            if not words:
+                out.append("")
+                continue
+            cur = words[0]
+            for word in words[1:]:
+                test = cur + " " + word
+                tw = cv2.getTextSize(test, font, font_scale, thickness)[0][0]
+                if tw <= max_w:
+                    cur = test
+                else:
+                    out.append(cur)
+                    cur = word
+            out.append(cur)
+        return out
+
+    def _overlay_metric_panel(self, img_bgr, lines, anchor="top_banner"):
+        if img_bgr is None:
+            return None
+        base = img_bgr.copy()
+        h, w = base.shape[:2]
+        font = cv2.FONT_HERSHEY_SIMPLEX
+
+        font_scale = max(0.42, min(0.72, w / 1500.0))
+        thickness = max(1, int(round(font_scale * 2)))
+        pad_x = max(10, int(round(w * 0.018)))
+        pad_y = max(8, int(round(h * 0.012)))
+
+        wrapped = self._fit_lines_to_width(lines, font, w, font_scale, thickness, pad_x)
+        line_h = max(20, int(round(cv2.getTextSize("Ag", font, font_scale, thickness)[0][1] * 1.7)))
+        banner_h = pad_y * 2 + max(1, len(wrapped)) * line_h
+
+        banner = np.zeros((banner_h, w, 3), dtype=np.uint8)
+        banner[:] = (18, 18, 18)
+        cv2.line(banner, (0, banner_h - 1), (w, banner_h - 1), (70, 70, 70), 1)
+
+        y = pad_y + line_h - 6
+        for i, line in enumerate(wrapped):
+            color = (0, 255, 255) if i == 0 else (235, 235, 235)
+            cv2.putText(banner, line, (pad_x, y), font, font_scale, (0, 0, 0), thickness + 3, cv2.LINE_AA)
+            cv2.putText(banner, line, (pad_x, y), font, font_scale, color, thickness, cv2.LINE_AA)
+            y += line_h
+
+        return np.vstack([banner, base])
+
+    def _build_training_overlay_lines(self):
+        q = self._safe_float(getattr(self, "loss_Q_score", 0.0))
+        qema = self._safe_float(getattr(self, "loss_Q_ema", 0.0))
+        qbest = self._safe_float(getattr(self, "loss_Q_best", 0.0))
+        trend = self._safe_float(getattr(self, "loss_Q_trend", 0.0))
+        g_l1 = self._safe_float(getattr(self, "loss_G_L1", 0.0))
+        g_ssim = self._safe_float(getattr(self, "loss_G_ssim", 0.0))
+        g_grad = self._safe_float(getattr(self, "loss_G_grad", 0.0))
+        trend_str = f"{trend:+.2f}"
+        return [
+            f"Quality {q:.1f}/100 | EMA {qema:.1f} | Best {qbest:.1f}",
+            f"Trend {trend_str} | L1 {g_l1:.3f} | SSIM {g_ssim:.3f} | Grad {g_grad:.3f}",
+        ]
+
     def get_current_visuals(self):
         visuals = {}
-        for name in ["real_A", "fake_B", "real_B", "tray_T"]:
+        for name in ["real_A", "real_B", "tray_T"]:
             val = getattr(self, name, None)
             if val is not None:
                 visuals[name] = val
+
+        fake_val = getattr(self, "fake_B", None)
+        if fake_val is not None:
+            fake_bgr = self._tensor_to_bgr_u8(fake_val)
+            if fake_bgr is not None:
+                if not self.is_synthetic:
+                    fake_bgr = self._overlay_metric_panel(fake_bgr, self._build_training_overlay_lines(), anchor="tl")
+                visuals["fake_B"] = self._bgr_u8_to_tensor_like(fake_bgr, fake_val)
+            else:
+                visuals["fake_B"] = fake_val
         return visuals
+    
+
+   
+
+  
+    

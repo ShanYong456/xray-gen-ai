@@ -1,3 +1,5 @@
+from email import parser
+
 from .base_options import BaseOptions
 
 
@@ -30,6 +32,22 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--pool_size', type=int, default=50, help='the size of image buffer that stores previously generated images')
         parser.add_argument('--lr_policy', type=str, default='linear', help='learning rate policy. [linear | step | plateau | cosine]')
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
+
+        # FID during training
+        parser.add_argument("--fid_during_training", action="store_true",
+                            help="Run FID evaluation during training.")
+        parser.add_argument("--fid_epoch_freq", type=int, default=5,
+                            help="Run FID every N epochs.")
+        parser.add_argument("--fid_phase", type=str, default="val",
+                            help="Dataset phase to use for FID. Usually val.")
+        parser.add_argument("--fid_max_images", type=int, default=200,
+                            help="Max number of image pairs for FID.")
+        parser.add_argument("--fid_work_dir", type=str, default="fid_eval_runs",
+                            help="Where temporary/generated FID files are stored.")
+        parser.add_argument("--fid_keep_images", action="store_true",
+                            help="Keep generated fake/real images used for FID.")
+        parser.add_argument("--fid_debug_every", type=int, default=10,
+                            help="Save one debug triplet every N FID samples.")
         
         # --- Separate learning rates for G and D (optional) ---
         parser.add_argument(

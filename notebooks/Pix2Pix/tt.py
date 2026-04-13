@@ -6,19 +6,18 @@ from pathlib import Path
 # =========================
 # CONFIG
 # =========================
-INPUT_JSON = "/home/ssy/Downloads/SHAMPOOINTRAY/result.json"
-OUTPUT_JSON = "/home/ssy/Downloads/SHAMPOOINTRAY/result_tray_only.json"
+INPUT_JSON = "/home/ssy/Downloads/SHAMPOOBLADEINTRAY_TGT/result.json"
+OUTPUT_JSON = "/home/ssy/Downloads/SHAMPOOBLADEINTRAY_TGT/result_tray_blade_or_tray_shampoo.json"
 
-OUTPUT_IMAGE_DIR = "/home/ssy/Downloads/SHAMPOOINTRAY/tray_only_images"
+OUTPUT_IMAGE_DIR = "/home/ssy/Downloads/SHAMPOOBLADEINTRAY_TGT/tray_blade_or_tray_shampoo_images"
 
 COPY_IMAGES = True
 
-TARGET_CATEGORY_NAME = "tray"
-REMOVE_CATEGORY_NAME = "blade"
+TRAY_CATEGORY_NAME = "tray"
+BLADE_CATEGORY_NAME = "blade"
+SHAMPOO_CATEGORY_NAME = "shampoo"
 
-IMAGE_SEARCH_ROOT = "/home/ssy/Downloads/SHAMPOOINTRAY/images"
-
-KEEP_ALL_ANNOTATIONS_FOR_SELECTED_IMAGES = True
+IMAGE_SEARCH_ROOT = "/home/ssy/Downloads/SHAMPOOBLADEINTRAY_TGT/images"
 
 
 # =========================
@@ -78,87 +77,112 @@ def main():
     # 1. Find category IDs
     # =========================
     tray_id = None
-    remove_id = None
+    blade_id = None
+    shampoo_id = None
 
     for c in categories:
-        if normalize(c["name"]) == normalize(TARGET_CATEGORY_NAME):
+        cname = normalize(c["name"])
+        if cname == normalize(TRAY_CATEGORY_NAME):
             tray_id = c["id"]
-        if normalize(c["name"]) == normalize(REMOVE_CATEGORY_NAME):
-            remove_id = c["id"]
+        elif cname == normalize(BLADE_CATEGORY_NAME):
+            blade_id = c["id"]
+        elif cname == normalize(SHAMPOO_CATEGORY_NAME):
+            shampoo_id = c["id"]
 
     if tray_id is None:
         raise ValueError("Tray category not found")
+    if blade_id is None:
+        raise ValueError("Blade category not found")
+    if shampoo_id is None:
+        raise ValueError("Shampoo category not found")
 
     print(f"Tray ID: {tray_id}")
-    print(f"Blade ID (to remove): {remove_id}")
+    print(f"Blade ID: {blade_id}")
+    print(f"Shampoo ID: {shampoo_id}")
 
     # =========================
-    # 2. Find images with tray
+    # 2. Build per-image category presence
     # =========================
-    tray_image_ids = set()
+    image_to_cat_ids = {}
 
     for ann in annotations:
-        if ann["category_id"] == tray_id:
-            tray_image_ids.add(ann["image_id"])
+        image_to_cat_ids.setdefault(ann["image_id"], set()).add(ann["category_id"])
 
-    filtered_images = [img for img in images if img["id"] in tray_image_ids]
+    # Keep only:
+    #   (tray AND blade) OR (tray AND shampoo)
+    selected_image_ids = set()
 
-    # =========================
-    # 3. Filter annotations
-    # =========================
-    filtered_annotations = []
+    for image_id, cat_ids in image_to_cat_ids.items():
+        has_tray = tray_id in cat_ids
+        has_blade = blade_id in cat_ids
+        has_shampoo = shampoo_id in cat_ids
 
-    for ann in annotations:
-        if ann["image_id"] not in tray_image_ids:
-            continue
-
-        # REMOVE blade
-        if ann["category_id"] == remove_id:
-            continue
-
-        filtered_annotations.append(ann)
+        if (has_tray and has_blade) or (has_tray and has_shampoo):
+            selected_image_ids.add(image_id)
 
     # =========================
-    # 4. Remove blade category
+    # 3. Filter images
     # =========================
-    filtered_categories = [
-        c for c in categories
-        if normalize(c["name"]) != normalize(REMOVE_CATEGORY_NAME)
+    filtered_images = [img for img in images if img["id"] in selected_image_ids]
+
+    # =========================
+    # 4. Filter annotations
+    # Keep all annotations belonging to selected images
+    # =========================
+    filtered_annotations = [
+        ann for ann in annotations
+        if ann["image_id"] in selected_image_ids
     ]
 
     # =========================
-    # 5. (IMPORTANT) Re-map category IDs
+    # 5. Keep original categories
+    # No category removal
     # =========================
-    old_to_new = {}
-    new_categories = []
+    filtered_categories = categories
 
-    for new_id, c in enumerate(filtered_categories):
-        old_to_new[c["id"]] = new_id
-        c["id"] = new_id
-        new_categories.append(c)
-
-    for ann in filtered_annotations:
-        ann["category_id"] = old_to_new[ann["category_id"]]
+    # Optional: preserve original category ids exactly
+    output = {
+        "images": filtered_images,
+        "annotations": filtered_annotations,
+        "categories": filtered_categories
+    }
 
     # =========================
     # 6. Save new JSON
     # =========================
-    output = {
-        "images": filtered_images,
-        "annotations": filtered_annotations,
-        "categories": new_categories
-    }
-
     with open(OUTPUT_JSON, "w") as f:
         json.dump(output, f, indent=2)
+
+    # =========================
+    # 7. Print summary
+    # =========================
+    num_tray_blade = 0
+    num_tray_shampoo = 0
+    num_all_three = 0
+
+    for image_id in selected_image_ids:
+        cat_ids = image_to_cat_ids.get(image_id, set())
+        has_tray = tray_id in cat_ids
+        has_blade = blade_id in cat_ids
+        has_shampoo = shampoo_id in cat_ids
+
+        if has_tray and has_blade and has_shampoo:
+            num_all_three += 1
+        elif has_tray and has_blade:
+            num_tray_blade += 1
+        elif has_tray and has_shampoo:
+            num_tray_shampoo += 1
 
     print("\n===== SUMMARY =====")
     print(f"Images kept: {len(filtered_images)}")
     print(f"Annotations kept: {len(filtered_annotations)}")
-    print(f"Categories kept: {[c['name'] for c in new_categories]}")
+    print(f"Categories kept: {[c['name'] for c in filtered_categories]}")
+    print(f"Tray + Blade only: {num_tray_blade}")
+    print(f"Tray + Shampoo only: {num_tray_shampoo}")
+    print(f"Tray + Blade + Shampoo: {num_all_three}")
 
     # =========================
-    # 7. Copy images (FIXED)
+    # 8. Copy images
     # =========================
     if COPY_IMAGES:
         root = Path(IMAGE_SEARCH_ROOT)
