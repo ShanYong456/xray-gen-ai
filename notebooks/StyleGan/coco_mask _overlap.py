@@ -6,20 +6,20 @@ import numpy as np
 # =========================
 # Paths
 # =========================
-IMAGES_DIR = Path("data/raw/SHAMPOOBLADEWITHTRAY")
-COCO_JSON = Path("data/raw/SHAMPOOBLADEWITHTRAY/result.json")
+IMAGES_DIR = Path("data/raw/SHAMPOOBLADEWITHTRAY_TGT")
+COCO_JSON = Path("data/raw/SHAMPOOBLADEWITHTRAY_TGT/result.json")
 
 # Per-class binary masks
-OUT_SHAMPOO_MASKS = Path("data/interim/SHAMPOOBLADEWITHTRAY/shampoo_masks")
-OUT_TRAY_MASKS = Path("data/interim/SHAMPOOBLADEWITHTRAY/tray_masks")
-OUT_BLADE_MASKS = Path("data/interim/SHAMPOOBLADEWITHTRAY/blade_masks")
+OUT_SHAMPOO_MASKS = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/shampoo_masks")
+OUT_TRAY_MASKS = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/tray_masks")
+OUT_BLADE_MASKS = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/blade_masks")
 
 # Viz folders
-OUT_VIZ = Path("data/interim/SHAMPOOBLADEWITHTRAY/masks_viz")
-OUT_COLOR = Path("data/interim/SHAMPOOBLADEWITHTRAY/masks_color")
-OUT_OVERLAY = Path("data/interim/SHAMPOOBLADEWITHTRAY/masks_overlay")
+OUT_VIZ = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/masks_viz")
+OUT_COLOR = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/masks_color")
+OUT_OVERLAY = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/masks_overlay")
 
-MANIFEST_JSON = Path("data/interim/SHAMPOOBLADEWITHTRAY/masks_manifest_filtered.json")
+MANIFEST_JSON = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/masks_manifest_filtered.json")
 
 for d in [
     OUT_SHAMPOO_MASKS,

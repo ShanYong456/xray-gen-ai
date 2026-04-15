@@ -5,15 +5,15 @@ import random
 import json
 
 # ===== INPUTS =====
-IMG_DIR = Path("data/raw/SHAMPOOBLADEWITHTRAY")
+IMG_DIR = Path("data/raw/SHAMPOOBLADEWITHTRAY_TGT")
 
 # Separate binary mask folders
-SHAMPOO_MASK_DIR = Path("data/interim/SHAMPOOBLADEWITHTRAY/shampoo_masks")
-TRAY_MASK_DIR = Path("data/interim/SHAMPOOBLADEWITHTRAY/tray_masks")
-BLADE_MASK_DIR = Path("data/interim/SHAMPOOBLADEWITHTRAY/blade_masks")
+SHAMPOO_MASK_DIR = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/shampoo_masks")
+TRAY_MASK_DIR = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/tray_masks")
+BLADE_MASK_DIR = Path("data/interim/SHAMPOOBLADEWITHTRAY_TGT/blade_masks")
 
 # ===== OUTPUT =====
-OUT_ROOT = Path("datasets/SHAMPOOBLADEWITHTRAY")
+OUT_ROOT = Path("datasets/SHAMPOOBLADEWITHTRAY_TGT")
 TRAIN_DIR = OUT_ROOT / "train"
 TEST_DIR = OUT_ROOT / "test"
 
