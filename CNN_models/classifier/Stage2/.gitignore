@@ -1,0 +1,15 @@
+# 1) Ignore EVERYTHING
+*
+
+# 2) Keep gitignore
+!.gitignore
+
+# 3) Allow Git to enter folders
+!*/
+
+# 4) BUT fully ignore web directory again
+checkpoints/
+checkpoints/**
+
+# 5) Whitelist ONLY the files you want
+!Stage2.pt
