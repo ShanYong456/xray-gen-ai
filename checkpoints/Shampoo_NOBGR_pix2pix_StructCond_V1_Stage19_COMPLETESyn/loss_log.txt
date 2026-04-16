@@ -3341,3 +3341,47 @@
 
 [Rank 0] (epoch: 89, iters: 64, time: 0.724, data: 0.005) , G_GAN: 0.286, G_L1: 0.891, G_grad: 0.156, G_lap: 0.226, G_ssim: 0.302, G_stats: 0.008, D_real: 0.213, D_fake: 0.193
 
+[Rank 0] (epoch: 89, iters: 164, time: 0.325, data: 0.005) , G_GAN: 0.306, G_L1: 0.807, G_grad: 0.144, G_lap: 0.205, G_ssim: 0.265, G_stats: 0.005, D_real: 0.201, D_fake: 0.196
+
+[Rank 0] (epoch: 89, iters: 264, time: 0.327, data: 0.005) , G_GAN: 0.323, G_L1: 0.910, G_grad: 0.160, G_lap: 0.227, G_ssim: 0.308, G_stats: 0.003, D_real: 0.211, D_fake: 0.198
+
+[Rank 0] (epoch: 89, iters: 364, time: 0.337, data: 0.005) , G_GAN: 0.340, G_L1: 0.921, G_grad: 0.165, G_lap: 0.237, G_ssim: 0.328, G_stats: 0.002, D_real: 0.186, D_fake: 0.212
+
+[Rank 0] (epoch: 89, iters: 464, time: 0.735, data: 0.005) , G_GAN: 0.352, G_L1: 0.883, G_grad: 0.159, G_lap: 0.235, G_ssim: 0.315, G_stats: 0.003, D_real: 0.159, D_fake: 0.238
+
+[Rank 0] (epoch: 90, iters: 92, time: 0.329, data: 0.004) , G_GAN: 0.305, G_L1: 0.849, G_grad: 0.150, G_lap: 0.204, G_ssim: 0.261, G_stats: 0.005, D_real: 0.223, D_fake: 0.175
+
+[Rank 0] (epoch: 90, iters: 192, time: 0.329, data: 0.006) , G_GAN: 0.335, G_L1: 0.824, G_grad: 0.149, G_lap: 0.208, G_ssim: 0.268, G_stats: 0.004, D_real: 0.235, D_fake: 0.155
+
+[Rank 0] (epoch: 90, iters: 292, time: 0.323, data: 0.006) , G_GAN: 0.304, G_L1: 0.911, G_grad: 0.162, G_lap: 0.232, G_ssim: 0.313, G_stats: 0.006, D_real: 0.197, D_fake: 0.194
+
+[Rank 0] (epoch: 90, iters: 392, time: 0.717, data: 0.005) , G_GAN: 0.275, G_L1: 0.850, G_grad: 0.152, G_lap: 0.211, G_ssim: 0.283, G_stats: 0.004, D_real: 0.259, D_fake: 0.160
+
+[Rank 0] (epoch: 91, iters: 20, time: 0.329, data: 0.005) , G_GAN: 0.292, G_L1: 0.911, G_grad: 0.159, G_lap: 0.227, G_ssim: 0.309, G_stats: 0.003, D_real: 0.215, D_fake: 0.199
+
+[Rank 0] (epoch: 91, iters: 120, time: 0.336, data: 0.004) , G_GAN: 0.323, G_L1: 0.901, G_grad: 0.162, G_lap: 0.231, G_ssim: 0.310, G_stats: 0.004, D_real: 0.244, D_fake: 0.149
+
+[Rank 0] (epoch: 91, iters: 220, time: 0.340, data: 0.004) , G_GAN: 0.315, G_L1: 0.941, G_grad: 0.167, G_lap: 0.236, G_ssim: 0.327, G_stats: 0.004, D_real: 0.196, D_fake: 0.202
+
+[Rank 0] (epoch: 91, iters: 320, time: 0.720, data: 0.004) , G_GAN: 0.297, G_L1: 0.909, G_grad: 0.162, G_lap: 0.234, G_ssim: 0.318, G_stats: 0.005, D_real: 0.204, D_fake: 0.189
+
+[Rank 0] (epoch: 91, iters: 420, time: 0.331, data: 0.005) , G_GAN: 0.327, G_L1: 0.844, G_grad: 0.153, G_lap: 0.209, G_ssim: 0.277, G_stats: 0.001, D_real: 0.190, D_fake: 0.212
+
+[Rank 0] (epoch: 92, iters: 48, time: 0.327, data: 0.005) , G_GAN: 0.314, G_L1: 0.946, G_grad: 0.169, G_lap: 0.243, G_ssim: 0.336, G_stats: 0.004, D_real: 0.187, D_fake: 0.203
+
+[Rank 0] (epoch: 92, iters: 148, time: 0.328, data: 0.005) , G_GAN: 0.322, G_L1: 0.823, G_grad: 0.147, G_lap: 0.203, G_ssim: 0.260, G_stats: 0.002, D_real: 0.234, D_fake: 0.169
+
+[Rank 0] (epoch: 92, iters: 248, time: 0.757, data: 0.005) , G_GAN: 0.288, G_L1: 0.941, G_grad: 0.162, G_lap: 0.230, G_ssim: 0.317, G_stats: 0.004, D_real: 0.247, D_fake: 0.149
+
+[Rank 0] (epoch: 92, iters: 348, time: 0.328, data: 0.005) , G_GAN: 0.311, G_L1: 0.882, G_grad: 0.157, G_lap: 0.224, G_ssim: 0.293, G_stats: 0.002, D_real: 0.212, D_fake: 0.195
+
+[Rank 0] (epoch: 92, iters: 448, time: 0.330, data: 0.004) , G_GAN: 0.305, G_L1: 0.803, G_grad: 0.145, G_lap: 0.207, G_ssim: 0.266, G_stats: 0.003, D_real: 0.215, D_fake: 0.191
+
+[Rank 0] (epoch: 93, iters: 76, time: 0.336, data: 0.004) , G_GAN: 0.326, G_L1: 0.931, G_grad: 0.164, G_lap: 0.228, G_ssim: 0.308, G_stats: 0.004, D_real: 0.153, D_fake: 0.254
+
+[Rank 0] (epoch: 93, iters: 176, time: 0.831, data: 0.004) , G_GAN: 0.307, G_L1: 0.920, G_grad: 0.163, G_lap: 0.234, G_ssim: 0.317, G_stats: 0.006, D_real: 0.223, D_fake: 0.174
+
+[Rank 0] (epoch: 93, iters: 276, time: 0.328, data: 0.004) , G_GAN: 0.330, G_L1: 0.982, G_grad: 0.176, G_lap: 0.251, G_ssim: 0.368, G_stats: 0.002, D_real: 0.142, D_fake: 0.230
+
+[Rank 0] (epoch: 93, iters: 376, time: 0.336, data: 0.004) , G_GAN: 0.348, G_L1: 0.867, G_grad: 0.154, G_lap: 0.222, G_ssim: 0.287, G_stats: 0.000, D_real: 0.162, D_fake: 0.230
+
