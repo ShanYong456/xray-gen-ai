@@ -15,11 +15,11 @@ from torchvision.utils import save_image
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from notebooks.CDGan.model import (
+from Codes_Notebooks.CDGan.model import (
     Generator, Discriminator,
     ConditionalGenerator, ConditionalDiscriminator
 )
-from notebooks.CDGan.dataset import Get_dataloader
+from Codes_Notebooks.CDGan.dataset import Get_dataloader
 
 
 # ============================================================
@@ -841,7 +841,7 @@ if __name__ == "__main__":
 """
 RUN THIS TO TRAIN THE MODEL
 
-test: python notebooks/GanTraining/modeltraining.py --mode train --data_root data/interim/GAN/Stage1/color_clahe_1500x1000_noborder_aug/part1 --epochs 400 --batch_size 8 --img_size 256 --lr_g 0.0002 --lr_d 0.00001 --use_auto_lr --auto_lr_cooldown 1 --auto_lr_interval 2 --auto_lr_gain 0.40 --auto_lr_max_up 1.10 --auto_lr_max_dn 0.90 -
+test: python Codes_Notebooks/GanTraining/modeltraining.py --mode train --data_root data/interim/GAN/Stage1/color_clahe_1500x1000_noborder_aug/part1 --epochs 400 --batch_size 8 --img_size 256 --lr_g 0.0002 --lr_d 0.00001 --use_auto_lr --auto_lr_cooldown 1 --auto_lr_interval 2 --auto_lr_gain 0.40 --auto_lr_max_up 1.10 --auto_lr_max_dn 0.90 -
 -auto_lr_deadband 0.12 --lr_d_min 0.000001 --clip_grad 1.0 --output_dir ./mode
 ls/generator/outputs --checkpoint_dir ./models/generator/checkpoints
 
@@ -849,12 +849,12 @@ WITH ADAPTIVE BAYESIAN OPTIMIZATION (Recommended - Auto-balances D and G) lr_g -
 
 WITHOUT PRETRAIN MODEL (Standard Training)
 # example after you change argparse + controller
-python notebooks/GanTraining/modeltraining.py --mode train --data_root data/interim/GAN/Stage1/color_clahe_1500x1000_noborder_aug/part1 --epochs 400 --batch_size 8 --img_size 256 --lr_g 0.0002 --lr_d 0.00001 --use_auto_lr --auto_lr_cooldown 1 --auto_lr_interval 5 --auto_lr_gain 0.40 --auto_lr_max_up 1.04 --auto_lr_max_dn 0.96 --auto_lr_deadband 0.12 --lr_d_min 0.000003 --clip_grad 1.0 --output_dir ./models/generator/outputs --checkpoint_dir ./models/generator/checkpoints
+python Codes_Notebooks/GanTraining/modeltraining.py --mode train --data_root data/interim/GAN/Stage1/color_clahe_1500x1000_noborder_aug/part1 --epochs 400 --batch_size 8 --img_size 256 --lr_g 0.0002 --lr_d 0.00001 --use_auto_lr --auto_lr_cooldown 1 --auto_lr_interval 5 --auto_lr_gain 0.40 --auto_lr_max_up 1.04 --auto_lr_max_dn 0.96 --auto_lr_deadband 0.12 --lr_d_min 0.000003 --clip_grad 1.0 --output_dir ./models/generator/outputs --checkpoint_dir ./models/generator/checkpoints
 
 
 
 WITH PRETRAIN MODEL/CHECKPOINT 
-python notebooks/GanTraining/modeltraining.py --mode train --resume_from ./models/generator/checkpoints/checkpoint_epoch_100.pth --data_root data/interim/Stage1/color_clahe_1500x1000_noborder_aug --epochs 200 --batch_size 17 --img_size 256 --lr_g 0.0002 --lr_d 0.00001 --use_adaptive_tuning --tuning_window 5 --tuning_interval 1 --clip_grad 1.0 --output_dir ./models/generator/outputs --checkpoint_dir ./models/generator/checkpoints
+python Codes_Notebooks/GanTraining/modeltraining.py --mode train --resume_from ./models/generator/checkpoints/checkpoint_epoch_100.pth --data_root data/interim/Stage1/color_clahe_1500x1000_noborder_aug --epochs 200 --batch_size 17 --img_size 256 --lr_g 0.0002 --lr_d 0.00001 --use_adaptive_tuning --tuning_window 5 --tuning_interval 1 --clip_grad 1.0 --output_dir ./models/generator/outputs --checkpoint_dir ./models/generator/checkpoints
 
 
 
@@ -862,7 +862,7 @@ python notebooks/GanTraining/modeltraining.py --mode train --resume_from ./model
 
 
 WITH PRETRAIN MODEL/CHECKPOINT (Manual Hyperparameters)
-python notebooks/GanTraining/modeltraining.py 
+python Codes_Notebooks/GanTraining/modeltraining.py 
   --mode train 
   --resume_from ./models/generator/checkpoints/checkpointV1.pth 
   --data_root data/interim/Stage1/color_clahe_1500x1000_noborder_aug 

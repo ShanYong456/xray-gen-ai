@@ -1559,7 +1559,7 @@ if __name__ == "__main__":
 """
 
 GENERATE SHAMPOO & TRAY
-python notebooks/Pix2Pix/generate_pix2pixV2.py \
+python Codes_Notebooks/Pix2Pix/generate_pix2pixV2.py \
   --generate_mode shampoo \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
@@ -1592,7 +1592,7 @@ python notebooks/Pix2Pix/generate_pix2pixV2.py \
 
 BLADE WITH TRAY:
 
-python notebooks/Pix2Pix/generate_pix2pixV2.py \
+python Codes_Notebooks/Pix2Pix/generate_pix2pixV2.py \
   --generate_mode blade \
   --blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY/matched_masks/train/blade \
   --seed 777 \
@@ -1621,7 +1621,7 @@ python notebooks/Pix2Pix/generate_pix2pixV2.py \
 
   
 BLADE + SHAMPOO WITH TRAY:
-python notebooks/Pix2Pix/generate_pix2pixV2.py \
+python Codes_Notebooks/Pix2Pix/generate_pix2pixV2.py \
   --generate_mode combo \
   --images_dir data/raw/Shampoo \
   --out_dataset results/_gen_stage18_combo_tray \
@@ -1657,4 +1657,3 @@ python notebooks/Pix2Pix/generate_pix2pixV2.py \
     print(sorted([x["name"] for x in c["categories"]]))
     PY
 """
-

@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
 """
 
-python notebooks/StyleGan/make_zip.py --source data/interim/GAN/Stage1/myset_full_256_pad --dest data/interim/GAN/Stage1/myset_256.zip --width=256 --height=256 
+python Codes_Notebooks/StyleGan/make_zip.py --source data/interim/GAN/Stage1/myset_full_256_pad --dest data/interim/GAN/Stage1/myset_256.zip --width=256 --height=256 
 
 
 

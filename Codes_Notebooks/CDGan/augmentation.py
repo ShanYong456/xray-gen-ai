@@ -5,7 +5,7 @@ Use this to augment your CNN training datasets with synthetic X-ray images
 import torch
 from torchvision.utils import save_image
 import os
-from notebooks import Generator, ConditionalGenerator
+from Codes_Notebooks.CDGan.model import Generator, ConditionalGenerator
 
 
 class GANAugmenter:

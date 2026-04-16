@@ -30,7 +30,7 @@ training GANs, classifiers and performing explainability on security X‑ray dat
 ├── models/                           # model weights & checkpoints
 │   ├── classifier/                   # classification network weights (DVC)
 │   └── generator/                    # generator/discriminator checkpoints (DVC)
-├── notebooks/                        # exploratory and training notebooks
+├── Codes_Notebooks/                  # exploratory and training notebooks
 │   ├── CDGan/                        # custom DCGAN experiments
 │   ├── ClassifierModels/             # classifier demos & evaluation
 │   ├── Pix2Pix/                      # Pix2Pix dataset/prep & generation
@@ -61,7 +61,7 @@ training GANs, classifiers and performing explainability on security X‑ray dat
 - `dataset_processing.py` – build FiftyOne datasets from Label Studio exports (classification + COCO detection)
 - `verify_setup.py` – sanity check for Python version, CUDA availability and gVirtualXray installation
 
-The rest of the work happens primarily inside the Jupyter notebooks under `notebooks/`.
+The rest of the work happens primarily inside the Jupyter notebooks under `Codes_Notebooks/`.
 
 ---
 
@@ -79,7 +79,7 @@ pip install -r requirements.txt  # install packages
 
 ## Workflow Overview
 
-1. prepare/annotate data → `data/raw/` → notebooks (e.g. Pix2Pix prep) → `data/interim/`/`processed/`
+1. prepare/annotate data → `data/raw/` → `Codes_Notebooks/` (e.g. Pix2Pix prep) → `data/interim/`/`processed/`
 2. train models via notebook scripts (`train_gan.py`, `train_stylegan.py`, `modeltraining.py`, etc.)
 3. evaluate with classifier networks and Grad‑CAM utilities
 4. save analysis reports under `reports/` and checkpoints under `models/`/`checkpoints/`
@@ -143,5 +143,4 @@ See [requirements.txt](requirements.txt) for the full list. Core dependencies in
 - **Matplotlib & Seaborn** – Visualization
 
 ---
-
 

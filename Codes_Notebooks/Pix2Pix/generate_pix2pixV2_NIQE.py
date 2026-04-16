@@ -10,13 +10,6 @@ from datetime import datetime
 import cv2
 import numpy as np
 
-import torch
-import torchvision.models as models
-import torchvision.transforms as T
-from PIL import Image
-
-from sklearn.decomposition import PCA
-
 
 # =============================================================================
 # CONFIG — must match training options exactly
@@ -37,7 +30,7 @@ PALETTE_BGR = {
 OVERLAP_BGR = (255, 255, 0)         # shampoo + tray
 OVERLAP_BLADE_BGR = (255, 0, 255)   # blade + tray
 
-MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage19_COMPLETESyn"
+MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage18_BladeMaskSyn"
 PIX2PIX_DIR = Path("external/pix2pix")
 
 TRAIN_CFG = dict(
@@ -824,129 +817,75 @@ def export_smooth_2x(img: np.ndarray) -> np.ndarray:
 
 
 # =============================================================================
-# Mahalanobis realism helpers
+# NIQE helpers
 # =============================================================================
 
-def _list_image_files(folder: Path):
-    exts = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
-    if not folder.exists():
-        return []
-    return sorted([p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in exts])
+def _prepare_niqe_gray(img_bgr: np.ndarray) -> np.ndarray:
+    if img_bgr is None:
+        raise ValueError("img_bgr is None")
+    if img_bgr.ndim == 2:
+        gray = img_bgr
+    else:
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    return gray.astype(np.uint8)
 
 
-def _load_gray3_pil_from_path(img_path: Path) -> Image.Image:
-    img = cv2.imread(str(img_path), cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise RuntimeError(f"Could not read image: {img_path}")
-    img3 = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-    return Image.fromarray(img3)
+def init_niqe_backend():
+    try:
+        import torch
+        import pyiqa
+    except Exception as e:
+        return {
+            "name": None,
+            "score_fn": None,
+            "error": f"pyiqa NIQE unavailable: {e}",
+        }
 
-
-def _load_gray3_pil_from_bgr(img_bgr: np.ndarray) -> Image.Image:
-    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    img3 = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
-    return Image.fromarray(img3)
-
-
-def init_feature_extractor(device=None):
-    if device is None:
+    try:
         device = "cuda" if torch.cuda.is_available() else "cpu"
+        metric = pyiqa.create_metric("niqe", device=device)
 
-    weights = models.ResNet50_Weights.DEFAULT
-    model = models.resnet50(weights=weights)
-    model.fc = torch.nn.Identity()
-    model.eval().to(device)
+        def _score(gray_u8: np.ndarray) -> float:
+            rgb = cv2.cvtColor(gray_u8, cv2.COLOR_GRAY2RGB).astype(np.float32) / 255.0
+            tensor = torch.from_numpy(rgb).permute(2, 0, 1).unsqueeze(0).to(device)
+            with torch.no_grad():
+                val = metric(tensor)
+            return float(val.detach().cpu().item())
 
-    mean = [0.485, 0.456, 0.406]
-    std = [0.229, 0.224, 0.225]
-
-    transform = T.Compose([
-        T.Resize((224, 224)),
-        T.ToTensor(),
-        T.Normalize(mean=mean, std=std),
-    ])
-
-    return {
-        "model": model,
-        "transform": transform,
-        "device": device,
-        "name": "resnet50_imagenet_penultimate",
-        "dim": 2048,
-    }
+        return {
+            "name": "pyiqa",
+            "score_fn": _score,
+            "error": None,
+        }
+    except Exception as e:
+        return {
+            "name": None,
+            "score_fn": None,
+            "error": f"pyiqa NIQE init failed: {e}",
+        }
 
 
-@torch.no_grad()
-def extract_feature_from_pil(pil_img: Image.Image, extractor: dict) -> np.ndarray:
-    x = extractor["transform"](pil_img).unsqueeze(0).to(extractor["device"])
-    feat = extractor["model"](x)
-    feat = feat.squeeze(0).detach().cpu().numpy().astype(np.float64)
-    return feat
-
-
-def build_real_feature_distribution(real_eval_dir: Path, extractor: dict, pca_dim: int = 32):
-    image_paths = _list_image_files(real_eval_dir)
-    if not image_paths:
-        raise RuntimeError(f"No images found in real_eval_dir: {real_eval_dir}")
-
-    feats = []
-    used_paths = []
-
-    for p in image_paths:
-        try:
-            pil_img = _load_gray3_pil_from_path(p)
-            feat = extract_feature_from_pil(pil_img, extractor)
-            feats.append(feat)
-            used_paths.append(str(p))
-        except Exception as e:
-            print(f"[mahal] skipped real image {p} | reason={e}")
-
-    if len(feats) < 2:
-        raise RuntimeError(f"Need at least 2 valid real images for Mahalanobis scoring. Got {len(feats)}")
-
-    X = np.stack(feats, axis=0)  # [N, D]
-
-    max_valid_dim = min(len(feats) - 1, X.shape[1])
-    pca_dim = max(2, min(int(pca_dim), int(max_valid_dim)))
-
-    pca = PCA(n_components=pca_dim, svd_solver="auto", whiten=False, random_state=0)
-    Xp = pca.fit_transform(X)  # [N, pca_dim]
-
-    mu = Xp.mean(axis=0)
-    cov = np.cov(Xp, rowvar=False)
-
-    eps = 1e-6
-    cov = cov + np.eye(cov.shape[0], dtype=np.float64) * eps
-    cov_inv = np.linalg.pinv(cov)
-
-    return {
-        "feature_name": extractor["name"],
-        "num_real_images": len(feats),
-        "raw_feature_dim": int(X.shape[1]),
-        "pca_dim": int(pca_dim),
-        "pca_model": pca,
-        "mean": mu,
-        "cov_inv": cov_inv,
-        "used_paths": used_paths,
-    }
-
-
-def mahalanobis_distance(feat: np.ndarray, mu: np.ndarray, cov_inv: np.ndarray) -> float:
-    delta = feat - mu
-    dist2 = float(delta.T @ cov_inv @ delta)
-    dist2 = max(dist2, 0.0)
-    return float(np.sqrt(dist2))
-
-
-def compute_mahalanobis_for_images(images_by_stem, real_dist: dict, extractor: dict, enabled=True):
+def compute_niqe_for_images(images_by_stem, enabled=True):
     if not enabled:
         return {
             "enabled": False,
+            "backend": None,
             "available": False,
-            "error": "Mahalanobis disabled by user",
-            "feature_name": None,
-            "num_real_images": 0,
-            "raw_feature_dim": None,
-            "pca_dim": None,
+            "error": "NIQE disabled by user",
+            "per_image": {},
+            "mean": None,
+            "min": None,
+            "max": None,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        }
+
+    backend = init_niqe_backend()
+    if backend["score_fn"] is None:
+        return {
+            "enabled": True,
+            "backend": None,
+            "available": False,
+            "error": backend["error"],
             "per_image": {},
             "mean": None,
             "min": None,
@@ -957,33 +896,26 @@ def compute_mahalanobis_for_images(images_by_stem, real_dist: dict, extractor: d
     per_image = {}
     vals = []
 
-    pca = real_dist["pca_model"]
-
     for stem, img_bgr in images_by_stem.items():
         try:
-            pil_img = _load_gray3_pil_from_bgr(img_bgr)
-            feat = extract_feature_from_pil(pil_img, extractor).reshape(1, -1)
-            feat_pca = pca.transform(feat)[0]
-            d = mahalanobis_distance(feat_pca, real_dist["mean"], real_dist["cov_inv"])
+            gray = _prepare_niqe_gray(img_bgr)
+            score = backend["score_fn"](gray)
             per_image[stem] = {
-                "mahalanobis": float(d),
+                "niqe": float(score),
                 "status": "ok",
             }
-            vals.append(float(d))
+            vals.append(float(score))
         except Exception as e:
             per_image[stem] = {
-                "mahalanobis": None,
+                "niqe": None,
                 "status": f"failed: {e}",
             }
 
     return {
         "enabled": True,
+        "backend": backend["name"],
         "available": True,
         "error": None,
-        "feature_name": real_dist["feature_name"],
-        "num_real_images": int(real_dist["num_real_images"]),
-        "raw_feature_dim": int(real_dist["raw_feature_dim"]),
-        "pca_dim": int(real_dist["pca_dim"]),
         "per_image": per_image,
         "mean": float(np.mean(vals)) if vals else None,
         "min": float(np.min(vals)) if vals else None,
@@ -992,35 +924,34 @@ def compute_mahalanobis_for_images(images_by_stem, real_dist: dict, extractor: d
     }
 
 
-def print_mahalanobis_metrics(mahal_info: dict):
-    if not mahal_info.get("enabled", False):
-        print(f"[mahal] disabled | reason={mahal_info.get('error')}")
+def print_niqe_metrics(niqe_info: dict):
+    if not niqe_info.get("enabled", False):
+        print(f"[NIQE] disabled | reason={niqe_info.get('error')}")
         return
 
-    if not mahal_info.get("available", False):
-        print(f"[mahal] unavailable | reason={mahal_info.get('error')}")
+    if not niqe_info.get("available", False):
+        print(f"[NIQE] unavailable | reason={niqe_info.get('error')}")
         return
 
     print(
-        f"[mahal] feature={mahal_info.get('feature_name')} | "
-        f"real_count={mahal_info.get('num_real_images')} | "
-        f"raw_dim={mahal_info.get('raw_feature_dim')} | "
-        f"pca_dim={mahal_info.get('pca_dim')} | "
-        f"mean={mahal_info.get('mean')} | "
-        f"min={mahal_info.get('min')} | "
-        f"max={mahal_info.get('max')}"
+        f"[NIQE] backend={niqe_info.get('backend')} | "
+        f"mean={niqe_info.get('mean')} | "
+        f"min={niqe_info.get('min')} | "
+        f"max={niqe_info.get('max')}"
     )
 
-    for stem, info in mahal_info.get("per_image", {}).items():
+    for stem, info in niqe_info.get("per_image", {}).items():
         print(
-            f"[mahal] {stem} | "
-            f"distance={info.get('mahalanobis')} | "
+            f"[NIQE] {stem} | "
+            f"niqe={info.get('niqe')} | "
             f"status={info.get('status')}"
         )
 
-def save_mahalanobis_metrics(metrics_path: Path, mahal_info: dict):
-    metrics_path.write_text(json.dumps(mahal_info, indent=2))
-    print(f"[mahal] wrote metrics to: {metrics_path}")
+
+def save_niqe_metrics(metrics_path: Path, niqe_info: dict):
+    metrics_path.write_text(json.dumps(niqe_info, indent=2))
+    print(f"[NIQE] wrote metrics to: {metrics_path}")
+
 
 # =============================================================================
 # Pix2pix inference
@@ -1202,22 +1133,22 @@ def overlay_metric_panel(img_bgr: np.ndarray, lines) -> np.ndarray:
     return np.vstack([banner, base])
 
 
-def build_overlay_lines_for_image(stem: str, mahal_info: dict):
+def build_overlay_lines_for_image(stem: str, niqe_info: dict):
     lines = []
 
-    per_image = mahal_info.get("per_image", {}) if mahal_info else {}
-    stem_info = per_image.get(stem, {})
-    val = stem_info.get("mahalanobis")
+    per_image = niqe_info.get("per_image", {}) if niqe_info else {}
+    stem_niqe = per_image.get(stem, {})
+    niqe_val = stem_niqe.get("niqe")
 
-    if val is not None:
-        lines.append(f"Mahalanobis {val:.4f} | lower is better")
+    if niqe_val is not None:
+        lines.append(f"NIQE {niqe_val:.4f} | lower is better")
     else:
-        if mahal_info and mahal_info.get("enabled", False):
-            lines.append("Mahalanobis unavailable")
-            if mahal_info.get("error"):
-                lines.append(str(mahal_info["error"]))
+        if niqe_info and niqe_info.get("enabled", False):
+            lines.append("NIQE unavailable")
+            if niqe_info.get("error"):
+                lines.append(str(niqe_info["error"]))
         else:
-            lines.append("Mahalanobis disabled")
+            lines.append("NIQE disabled")
 
     return lines
 
@@ -1355,12 +1286,10 @@ def main():
     ap.add_argument("--max_vertical_shift", type=int, default=0,
                     help="Small vertical placement freedom in pixels around the original y position.")
 
-    ap.add_argument("--real_eval_dir", type=str, required=True,
-                help="Directory of real X-ray images used to build the real feature distribution for Mahalanobis scoring.")
-    ap.add_argument("--disable_mahalanobis", action="store_true",
-                help="Disable Mahalanobis realism scoring.")
-    ap.add_argument("--mahal_pca_dim", type=int, default=32,
-                help="PCA dimension used before Mahalanobis scoring. Recommended: 16, 32, or 64.")
+    ap.add_argument("--disable_niqe", action="store_true",
+                    help="Disable per-image NIQE scoring.")
+    ap.add_argument("--niqe_json_name", type=str, default="generated_niqe.json",
+                    help="Filename for NIQE metrics JSON inside output folder.")
 
     args = ap.parse_args()
 
@@ -1551,50 +1480,25 @@ def main():
             raw_final_img = force_grayscale_bgr(raw_final_img)
             final_images[stem] = raw_final_img
 
-    mahal_info = {
-        "enabled": False,
-        "available": False,
-        "error": "Mahalanobis not computed",
-        "feature_name": None,
-        "num_real_images": 0,
-        "raw_feature_dim": None,
-        "pca_dim": None,
-        "per_image": {},
-        "mean": None,
-        "min": None,
-        "max": None,
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
-    }
-
-    if not args.disable_mahalanobis:
-        extractor = init_feature_extractor()
-        real_dist = build_real_feature_distribution(
-            Path(args.real_eval_dir),
-            extractor,
-            pca_dim=args.mahal_pca_dim,
-        )
-        mahal_info = compute_mahalanobis_for_images(
-            images_by_stem=final_images,
-            real_dist=real_dist,
-            extractor=extractor,
-            enabled=True,
-        )
-
-    print_mahalanobis_metrics(mahal_info)
+    niqe_info = compute_niqe_for_images(
+        images_by_stem=final_images,
+        enabled=(not args.disable_niqe),
+    )
+    print_niqe_metrics(niqe_info)
 
     out_dir = out_root / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for stem, raw_img in final_images.items():
-        overlay_lines = build_overlay_lines_for_image(stem, mahal_info)
+        overlay_lines = build_overlay_lines_for_image(stem, niqe_info)
         raw_annotated = overlay_metric_panel(raw_img, overlay_lines)
         final_img = export_smooth_2x(raw_annotated)
         out_path = out_dir / f"{stem}_{args.generate_mode}_smooth2x.png"
         cv2.imwrite(str(out_path), final_img)
         print(f"Saved generated result to: {out_path}")
 
-    mahal_path = out_dir / "generated_mahalanobis.json"
-    save_mahalanobis_metrics(mahal_path, mahal_info)
+    niqe_path = out_dir / args.niqe_json_name
+    save_niqe_metrics(niqe_path, niqe_info)
 
     summary_path = out_dir / f"generated_{args.generate_mode}_summary.json"
     summary = {
@@ -1603,7 +1507,7 @@ def main():
         "num_scenes_generated": len(final_images),
         "seed_start": args.seed,
         "no_overlap": args.no_overlap,
-        "mahalanobis": mahal_info,
+        "niqe": niqe_info,
         "scenes": generated_scene_info,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
@@ -1614,7 +1518,7 @@ def main():
         cleanup_intermediate_outputs(out_root, results_root, keep_preview=args.keep_preview)
 
     print(f"\nDone. Output folder: {out_dir}")
-    print(f"Done. Mahalanobis JSON: {mahal_path}")
+    print(f"Done. NIQE JSON: {niqe_path}")
     print(f"Done. Summary JSON: {summary_path}")
 
 
@@ -1623,18 +1527,18 @@ if __name__ == "__main__":
 """
 
 GENERATE SHAMPOO & TRAY
-python notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_NIQE.py \
   --generate_mode shampoo \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
   --classes Shampoo \
   --count 1 \
   --seed 166 \
-  --out_dataset ressults/_gen_stage19_shampoo_tray \
+  --out_dataset results/_gen_stage18_shampoo_tray \
   --epoch latest \
   --canvas_h 1024 \
   --canvas_w 1024 \
-  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --tray_mask_dir datasets/SHAMPOOWITHTRAY/matched_masks/train/tray \
   --tray_mask_thr 0.5 \
   --tray_cc_close_px 2 \
   --tray_mask_dilate_px 0 \
@@ -1651,21 +1555,20 @@ python notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
   --max_transform_candidates 8 \
   --no_overlap \
   --num_scenes 20 \
-  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test \
-  --keep_intermediates --mahal_pca_dim 32
+  --keep_intermediates  
 
 
 BLADE WITH TRAY:
 
-python notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_NIQE.py \
   --generate_mode blade \
-  --blade_mask_dir results/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade \
+  --blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY/matched_masks/train/blade \
   --seed 777 \
-  --out_dataset results/_gen_stage19_blade_tray \
+  --out_dataset results/_gen_stage18_blade_tray \
   --epoch latest \
   --canvas_h 1024 \
   --canvas_w 1024 \
-  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --tray_mask_dir datasets/SHAMPOOWITHTRAY/matched_masks/train/tray \
   --tray_mask_thr 0.5 \
   --tray_cc_close_px 2 \
   --tray_mask_dilate_px 0 \
@@ -1682,20 +1585,19 @@ python notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
   --max_transform_candidates 8 \
   --no_overlap \
   --num_scenes 20 \
-  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test \
-  --keep_intermediates --mahal_pca_dim 32
+  --keep_intermediates
 
 
   
 BLADE + SHAMPOO WITH TRAY:
-python notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_NIQE.py \
   --generate_mode combo \
   --images_dir data/raw/Shampoo \
   --coco_json data/raw/Shampoo/result.json \
   --classes Shampoo \
   --count 1 \
-  --blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade \
-  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_TGT/matched_masks/train/blade \
+  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_TGT/matched_masks/train/tray \
   --tray_mask_thr 0.5 \
   --tray_cc_close_px 2 \
   --tray_mask_dilate_px 0 \
@@ -1710,13 +1612,12 @@ python notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
   --max_vertical_shift 8 \
   --x_search_step 12 \
   --max_transform_candidates 8 \
-  --out_dataset results/_gen_stage19_combo_tray \
+  --no_overlap \
+  --out_dataset results/_gen_stage18_combo_tray \
   --num_scenes 20 \
-  --seed 17 --allow_overlap \
-  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test \
-  --mahal_pca_dim 32
+  --seed 77
 
-  add this for overlap  --allow_overlap  --no_overlap
+  add this for overlap  --allow_overlap
   
   To print out classes that you have:
   python - <<'PY'
@@ -1725,4 +1626,3 @@ python notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
     print(sorted([x["name"] for x in c["categories"]]))
     PY
 """
-

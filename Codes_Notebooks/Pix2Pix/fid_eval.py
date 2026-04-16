@@ -409,9 +409,9 @@ if __name__ == "__main__":
     main()
 
     """
-python notebooks/Pix2Pix/fid_eval.py \
+python Codes_Notebooks/Pix2Pix/fid_eval.py \
 
-python notebooks/Pix2Pix/fid_eval.py \
+python Codes_Notebooks/Pix2Pix/fid_eval.py \
   --dataroot datasets/SHAMPOOBLADEWITHTRAY_TGT \
   --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage18_BladeMaskSyn \
   --epoch latest \

@@ -72,7 +72,7 @@ if __name__ == "__main__":
     main()
 
 """
-python notebooks/StyleGan/make_patches.py \
+python Codes_Notebooks/StyleGan/make_patches.py \
   --src data/interim/GAN/Stage1/gray_clahe_STYLEGAN \
   --dst data/interim/GAN/Stage1/myset_full_256_pad \
   --size 256 \

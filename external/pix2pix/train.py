@@ -38,7 +38,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 # NEW: import FID helper
-from notebooks.Pix2Pix.fid_eval import compute_fid_for_checkpoint
+from Codes_Notebooks.Pix2Pix.fid_eval import compute_fid_for_checkpoint
 
 
 def append_fid_history(checkpoints_dir, experiment_name, record):

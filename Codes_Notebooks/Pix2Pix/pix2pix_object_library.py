@@ -357,21 +357,21 @@ if __name__ == "__main__":
 
 
 """
-python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Contraband/Metal/result.json --out_dir data/raw/Contraband/Metal/Cropped --use_category_color   --cat_to_palette_json data/raw/Contraband/Metal/color_palette.json
+python Codes_Notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Contraband/Metal/result.json --out_dir data/raw/Contraband/Metal/Cropped --use_category_color   --cat_to_palette_json data/raw/Contraband/Metal/color_palette.json
 
 
 
-python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Non-Contraband/result.json --out_dir data/raw/Non-Contraband/Cropped --use_category_color   --cat_to_palette_json data/raw/Non-Contraband/color_palette.json
+python Codes_Notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Non-Contraband/result.json --out_dir data/raw/Non-Contraband/Cropped --use_category_color   --cat_to_palette_json data/raw/Non-Contraband/color_palette.json
 
 
-python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo/result.json --out_dir data/raw/Shampoo/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo/color_palette.json
+python Codes_Notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo/result.json --out_dir data/raw/Shampoo/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo/color_palette.json
 
-python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo_Blade/result.json --out_dir data/raw/Shampoo_Blade/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo_Blade/color_palette.json
+python Codes_Notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo_Blade/result.json --out_dir data/raw/Shampoo_Blade/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo_Blade/color_palette.json
 
-python notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo_nobackground/result.json --out_dir data/raw/Shampoo_nobackground/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo_nobackground/color_palette.json
+python Codes_Notebooks/Pix2Pix/pix2pix_object_library.py --coco_json data/raw/Shampoo_nobackground/result.json --out_dir data/raw/Shampoo_nobackground/Cropped --use_category_color   --cat_to_palette_json data/raw/Shampoo_nobackground/color_palette.json
 
 
-python notebooks/Pix2Pix/pix2pix_object_library.py \
+python Codes_Notebooks/Pix2Pix/pix2pix_object_library.py \
   --images_dir data/raw/Shampoo_nobackground \
   --coco_json data/raw/Shampoo_nobackground/result.json \
   --out_dir data/raw/Shampoo_nobackground/Cropped_Library --use_category_color   --cat_to_palette_json data/raw/Shampoo_nobackground/color_palette.json \

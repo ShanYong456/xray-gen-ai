@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
 
 """
-python notebooks/StyleGan/generate.py \
+python Codes_Notebooks/StyleGan/generate.py \
   --network models/generator/stylegan/runs/00017-myset_256-paper256-kimg120-batch8-ada-color/network-snapshot-000120.pkl \
   --outdir models/stylegan/gen \
   --seeds 0-99

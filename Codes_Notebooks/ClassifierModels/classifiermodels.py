@@ -7,9 +7,9 @@ from PIL import Image
 # IMPORT YOUR MODEL DEFINITIONS
 # (edit these imports to match your repo)
 # --------------------------------
-from notebooks.Stage1 import SimpleCNN_GAP
-# from notebooks.Stage2 import YourStage2Model
-# from notebooks.Stage3 import YourStage3Model
+from Codes_Notebooks.Stage1 import SimpleCNN_GAP
+# from Codes_Notebooks.Stage2 import YourStage2Model
+# from Codes_Notebooks.Stage3 import YourStage3Model
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

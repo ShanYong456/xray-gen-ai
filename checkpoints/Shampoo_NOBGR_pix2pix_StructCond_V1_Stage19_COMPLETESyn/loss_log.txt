@@ -3591,3 +3591,75 @@
 
 [Rank 0] (epoch: 115, iters: 292, time: 0.329, data: 0.005) , G_GAN: 0.285, G_L1: 0.869, G_grad: 0.152, G_lap: 0.206, G_ssim: 0.276, G_stats: 0.002, D_real: 0.272, D_fake: 0.175
 
+[Rank 0] (epoch: 115, iters: 392, time: 0.327, data: 0.004) , G_GAN: 0.328, G_L1: 0.904, G_grad: 0.163, G_lap: 0.223, G_ssim: 0.313, G_stats: 0.001, D_real: 0.207, D_fake: 0.177
+
+[Rank 0] (epoch: 116, iters: 20, time: 0.328, data: 0.005) , G_GAN: 0.282, G_L1: 0.834, G_grad: 0.150, G_lap: 0.210, G_ssim: 0.279, G_stats: 0.001, D_real: 0.247, D_fake: 0.167
+
+[Rank 0] (epoch: 116, iters: 120, time: 0.736, data: 0.005) , G_GAN: 0.301, G_L1: 0.857, G_grad: 0.152, G_lap: 0.210, G_ssim: 0.285, G_stats: 0.002, D_real: 0.255, D_fake: 0.165
+
+[Rank 0] (epoch: 116, iters: 220, time: 0.329, data: 0.005) , G_GAN: 0.300, G_L1: 0.821, G_grad: 0.146, G_lap: 0.202, G_ssim: 0.257, G_stats: 0.005, D_real: 0.194, D_fake: 0.231
+
+[Rank 0] (epoch: 116, iters: 320, time: 0.328, data: 0.005) , G_GAN: 0.300, G_L1: 0.842, G_grad: 0.151, G_lap: 0.211, G_ssim: 0.285, G_stats: 0.004, D_real: 0.207, D_fake: 0.213
+
+[Rank 0] (epoch: 116, iters: 420, time: 0.328, data: 0.005) , G_GAN: 0.311, G_L1: 0.932, G_grad: 0.168, G_lap: 0.238, G_ssim: 0.329, G_stats: 0.002, D_real: 0.184, D_fake: 0.189
+
+[Rank 0] (epoch: 117, iters: 48, time: 0.738, data: 0.005) , G_GAN: 0.326, G_L1: 0.915, G_grad: 0.163, G_lap: 0.232, G_ssim: 0.313, G_stats: 0.004, D_real: 0.166, D_fake: 0.214
+
+[Rank 0] (epoch: 117, iters: 148, time: 0.329, data: 0.005) , G_GAN: 0.304, G_L1: 0.932, G_grad: 0.166, G_lap: 0.231, G_ssim: 0.317, G_stats: 0.001, D_real: 0.198, D_fake: 0.181
+
+[Rank 0] (epoch: 117, iters: 248, time: 0.329, data: 0.004) , G_GAN: 0.294, G_L1: 0.849, G_grad: 0.150, G_lap: 0.205, G_ssim: 0.267, G_stats: 0.005, D_real: 0.222, D_fake: 0.192
+
+[Rank 0] (epoch: 117, iters: 348, time: 0.329, data: 0.004) , G_GAN: 0.290, G_L1: 0.916, G_grad: 0.163, G_lap: 0.232, G_ssim: 0.316, G_stats: 0.003, D_real: 0.243, D_fake: 0.156
+
+[Rank 0] (epoch: 117, iters: 448, time: 0.348, data: 0.005) , G_GAN: 0.313, G_L1: 0.894, G_grad: 0.157, G_lap: 0.227, G_ssim: 0.305, G_stats: 0.005, D_real: 0.215, D_fake: 0.186
+
+[Rank 0] (epoch: 118, iters: 76, time: 0.329, data: 0.005) , G_GAN: 0.287, G_L1: 0.830, G_grad: 0.150, G_lap: 0.211, G_ssim: 0.279, G_stats: 0.004, D_real: 0.231, D_fake: 0.192
+
+[Rank 0] (epoch: 118, iters: 176, time: 0.329, data: 0.004) , G_GAN: 0.334, G_L1: 0.858, G_grad: 0.155, G_lap: 0.210, G_ssim: 0.273, G_stats: 0.005, D_real: 0.169, D_fake: 0.214
+
+[Rank 0] (epoch: 118, iters: 276, time: 0.328, data: 0.005) , G_GAN: 0.275, G_L1: 0.829, G_grad: 0.150, G_lap: 0.210, G_ssim: 0.274, G_stats: 0.001, D_real: 0.229, D_fake: 0.183
+
+[Rank 0] (epoch: 118, iters: 376, time: 0.733, data: 0.005) , G_GAN: 0.320, G_L1: 0.904, G_grad: 0.162, G_lap: 0.229, G_ssim: 0.305, G_stats: 0.002, D_real: 0.182, D_fake: 0.225
+
+[Rank 0] (epoch: 119, iters: 4, time: 0.330, data: 0.005) , G_GAN: 0.358, G_L1: 0.941, G_grad: 0.167, G_lap: 0.237, G_ssim: 0.327, G_stats: 0.002, D_real: 0.150, D_fake: 0.227
+
+[Rank 0] (epoch: 119, iters: 104, time: 0.329, data: 0.005) , G_GAN: 0.369, G_L1: 0.968, G_grad: 0.172, G_lap: 0.250, G_ssim: 0.357, G_stats: 0.006, D_real: 0.150, D_fake: 0.234
+
+[Rank 0] (epoch: 119, iters: 204, time: 0.326, data: 0.006) , G_GAN: 0.330, G_L1: 0.910, G_grad: 0.161, G_lap: 0.230, G_ssim: 0.309, G_stats: 0.004, D_real: 0.165, D_fake: 0.224
+
+[Rank 0] (epoch: 119, iters: 304, time: 0.730, data: 0.006) , G_GAN: 0.357, G_L1: 0.949, G_grad: 0.167, G_lap: 0.227, G_ssim: 0.327, G_stats: 0.005, D_real: 0.185, D_fake: 0.183
+
+[Rank 0] (epoch: 119, iters: 404, time: 0.328, data: 0.005) , G_GAN: 0.360, G_L1: 0.966, G_grad: 0.172, G_lap: 0.251, G_ssim: 0.358, G_stats: 0.002, D_real: 0.156, D_fake: 0.199
+
+[Rank 0] (epoch: 120, iters: 32, time: 0.330, data: 0.005) , G_GAN: 0.320, G_L1: 0.902, G_grad: 0.159, G_lap: 0.231, G_ssim: 0.309, G_stats: 0.001, D_real: 0.187, D_fake: 0.201
+
+[Rank 0] (epoch: 120, iters: 132, time: 0.328, data: 0.004) , G_GAN: 0.286, G_L1: 0.857, G_grad: 0.154, G_lap: 0.208, G_ssim: 0.272, G_stats: 0.003, D_real: 0.202, D_fake: 0.209
+
+[Rank 0] (epoch: 120, iters: 232, time: 0.823, data: 0.005) , G_GAN: 0.281, G_L1: 0.849, G_grad: 0.151, G_lap: 0.209, G_ssim: 0.272, G_stats: 0.001, D_real: 0.224, D_fake: 0.219
+
+[Rank 0] (epoch: 120, iters: 332, time: 0.327, data: 0.005) , G_GAN: 0.280, G_L1: 0.822, G_grad: 0.149, G_lap: 0.205, G_ssim: 0.263, G_stats: 0.002, D_real: 0.204, D_fake: 0.214
+
+[Rank 0] (epoch: 120, iters: 432, time: 0.350, data: 0.005) , G_GAN: 0.351, G_L1: 0.883, G_grad: 0.157, G_lap: 0.220, G_ssim: 0.303, G_stats: 0.002, D_real: 0.166, D_fake: 0.223
+
+[Rank 0] (epoch: 121, iters: 60, time: 0.339, data: 0.004) , G_GAN: 0.330, G_L1: 0.844, G_grad: 0.152, G_lap: 0.210, G_ssim: 0.277, G_stats: 0.002, D_real: 0.219, D_fake: 0.173
+
+[Rank 0] (epoch: 121, iters: 160, time: 0.761, data: 0.004) , G_GAN: 0.336, G_L1: 0.904, G_grad: 0.162, G_lap: 0.235, G_ssim: 0.316, G_stats: 0.002, D_real: 0.174, D_fake: 0.221
+
+[Rank 0] (epoch: 121, iters: 260, time: 0.336, data: 0.005) , G_GAN: 0.300, G_L1: 0.823, G_grad: 0.149, G_lap: 0.209, G_ssim: 0.271, G_stats: 0.000, D_real: 0.210, D_fake: 0.201
+
+[Rank 0] (epoch: 121, iters: 360, time: 0.333, data: 0.005) , G_GAN: 0.262, G_L1: 0.851, G_grad: 0.149, G_lap: 0.202, G_ssim: 0.264, G_stats: 0.005, D_real: 0.228, D_fake: 0.191
+
+[Rank 0] (epoch: 121, iters: 460, time: 0.339, data: 0.004) , G_GAN: 0.351, G_L1: 0.960, G_grad: 0.172, G_lap: 0.245, G_ssim: 0.343, G_stats: 0.005, D_real: 0.169, D_fake: 0.204
+
+[Rank 0] (epoch: 122, iters: 88, time: 0.772, data: 0.005) , G_GAN: 0.334, G_L1: 0.842, G_grad: 0.150, G_lap: 0.204, G_ssim: 0.260, G_stats: 0.006, D_real: 0.177, D_fake: 0.212
+
+[Rank 0] (epoch: 122, iters: 188, time: 0.345, data: 0.005) , G_GAN: 0.343, G_L1: 0.897, G_grad: 0.161, G_lap: 0.229, G_ssim: 0.306, G_stats: 0.001, D_real: 0.221, D_fake: 0.180
+
+[Rank 0] (epoch: 122, iters: 288, time: 0.348, data: 0.005) , G_GAN: 0.334, G_L1: 0.911, G_grad: 0.162, G_lap: 0.229, G_ssim: 0.310, G_stats: 0.001, D_real: 0.196, D_fake: 0.188
+
+[Rank 0] (epoch: 122, iters: 388, time: 0.353, data: 0.005) , G_GAN: 0.332, G_L1: 0.909, G_grad: 0.160, G_lap: 0.226, G_ssim: 0.300, G_stats: 0.007, D_real: 0.183, D_fake: 0.213
+
+[Rank 0] (epoch: 123, iters: 16, time: 0.816, data: 0.004) , G_GAN: 0.291, G_L1: 0.808, G_grad: 0.146, G_lap: 0.207, G_ssim: 0.266, G_stats: 0.001, D_real: 0.209, D_fake: 0.199
+
+[Rank 0] (epoch: 123, iters: 116, time: 0.338, data: 0.006) , G_GAN: 0.298, G_L1: 0.806, G_grad: 0.146, G_lap: 0.208, G_ssim: 0.270, G_stats: 0.002, D_real: 0.180, D_fake: 0.225
+
