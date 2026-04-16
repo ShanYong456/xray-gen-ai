@@ -929,6 +929,41 @@ python external/pix2pix/train.py \
 
 
 
+    BLADE AND SHAMPOO COMPLETE:
+
+python external/pix2pix/train.py \
+  --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage19_COMPLETESyn \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 7 --output_nc 3 --class_nc 3 --thickness_nc 1 \
+  --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+  --preprocess none --load_size 0 --crop_size 0 --no_flip \
+  --batch_size 1 --pool_size 0 --gan_mode lsgan \
+  --lr 3e-6 --beta1 0.5 --n_epochs 150 --n_epochs_decay 150 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels --return_instance_masks \
+  --use_masked_l1 --lambda_L1 45 --lambda_bg 0 \
+  --use_grad_loss --lambda_grad 10 --use_lap_loss --lambda_lap 6 \
+  --use_ssim_loss --lambda_ssim 3 --use_region_stats --lambda_stats 3 \
+  --d_label_smooth 0.1 --d_update_ratio 2 \
+  --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --synthetic_min_items 1 --synthetic_max_items 1 \
+  --synthetic_place_tries 30 --synthetic_item_retries 6 --synthetic_erode_px 2 \
+  --synthetic_prob 0 --synthetic_no_overlap \
+  --pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
+  --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+  --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade \
+  --synthetic_scale_min 0.65 --synthetic_scale_max 0.75 \
+  --continue_train --epoch latest \
+  --fid_during_training \
+  --fid_epoch_freq 40 \
+  --fid_phase train \
+  --fid_max_images 500 \
+  --fid_work_dir fid_eval_runs
+
+
+
+
+
   # WITHOUT EMPTY TRAY
    python external/pix2pix/train.py \
   --dataroot datasets/Shampoo \

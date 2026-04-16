@@ -4,10 +4,11 @@ import json
 import random
 import subprocess
 import shutil
+import sys
+from datetime import datetime
 
 import cv2
 import numpy as np
-from PIL import Image
 
 
 # =============================================================================
@@ -24,10 +25,12 @@ PALETTE_BGR = {
     2: (255, 0, 0),    # tray    -> RGB blue
     3: (0, 0, 255),    # blade   -> RGB red
 }
-OVERLAP_BGR = (255, 255, 0)  # shampoo + tray -> cyan in RGB after cv2 write
-OVERLAP_BLADE_BGR = (255, 0, 255)  # blade + tray -> magenta in RGB after cv2 write
 
-MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage17_BladeMaskSyn"
+# overlap colors for conditioning visualization
+OVERLAP_BGR = (255, 255, 0)         # shampoo + tray
+OVERLAP_BLADE_BGR = (255, 0, 255)   # blade + tray
+
+MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage18_BladeMaskSyn"
 PIX2PIX_DIR = Path("external/pix2pix")
 
 TRAIN_CFG = dict(
@@ -45,19 +48,8 @@ TRAIN_CFG = dict(
     tray_mask_dilate_px=0,
 )
 
-# Search params
 X_SEARCH_STEP = 12
 MAX_TRANSFORM_CANDIDATES = 8
-
-# Match training-side Q_score weights in pix2pix_model.py
-TRAIN_SCORE_WEIGHTS = {
-    "gan": 0.10,
-    "l1": 0.35,
-    "grad": 0.15,
-    "lap": 0.10,
-    "ssim": 0.20,
-    "stats": 0.10,
-}
 
 
 # =============================================================================
@@ -108,7 +100,7 @@ def largest_cc(m01):
 
 def morph_close(m01, px):
     if px <= 0:
-        return m.astype(np.uint8) if (m := m01) is not None else m01
+        return m01.astype(np.uint8)
     k = np.ones((2 * px + 1, 2 * px + 1), np.uint8)
     return cv2.morphologyEx(m01.astype(np.uint8), cv2.MORPH_CLOSE, k)
 
@@ -132,22 +124,19 @@ def map_bbox_to_canvas(x0, y0, x1, y1, src_w, src_h, target_w, target_h):
 
     return nx0, ny0, nx1, ny1, scale, x_off, y_off
 
+
 def resize_and_pad_mask(mask, target_h, target_w):
     h, w = mask.shape[:2]
-
     scale = min(target_w / w, target_h / h)
     new_w = int(w * scale)
     new_h = int(h * scale)
 
     resized = cv2.resize(mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
-
     canvas = np.zeros((target_h, target_w), dtype=resized.dtype)
 
     y_offset = (target_h - new_h) // 2
     x_offset = (target_w - new_w) // 2
-
     canvas[y_offset:y_offset + new_h, x_offset:x_offset + new_w] = resized
-
     return canvas
 
 
@@ -300,12 +289,12 @@ def build_real_cutout_library(coco, images_dir: Path):
                 "fit_h": int(fit_h),
                 "fit_cx": float(fit_cx),
                 "fit_cy": float(fit_cy),
+                "item_type": "shampoo",
             })
 
     if not lib:
         raise SystemExit("No valid cutouts from COCO + images_dir")
 
-    # Only shampoo is useful here
     lib = [x for x in lib if int(x["train_id"]) == 1]
     if not lib:
         raise SystemExit("No shampoo cutouts found in COCO/images_dir.")
@@ -369,6 +358,7 @@ def build_blade_mask_library(blade_mask_dir: Path):
             "fit_h": int(fit_h),
             "fit_cx": float(fit_cx),
             "fit_cy": float(fit_cy),
+            "item_type": "blade",
         })
 
     if not lib:
@@ -376,6 +366,37 @@ def build_blade_mask_library(blade_mask_dir: Path):
 
     print(f"[cutouts] built {len(lib)} blade masks")
     return lib
+
+
+def select_shampoo_cutouts(real_cutouts, want_classes, counts_raw, rng):
+    if want_classes:
+        targets = ([int(counts_raw[0])] * len(want_classes)
+                   if len(counts_raw) == 1 else [int(x) for x in counts_raw])
+
+        selected = []
+        for cls, n in zip(want_classes, targets):
+            cands = [c for c in real_cutouts if c["class_name"].lower() == cls.lower()]
+            if not cands:
+                avail = sorted({c["class_name"] for c in real_cutouts})
+                raise SystemExit(f"Class '{cls}' not found. Available: {avail}")
+            if len(cands) < n:
+                raise SystemExit(f"Class '{cls}' only has {len(cands)} cutouts, but requested {n}")
+            selected.extend(rng.sample(cands, n))
+        return selected
+
+    n = int(counts_raw[0])
+    if len(real_cutouts) < n:
+        raise SystemExit(f"Only {len(real_cutouts)} shampoo cutouts available, but requested {n}")
+    return rng.sample(real_cutouts, n)
+
+
+def select_blade_cutouts(blade_cutouts, count, pick_mode, rng):
+    count = max(1, int(count))
+    if len(blade_cutouts) < count:
+        raise SystemExit(f"Only {len(blade_cutouts)} blade masks available, but requested {count}")
+    if pick_mode == "first":
+        return blade_cutouts[:count]
+    return rng.sample(blade_cutouts, count)
 
 
 # =============================================================================
@@ -415,7 +436,6 @@ def transform_cutout(item, rng, scale_min, scale_max, rot_min, rot_max):
     mask_u8 = cv2.morphologyEx(mask_u8, cv2.MORPH_CLOSE, kernel, iterations=1)
 
     _, m = cv2.threshold(mask_u8, 96, 255, cv2.THRESH_BINARY)
-
     ys, xs = np.where(m > 0)
     if not len(xs):
         return None
@@ -483,24 +503,9 @@ def build_soft_y_candidates(canvas_h, obj_h, y_base, radius, step, rng):
         ys.append(y)
 
     ys.append(y_base)
-
     ys = sorted(set(ys), key=lambda yy: abs(yy - y_base))
     return ys
 
-def adjust_y_base_into_valid_band(tray_place: np.ndarray, obj_h: int, y_base: int) -> int:
-    H = tray_place.shape[0]
-    y_base = max(0, min(H - obj_h, int(y_base)))
-
-    valid_ys = []
-    for y in range(0, H - obj_h + 1):
-        roi = tray_place[y:y + obj_h, :]
-        if roi.shape[0] == obj_h and roi.any():
-            valid_ys.append(y)
-
-    if not valid_ys:
-        return y_base
-
-    return min(valid_ys, key=lambda y: abs(y - y_base))
 
 def apply_vertical_inner_margin(mask_bool: np.ndarray, margin_px: int) -> np.ndarray:
     m = (mask_bool > 0)
@@ -524,13 +529,6 @@ def apply_vertical_inner_margin(mask_bool: np.ndarray, margin_px: int) -> np.nda
 
 
 def apply_horizontal_inner_margin(mask_bool: np.ndarray, margin_px: int) -> np.ndarray:
-    """
-    Shrink the valid placement region only in the horizontal direction so
-    the object stays away from the tray's left/right border.
-
-    This works per row instead of using one global bounding box, so it
-    respects trays whose widths vary with y.
-    """
     m = (mask_bool > 0)
     if margin_px <= 0:
         return m.copy()
@@ -575,7 +573,7 @@ def render_blade_on_tray(region_B: np.ndarray, obj_soft: np.ndarray, obj_mask: n
 
 
 # =============================================================================
-# Scene builder — MATCHES STAGE13 SEMANTICS
+# Scene builder
 # =============================================================================
 
 def build_scene(
@@ -609,11 +607,9 @@ def build_scene(
     tray_y_min = int(tray_rows.min()) if len(tray_rows) else 0
     tray_y_max = int(tray_rows.max()) if len(tray_rows) else (canvas_h - 1)
 
-    # A side
     canvas_mask = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
-    canvas_mask[tray] = PALETTE_BGR[2]  # tray-only = blue in RGB after write
+    canvas_mask[tray] = PALETTE_BGR[2]
 
-    # pseudo_B side for debugging only; model does not use appearance channel here
     tray_preview = np.full((canvas_h, canvas_w), 235, dtype=np.float32)
     tray_preview[~tray] = 0
     canvas_app = tray_preview.copy()
@@ -640,15 +636,11 @@ def build_scene(
 
             obj_mask = t["hard_mask"]
             obj_soft = t["soft_mask"]
-            obj_gray = None if t.get("gray", None) is None else t["gray"].astype(np.float32)
             item_type = item.get("item_type", "shampoo")
 
             y_base = int(round(float(item.get("fit_cy", item["orig_cy"])) - h / 2.0))
             y_base = max(0, min(canvas_h - h, y_base))
 
-            # Clamp the preferred y into the tray's valid vertical band first.
-            # This makes tray_vertical_margin_px behave smoothly instead of doing
-            # nothing until a sudden large jump.
             valid_y_min = max(0, tray_y_min)
             valid_y_max = min(canvas_h - h, tray_y_max - h + 1)
             if valid_y_max >= valid_y_min:
@@ -695,15 +687,12 @@ def build_scene(
                         continue
 
                     region_A = canvas_mask[y:y + h, x:x + w]
-
-                    # pseudo_B preview only
                     region_B = canvas_app[y:y + h, x:x + w].astype(np.float32)
 
-                    if int(item.get("train_id", 1)) == 3:
+                    if int(item.get("train_id", 1)) == 3 or item_type == "blade":
                         region_A[obj_mask] = OVERLAP_BLADE_BGR
                         canvas_app[y:y + h, x:x + w] = render_blade_on_tray(region_B, obj_soft, obj_mask)
                     else:
-                        # Stage15/16 shampoo-over-tray overlap
                         region_A[obj_mask] = OVERLAP_BGR
 
                         obj_gray = t["gray"].astype(np.float32)
@@ -826,6 +815,190 @@ def export_smooth_2x(img: np.ndarray) -> np.ndarray:
 
 
 # =============================================================================
+# FID helpers
+# =============================================================================
+
+def to_grayscale_3ch_bgr(img_bgr: np.ndarray) -> np.ndarray:
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+
+
+def list_image_paths(folder: Path):
+    exts = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
+    if not folder.exists():
+        return []
+    return sorted([p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in exts])
+
+
+def prepare_fid_reference_dir(src_dir: Path, dst_dir: Path, canvas_h: int, canvas_w: int):
+    """
+    Build a clean real-image folder for FID.
+
+    Rules:
+    - ignore tray mask previews like *_T.png
+    - if image looks like pix2pix AB pair (width == 2 * canvas_w), keep only right-half B
+    - force grayscale 3-channel output
+    """
+    if not src_dir.exists():
+        raise SystemExit(f"--fid_real_dir does not exist: {src_dir}")
+
+    if dst_dir.exists():
+        shutil.rmtree(dst_dir, ignore_errors=True)
+    dst_dir.mkdir(parents=True, exist_ok=True)
+
+    count = 0
+    for p in list_image_paths(src_dir):
+        if p.stem.endswith("_T"):
+            continue
+
+        img = cv2.imread(str(p), cv2.IMREAD_COLOR)
+        if img is None:
+            continue
+
+        h, w = img.shape[:2]
+
+        # If this is an AB image, extract B half only
+        if h == canvas_h and w == (2 * canvas_w):
+            real_b = img[:, canvas_w:canvas_w * 2]
+        else:
+            real_b = img
+
+        real_b = to_grayscale_3ch_bgr(real_b)
+        out_path = dst_dir / f"{p.stem}.png"
+        cv2.imwrite(str(out_path), real_b)
+        count += 1
+
+    if count == 0:
+        raise SystemExit(
+            f"No valid reference images found in {src_dir}. "
+            f"Make sure this folder contains real target images or pix2pix AB pairs."
+        )
+
+    print(f"[FID] prepared clean real reference set: {dst_dir} | count={count}")
+    return dst_dir
+
+
+def run_torch_fidelity(fake_dir: Path, real_dir: Path, cuda: bool = True):
+    cmd = [
+        sys.executable, "-m", "torch_fidelity.fidelity",
+        "--fid",
+        "--input1", str(fake_dir),
+        "--input2", str(real_dir),
+        "--json",
+    ]
+    if cuda:
+        cmd += ["--gpu", "0"]
+
+    print("[FID] running:", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        print("[FID] stdout:")
+        print(result.stdout.strip() if result.stdout else "(empty)")
+        print("[FID] stderr:")
+        print(result.stderr.strip() if result.stderr else "(empty)")
+        raise RuntimeError(
+            "torch_fidelity failed. See stderr above. "
+            "Most likely causes: invalid real/fake folder contents, too few images, or bad image files."
+        )
+
+    stdout = result.stdout.strip()
+    if not stdout:
+        raise RuntimeError("torch_fidelity returned success but stdout was empty.")
+
+    return json.loads(stdout)
+
+
+def save_fid_sample(fake_dir: Path, img_bgr: np.ndarray, stem: str, seed: int):
+    fake_dir.mkdir(parents=True, exist_ok=True)
+    out_path = fake_dir / f"{stem}_seed{seed}.png"
+    img_bgr = to_grayscale_3ch_bgr(img_bgr)
+    cv2.imwrite(str(out_path), img_bgr)
+    return out_path
+
+
+def compute_running_fid(
+    generated_img_bgr: np.ndarray,
+    fid_real_dir: Path,
+    fid_fake_dir: Path,
+    stem: str,
+    seed: int,
+    canvas_h: int,
+    canvas_w: int,
+    keep_fake_history: bool = True,
+):
+    if not fid_real_dir.exists():
+        raise SystemExit(f"--fid_real_dir does not exist: {fid_real_dir}")
+
+    if not keep_fake_history and fid_fake_dir.exists():
+        shutil.rmtree(fid_fake_dir, ignore_errors=True)
+
+    save_fid_sample(fid_fake_dir, generated_img_bgr, stem=stem, seed=seed)
+
+    # Build a clean real-reference folder automatically
+    prepared_real_dir = fid_real_dir.parent / f"{fid_real_dir.name}_fid_ready"
+    prepared_real_dir = prepare_fid_reference_dir(
+        src_dir=fid_real_dir,
+        dst_dir=prepared_real_dir,
+        canvas_h=canvas_h,
+        canvas_w=canvas_w,
+    )
+
+    num_fake = len(list(fid_fake_dir.glob("*.png")))
+    num_real = len(list(prepared_real_dir.glob("*.png")))
+
+    # FID with 1 image is not meaningful and often breaks
+    if num_fake < 2 or num_real < 2:
+        return {
+            "fid": None,
+            "num_fake": num_fake,
+            "num_real": num_real,
+            "fake_dir": str(fid_fake_dir),
+            "real_dir": str(prepared_real_dir),
+            "raw_metrics": {
+                "warning": "Not enough images to compute FID reliably. Need at least 2 fake and 2 real images."
+            },
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        }
+
+    metrics = run_torch_fidelity(
+        fake_dir=fid_fake_dir,
+        real_dir=prepared_real_dir,
+        cuda=cv2.cuda.getCudaEnabledDeviceCount() > 0
+    )
+
+    fid_value = metrics.get("frechet_inception_distance", None)
+
+    return {
+        "fid": fid_value,
+        "num_fake": num_fake,
+        "num_real": num_real,
+        "fake_dir": str(fid_fake_dir),
+        "real_dir": str(prepared_real_dir),
+        "raw_metrics": metrics,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
+def print_fid_metrics(fid_info: dict):
+    if fid_info["fid"] is None:
+        print(
+            f"[FID] skipped | fake_count={fid_info['num_fake']} | "
+            f"real_count={fid_info['num_real']} | reason={fid_info['raw_metrics'].get('warning')}"
+        )
+    else:
+        print(
+            f"[FID] value={fid_info['fid']} | "
+            f"fake_count={fid_info['num_fake']} | "
+            f"real_count={fid_info['num_real']}"
+        )
+
+
+def save_fid_metrics(metrics_path: Path, fid_info: dict):
+    metrics_path.write_text(json.dumps(fid_info, indent=2))
+    print(f"[FID] wrote metrics to: {metrics_path}")
+
+# =============================================================================
 # Pix2pix inference
 # =============================================================================
 
@@ -918,303 +1091,8 @@ def build_tray_scene_from_mask(mask_path: Path, out_w: int, out_h: int, thr=0.5,
 
 
 # =============================================================================
-# Inference quality metrics
+# Display helpers
 # =============================================================================
-
-def semantic_masks_from_canvas_mask(canvas_mask: np.ndarray):
-    shampoo_only = np.all(canvas_mask == np.array(PALETTE_BGR[1], dtype=np.uint8), axis=2)
-    tray_only = np.all(canvas_mask == np.array(PALETTE_BGR[2], dtype=np.uint8), axis=2)
-    blade_only = np.all(canvas_mask == np.array(PALETTE_BGR[3], dtype=np.uint8), axis=2)
-    overlap_shampoo = np.all(canvas_mask == np.array(OVERLAP_BGR, dtype=np.uint8), axis=2)
-    overlap_blade = np.all(canvas_mask == np.array(OVERLAP_BLADE_BGR, dtype=np.uint8), axis=2)
-
-    object_mask = shampoo_only | blade_only | overlap_shampoo | overlap_blade
-    tray_mask = tray_only | overlap_shampoo | overlap_blade
-    overlap_mask = overlap_shampoo | overlap_blade
-    return object_mask.astype(bool), tray_mask.astype(bool), overlap_mask.astype(bool)
-
-
-def _score_from_distance(value: float, target: float, tolerance: float) -> float:
-    tolerance = max(float(tolerance), 1e-6)
-    return float(max(0.0, 1.0 - abs(float(value) - float(target)) / tolerance))
-
-
-def _to_gray01(img_bgr: np.ndarray) -> np.ndarray:
-    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
-    return np.clip(gray, 0.0, 1.0)
-
-def _resize_bool_mask(mask: np.ndarray, target_hw):
-    target_h, target_w = target_hw
-    if mask is None:
-        return None
-
-    if mask.dtype != np.uint8:
-        mask_u8 = mask.astype(np.uint8)
-    else:
-        mask_u8 = mask
-
-    if mask_u8.shape[:2] == (target_h, target_w):
-        return (mask_u8 > 0)
-
-    mask_rs = cv2.resize(mask_u8, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
-    return (mask_rs > 0)
-
-
-def _safe_ref(ref: dict, key: str, default=None):
-    if not isinstance(ref, dict):
-        return default
-    return ref.get(key, default)
-
-
-def load_training_score_reference(path_str: str):
-    if not path_str:
-        return None
-    p = Path(path_str)
-    if not p.exists():
-        print(f"[warn] training score reference not found: {p}")
-        return None
-    try:
-        ref = json.loads(p.read_text())
-        print(f"[metric] loaded training score reference: {p}")
-        return ref
-    except Exception as e:
-        print(f"[warn] could not parse training score reference {p}: {e}")
-        return None
-
-
-def _gaussian_match_score(value: float, mean: float, std: float, floor: float = 1e-3) -> float:
-    std = max(float(std), floor)
-    z = abs(float(value) - float(mean)) / std
-    return float(np.exp(-0.5 * z * z))
-
-
-def _compute_stats_like_score(metrics: dict, training_ref: dict = None) -> float:
-    if not training_ref:
-        return float(np.clip(
-            0.45 * metrics.get("score_exposure", 0.0) +
-            0.35 * metrics.get("score_contrast", 0.0) +
-            0.20 * metrics.get("score_nonblank", 0.0),
-            0.0, 1.0
-        ))
-
-    refs = training_ref.get("real_train_reference", training_ref)
-    matches = []
-
-    if "global_mean" in metrics and _safe_ref(refs, "global_mean_mean") is not None:
-        matches.append(_gaussian_match_score(metrics["global_mean"], refs["global_mean_mean"], _safe_ref(refs, "global_mean_std", 0.05)))
-    if "global_std" in metrics and _safe_ref(refs, "global_std_mean") is not None:
-        matches.append(_gaussian_match_score(metrics["global_std"], refs["global_std_mean"], _safe_ref(refs, "global_std_std", 0.05)))
-    if "object_mean" in metrics and _safe_ref(refs, "object_mean_mean") is not None:
-        matches.append(_gaussian_match_score(metrics["object_mean"], refs["object_mean_mean"], _safe_ref(refs, "object_mean_std", 0.05)))
-    if "tray_mean" in metrics and _safe_ref(refs, "tray_mean_mean") is not None:
-        matches.append(_gaussian_match_score(metrics["tray_mean"], refs["tray_mean_mean"], _safe_ref(refs, "tray_mean_std", 0.05)))
-
-    if matches:
-        return float(np.clip(np.mean(matches), 0.0, 1.0))
-
-    return float(np.clip(
-        0.45 * metrics.get("score_exposure", 0.0) +
-        0.35 * metrics.get("score_contrast", 0.0) +
-        0.20 * metrics.get("score_nonblank", 0.0),
-        0.0, 1.0
-    ))
-
-
-def _compute_train_aligned_proxy_scores(metrics: dict, generate_mode: str, training_ref: dict = None):
-    # GAN-like proxy: broad realism / plausibility
-    if generate_mode == "tray":
-        proxy_gan = float(np.clip(
-            0.35 * metrics.get("score_contrast", 0.0) +
-            0.35 * metrics.get("score_sharpness", 0.0) +
-            0.30 * metrics.get("score_nonblank", 0.0),
-            0.0, 1.0
-        ))
-        proxy_l1 = float(np.clip(
-            0.40 * metrics.get("score_exposure", 0.0) +
-            0.30 * metrics.get("score_contrast", 0.0) +
-            0.30 * metrics.get("score_nonblank", 0.0),
-            0.0, 1.0
-        ))
-        proxy_grad = float(np.clip(metrics.get("score_sharpness", 0.0), 0.0, 1.0))
-        proxy_lap = float(np.clip(
-            0.70 * metrics.get("score_sharpness", 0.0) +
-            0.30 * metrics.get("score_contrast", 0.0),
-            0.0, 1.0
-        ))
-        proxy_ssim = float(np.clip(
-            0.45 * metrics.get("score_nonblank", 0.0) +
-            0.30 * metrics.get("score_contrast", 0.0) +
-            0.25 * metrics.get("tray_contrast", 0.0),
-            0.0, 1.0
-        ))
-    else:
-        proxy_gan = float(np.clip(
-            0.25 * metrics.get("score_contrast", 0.0) +
-            0.25 * metrics.get("score_sharpness", 0.0) +
-            0.20 * metrics.get("score_obj_contrast", 0.0) +
-            0.15 * metrics.get("score_inside", 0.0) +
-            0.15 * metrics.get("score_nonblank", 0.0),
-            0.0, 1.0
-        ))
-        proxy_l1 = float(np.clip(
-            0.35 * metrics.get("score_exposure", 0.0) +
-            0.25 * metrics.get("score_contrast", 0.0) +
-            0.20 * metrics.get("score_obj_contrast", 0.0) +
-            0.20 * metrics.get("score_nonblank", 0.0),
-            0.0, 1.0
-        ))
-        proxy_grad = float(np.clip(metrics.get("score_sharpness", 0.0), 0.0, 1.0))
-        proxy_lap = float(np.clip(
-            0.70 * metrics.get("score_sharpness", 0.0) +
-            0.30 * metrics.get("score_contrast", 0.0),
-            0.0, 1.0
-        ))
-        proxy_ssim = float(np.clip(
-            0.40 * metrics.get("score_inside", 0.0) +
-            0.20 * metrics.get("score_overlap", 0.0) +
-            0.20 * metrics.get("score_area", 0.0) +
-            0.20 * metrics.get("score_obj_contrast", 0.0),
-            0.0, 1.0
-        ))
-
-    proxy_stats = _compute_stats_like_score(metrics, training_ref=training_ref)
-
-    return {
-        "gan": proxy_gan,
-        "l1": proxy_l1,
-        "grad": proxy_grad,
-        "lap": proxy_lap,
-        "ssim": proxy_ssim,
-        "stats": proxy_stats,
-    }
-
-
-def compute_inference_quality(
-    final_img_bgr: np.ndarray,
-    canvas_mask: np.ndarray,
-    tray_mask_bool: np.ndarray = None,
-    generate_mode: str = "shampoo",
-    training_ref: dict = None,
-):
-    gray01 = _to_gray01(final_img_bgr)
-    H, W = gray01.shape[:2]
-
-    # Always align semantic canvas mask to final generated image size
-    if canvas_mask.shape[:2] != (H, W):
-        canvas_mask = cv2.resize(canvas_mask, (W, H), interpolation=cv2.INTER_NEAREST)
-
-    shampoo_mask, tray_mask_from_canvas, overlap_mask = semantic_masks_from_canvas_mask(canvas_mask)
-
-    # Force every mask to same size as final image
-    shampoo_mask = _resize_bool_mask(shampoo_mask, (H, W))
-    tray_mask_from_canvas = _resize_bool_mask(tray_mask_from_canvas, (H, W))
-    overlap_mask = _resize_bool_mask(overlap_mask, (H, W))
-
-    if tray_mask_bool is not None:
-        tray_mask = _resize_bool_mask(tray_mask_bool, (H, W))
-    else:
-        tray_mask = tray_mask_from_canvas
-
-    obj_mask = shampoo_mask
-    img_nonzero = gray01 > (8.0 / 255.0)
-
-    metrics = {}
-
-    global_mean = float(gray01.mean())
-    global_std = float(gray01.std())
-    lap_var = float(cv2.Laplacian((gray01 * 255.0).astype(np.uint8), cv2.CV_32F).var())
-    nonblank_ratio = float(img_nonzero.mean())
-
-    metrics["global_mean"] = global_mean
-    metrics["global_std"] = global_std
-    metrics["laplacian_var"] = lap_var
-    metrics["nonblank_ratio"] = nonblank_ratio
-
-    # Keep the old low-level image checks because they are useful building blocks,
-    # but convert them into training-aligned proxy scores below.
-    score_nonblank = _score_from_distance(
-        nonblank_ratio,
-        0.18 if generate_mode == "shampoo" else 0.10,
-        0.18,
-    )
-    score_contrast = _score_from_distance(global_std, 0.22, 0.18)
-    score_exposure = _score_from_distance(global_mean, 0.30, 0.22)
-    score_sharpness = min(1.0, lap_var / 250.0)
-
-    metrics["score_nonblank"] = score_nonblank
-    metrics["score_contrast"] = score_contrast
-    metrics["score_exposure"] = score_exposure
-    metrics["score_sharpness"] = score_sharpness
-
-    if generate_mode == "tray":
-        tray_fill = float(gray01[tray_mask].mean()) if tray_mask.any() else 0.0
-        tray_bg = float(gray01[~tray_mask].mean()) if (~tray_mask).any() else 0.0
-        tray_contrast = max(0.0, min(1.0, abs(tray_fill - tray_bg) / 0.35))
-
-        metrics["tray_fill_mean"] = tray_fill
-        metrics["tray_bg_mean"] = tray_bg
-        metrics["tray_contrast"] = tray_contrast
-    else:
-        obj_area_ratio = float(obj_mask.mean()) if obj_mask.size else 0.0
-        obj_mean = float(gray01[obj_mask].mean()) if obj_mask.any() else 0.0
-        tray_mean = float(gray01[tray_mask].mean()) if tray_mask.any() else 0.0
-        bg_mean = float(gray01[~tray_mask].mean()) if (~tray_mask).any() else 0.0
-        inside_tray_ratio = float((obj_mask & tray_mask).sum() / max(1, obj_mask.sum()))
-        overlap_ratio = float(overlap_mask.sum() / max(1, obj_mask.sum()))
-
-        score_area = _score_from_distance(obj_area_ratio, 0.05, 0.05)
-        score_inside = inside_tray_ratio
-        score_overlap = _score_from_distance(overlap_ratio, 1.0, 0.25)
-        score_obj_contrast = max(0.0, min(1.0, abs(obj_mean - tray_mean) / 0.25))
-
-        metrics["object_area_ratio"] = obj_area_ratio
-        metrics["object_mean"] = obj_mean
-        metrics["tray_mean"] = tray_mean
-        metrics["bg_mean"] = bg_mean
-        metrics["inside_tray_ratio"] = inside_tray_ratio
-        metrics["overlap_ratio"] = overlap_ratio
-        metrics["score_area"] = score_area
-        metrics["score_inside"] = score_inside
-        metrics["score_overlap"] = score_overlap
-        metrics["score_obj_contrast"] = score_obj_contrast
-
-    # Convert inference heuristics into proxies for the same training-side Q_score parts:
-    # GAN, L1, grad, lap, SSIM, stats.
-    proxy = _compute_train_aligned_proxy_scores(metrics, generate_mode=generate_mode, training_ref=training_ref)
-    metrics["proxy_scores"] = proxy
-    metrics["score_version"] = "train_aligned_qscore_proxy_v1"
-    metrics["score_weights"] = TRAIN_SCORE_WEIGHTS.copy()
-
-    q = (
-        TRAIN_SCORE_WEIGHTS["gan"] * proxy["gan"] +
-        TRAIN_SCORE_WEIGHTS["l1"] * proxy["l1"] +
-        TRAIN_SCORE_WEIGHTS["grad"] * proxy["grad"] +
-        TRAIN_SCORE_WEIGHTS["lap"] * proxy["lap"] +
-        TRAIN_SCORE_WEIGHTS["ssim"] * proxy["ssim"] +
-        TRAIN_SCORE_WEIGHTS["stats"] * proxy["stats"]
-    )
-
-    metrics["quality_score"] = float(np.clip(q, 0.0, 1.0) * 100.0)
-    metrics["quality_label"] = (
-        "GOOD" if metrics["quality_score"] >= 75 else
-        "OKAY" if metrics["quality_score"] >= 60 else
-        "WEAK"
-    )
-
-    # Keep a readable breakdown that mirrors training metric categories.
-    metrics["contributors"] = [
-        ("GAN-like", TRAIN_SCORE_WEIGHTS["gan"], proxy["gan"]),
-        ("L1-like", TRAIN_SCORE_WEIGHTS["l1"], proxy["l1"]),
-        ("Grad-like", TRAIN_SCORE_WEIGHTS["grad"], proxy["grad"]),
-        ("Lap-like", TRAIN_SCORE_WEIGHTS["lap"], proxy["lap"]),
-        ("SSIM-like", TRAIN_SCORE_WEIGHTS["ssim"], proxy["ssim"]),
-        ("Stats-like", TRAIN_SCORE_WEIGHTS["stats"], proxy["stats"]),
-    ]
-
-    return metrics
-
-
-
 
 def _fit_lines_to_width(lines, font, target_w, font_scale, thickness, pad):
     out = []
@@ -1237,13 +1115,7 @@ def _fit_lines_to_width(lines, font, target_w, font_scale, thickness, pad):
     return out
 
 
-
-
 def strip_existing_top_banner(img_bgr: np.ndarray) -> np.ndarray:
-    """
-    Remove an existing dark metrics banner already baked into fake_B output.
-    This avoids stacking training-banner + inference-banner together.
-    """
     if img_bgr is None or img_bgr.ndim != 3:
         return img_bgr
 
@@ -1269,14 +1141,14 @@ def strip_existing_top_banner(img_bgr: np.ndarray) -> np.ndarray:
         return img_bgr[cut:, :].copy()
     return img_bgr
 
-def overlay_metric_panel(img_bgr: np.ndarray, lines, anchor="top_banner") -> np.ndarray:
+
+def overlay_metric_panel(img_bgr: np.ndarray, lines) -> np.ndarray:
     if img_bgr is None:
         return None
     base = img_bgr.copy()
     h, w = base.shape[:2]
     font = cv2.FONT_HERSHEY_SIMPLEX
 
-    # Use a dedicated banner above the image so text never covers the generated result.
     font_scale = max(0.42, min(0.72, w / 1500.0))
     thickness = max(1, int(round(font_scale * 2)))
     pad_x = max(10, int(round(w * 0.018)))
@@ -1300,47 +1172,19 @@ def overlay_metric_panel(img_bgr: np.ndarray, lines, anchor="top_banner") -> np.
     return np.vstack([banner, base])
 
 
-def build_inference_overlay_lines(metrics: dict):
-    line1 = f"Quality {metrics['quality_score']:.1f}/100 | {metrics['quality_label'].upper()}"
-    line2 = "Training-aligned proxy score"
-    p = metrics.get("proxy_scores", {})
-    line3 = (
-        f"GAN-like 10%x{p.get('gan', 0.0):.2f} | "
-        f"L1-like 35%x{p.get('l1', 0.0):.2f} | "
-        f"Grad-like 15%x{p.get('grad', 0.0):.2f} | "
-        f"Lap-like 10%x{p.get('lap', 0.0):.2f} | "
-        f"SSIM-like 20%x{p.get('ssim', 0.0):.2f} | "
-        f"Stats-like 10%x{p.get('stats', 0.0):.2f}"
-    )
+def build_fid_overlay_lines(fid_info: dict):
+    fid_val = fid_info.get("fid", None)
+    if fid_val is None:
+        line1 = "FID unavailable"
+        line2 = fid_info.get("raw_metrics", {}).get("warning", "Not enough images or FID failed")
+    else:
+        line1 = f"FID {fid_val:.4f} | lower is better"
+        line2 = f"fake set: {fid_info.get('num_fake', 0)} | real set: {fid_info.get('num_real', 0)}"
+    line3 = "Running FID against reference folder"
     return [line1, line2, line3]
 
 
-def save_quality_metrics(metrics_path: Path, metrics: dict):
-    metrics_path.write_text(json.dumps(metrics, indent=2))
-    print(f"[metric] wrote inference quality metrics to: {metrics_path}")
-
-
-def print_quality_metrics(metrics: dict):
-    p = metrics.get("proxy_scores", {})
-    print(
-        f"[metric] inference quality = {metrics['quality_score']:.2f}/100 | "
-        f"label={metrics['quality_label']} | "
-        f"GAN-like={p.get('gan', 0.0):.3f} | "
-        f"L1-like={p.get('l1', 0.0):.3f} | "
-        f"Grad-like={p.get('grad', 0.0):.3f} | "
-        f"Lap-like={p.get('lap', 0.0):.3f} | "
-        f"SSIM-like={p.get('ssim', 0.0):.3f} | "
-        f"Stats-like={p.get('stats', 0.0):.3f}"
-    )
-# =============================================================================
-# X-ray postprocess / debug helpers
-# =============================================================================
-
 def force_grayscale_bgr(img_bgr: np.ndarray) -> np.ndarray:
-    """
-    Force any generated image back to 3-channel grayscale.
-    This removes color speckles / chroma artifacts while preserving structure.
-    """
     if img_bgr is None:
         return None
     if img_bgr.ndim == 2:
@@ -1351,10 +1195,6 @@ def force_grayscale_bgr(img_bgr: np.ndarray) -> np.ndarray:
 
 
 def canvas_mask_to_debug_gray(canvas_mask: np.ndarray) -> np.ndarray:
-    """
-    Human-friendly visualization only.
-    Does NOT change the actual conditioning image used by pix2pix.
-    """
     shampoo_mask = np.all(canvas_mask == np.array(PALETTE_BGR[1], dtype=np.uint8), axis=2)
     tray_mask = np.all(canvas_mask == np.array(PALETTE_BGR[2], dtype=np.uint8), axis=2)
     blade_mask = np.all(canvas_mask == np.array(PALETTE_BGR[3], dtype=np.uint8), axis=2)
@@ -1369,13 +1209,14 @@ def canvas_mask_to_debug_gray(canvas_mask: np.ndarray) -> np.ndarray:
     vis[overlap_blade_mask] = 250
     return cv2.cvtColor(vis, cv2.COLOR_GRAY2BGR)
 
+
 # =============================================================================
 # Main
 # =============================================================================
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--generate_mode", choices=["shampoo", "blade", "tray"], required=True)
+    ap.add_argument("--generate_mode", choices=["shampoo", "blade", "combo", "tray"], required=True)
 
     ap.add_argument("--images_dir", type=str, default="")
     ap.add_argument("--coco_json", type=str, default="")
@@ -1385,10 +1226,9 @@ def main():
     ap.add_argument("--blade_pick_mode", choices=["random", "first"], default="random")
 
     ap.add_argument("--seed", type=int, default=123)
-    ap.add_argument("--out_dataset", type=str, default="datasets/_gen_stage13_shampoo_tray")
+    ap.add_argument("--out_dataset", type=str, default="datasets/_gen_stage18_shampoo_tray")
     ap.add_argument("--epoch", type=str, default="latest")
 
-    # Keep args for compatibility, but force actual generation to training size
     ap.add_argument("--canvas_h", type=int, default=1024)
     ap.add_argument("--canvas_w", type=int, default=1024)
 
@@ -1396,9 +1236,14 @@ def main():
     ap.add_argument("--rand_scale_max", type=float, default=0.85)
     ap.add_argument("--rand_rot_min", type=float, default=0.0)
     ap.add_argument("--rand_rot_max", type=float, default=40.0)
-    ap.add_argument("--rand_max_tries_per_obj", type=int, default=30)
 
-    ap.add_argument("--no_overlap", action="store_true")
+    ap.set_defaults(no_overlap=True)
+    overlap_group = ap.add_mutually_exclusive_group()
+    overlap_group.add_argument("--no_overlap", dest="no_overlap", action="store_true",
+                               help="Disallow shampoo/blade overlap with each other (default).")
+    overlap_group.add_argument("--allow_overlap", dest="no_overlap", action="store_false",
+                               help="Allow shampoo/blade overlap with each other.")
+
     ap.add_argument("--horizontal_shift_only", action="store_true")
     ap.add_argument("--max_horizontal_shift", type=int, default=150)
     ap.add_argument("--x_search_step", type=int, default=12)
@@ -1413,23 +1258,31 @@ def main():
     ap.add_argument("--tray_mask_dilate_px", type=int, default=0)
     ap.add_argument("--tray_mask_dir", type=str, default="")
     ap.add_argument("--tray_vertical_margin_px", type=int, default=0,
-                    help="Extra top/bottom tray padding. Usually keep this at 0 when you only want minor vertical shift.")
+                    help="Extra top/bottom tray padding.")
 
     ap.add_argument("--keep_intermediates", action="store_true")
     ap.add_argument("--keep_preview", action="store_true")
     ap.add_argument("--skip_pix2pix", action="store_true")
     ap.add_argument("--max_vertical_shift", type=int, default=0,
                     help="Small vertical placement freedom in pixels around the original y position.")
-    ap.add_argument("--training_score_ref_json", type=str, default="",
-                    help="Optional JSON exported from training to calibrate inference score to real-image training statistics.")
+
+    ap.add_argument("--fid_real_dir", type=str, required=True,
+                    help="Directory of real reference images for FID.")
+    ap.add_argument("--fid_fake_dir", type=str, default="",
+                    help="Directory where generated images are accumulated for running FID. Default: <out_dataset>/fid_fake")
+    ap.add_argument("--fid_keep_fake_history", action="store_true",
+                    help="Keep previous generated samples in fake FID folder so FID is computed over a growing set.")
 
     args = ap.parse_args()
-    training_ref = load_training_score_reference(args.training_score_ref_json)
 
     if args.horizontal_shift_only:
-        print(f"[placement] horizontal_shift_only=True | max_horizontal_shift={args.max_horizontal_shift} | max_vertical_shift={args.max_vertical_shift} | tray_vertical_margin_px={args.tray_vertical_margin_px}")
+        print(
+            f"[placement] horizontal_shift_only=True | "
+            f"max_horizontal_shift={args.max_horizontal_shift} | "
+            f"max_vertical_shift={args.max_vertical_shift} | "
+            f"tray_vertical_margin_px={args.tray_vertical_margin_px}"
+        )
 
-    # FORCE match training size
     canvas_h = TRAIN_CFG["canvas_h"]
     canvas_w = TRAIN_CFG["canvas_w"]
     if args.canvas_h != canvas_h or args.canvas_w != canvas_w:
@@ -1439,13 +1292,13 @@ def main():
     out_root = Path(args.out_dataset)
     tray_mask_bool = None
 
-    if args.generate_mode in {"shampoo", "blade"} and not args.tray_mask_dir:
-        raise SystemExit("--tray_mask_dir is required for shampoo/blade mode")
+    fid_real_dir = Path(args.fid_real_dir)
+    fid_fake_dir = Path(args.fid_fake_dir) if args.fid_fake_dir else (out_root / "fid_fake")
 
-    if args.generate_mode == "shampoo":
-        if not args.images_dir or not args.coco_json:
-            raise SystemExit("--images_dir and --coco_json are required for shampoo mode")
+    if args.generate_mode in {"shampoo", "blade", "combo"} and not args.tray_mask_dir:
+        raise SystemExit("--tray_mask_dir is required for shampoo/blade/combo mode")
 
+    if args.generate_mode in {"shampoo", "blade", "combo"}:
         tray_masks, _ = load_tray_masks(
             Path(args.tray_mask_dir),
             out_h=canvas_h,
@@ -1456,27 +1309,17 @@ def main():
             dilate_px=args.tray_mask_dilate_px,
         )
 
+    if args.generate_mode == "shampoo":
+        if not args.images_dir or not args.coco_json:
+            raise SystemExit("--images_dir and --coco_json are required for shampoo mode")
+
         images_dir = Path(args.images_dir)
         coco = json.loads(Path(args.coco_json).read_text())
         want_classes = [c.strip() for c in args.classes.split(",") if c.strip()] or None
         counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
 
         real_cutouts = build_real_cutout_library(coco, images_dir)
-
-        if want_classes:
-            targets = ([int(counts_raw[0])] * len(want_classes)
-                       if len(counts_raw) == 1 else [int(x) for x in counts_raw])
-            selected = []
-            for cls, n in zip(want_classes, targets):
-                cands = [c for c in real_cutouts if c["class_name"].lower() == cls.lower()]
-                if not cands:
-                    avail = sorted({c["class_name"] for c in real_cutouts})
-                    raise SystemExit(f"Class '{cls}' not found. Available: {avail}")
-                if len(cands) < n:
-                    raise SystemExit(f"Class '{cls}' only has {len(cands)} cutouts, but requested {n}")
-                selected.extend(rng.sample(cands, n))
-        else:
-            selected = real_cutouts[: int(counts_raw[0])]
+        selected = select_shampoo_cutouts(real_cutouts, want_classes, counts_raw, rng)
 
         print("[selected]")
         for i, s in enumerate(selected, 1):
@@ -1513,21 +1356,13 @@ def main():
         if not args.blade_mask_dir:
             raise SystemExit("--blade_mask_dir is required for blade mode")
 
-        tray_masks, _ = load_tray_masks(
-            Path(args.tray_mask_dir),
-            out_h=canvas_h,
-            out_w=canvas_w,
-            thr=args.tray_mask_thr,
-            invert=args.tray_mask_invert,
-            close_px=args.tray_cc_close_px,
-            dilate_px=args.tray_mask_dilate_px,
-        )
-
         blade_cutouts = build_blade_mask_library(Path(args.blade_mask_dir))
-        if args.blade_pick_mode == "first":
-            selected = [blade_cutouts[0]]
-        else:
-            selected = [rng.choice(blade_cutouts)]
+        selected = select_blade_cutouts(
+            blade_cutouts=blade_cutouts,
+            count=1,
+            pick_mode=args.blade_pick_mode,
+            rng=rng,
+        )
 
         print("[selected]")
         for i, s in enumerate(selected, 1):
@@ -1560,6 +1395,65 @@ def main():
         tray_mask_bool = used_tray
         print(f"[summary] blade mode | requested {len(selected)} items, placed {placed_count}")
 
+    elif args.generate_mode == "combo":
+        if not args.images_dir or not args.coco_json:
+            raise SystemExit("--images_dir and --coco_json are required for combo mode")
+        if not args.blade_mask_dir:
+            raise SystemExit("--blade_mask_dir is required for combo mode")
+
+        images_dir = Path(args.images_dir)
+        coco = json.loads(Path(args.coco_json).read_text())
+        want_classes = [c.strip() for c in args.classes.split(",") if c.strip()] or None
+        counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
+
+        real_cutouts = build_real_cutout_library(coco, images_dir)
+        shampoo_selected = select_shampoo_cutouts(real_cutouts, want_classes, counts_raw, rng)
+
+        blade_cutouts = build_blade_mask_library(Path(args.blade_mask_dir))
+        blade_selected = select_blade_cutouts(
+            blade_cutouts=blade_cutouts,
+            count=1,
+            pick_mode=args.blade_pick_mode,
+            rng=rng,
+        )
+
+        selected = shampoo_selected + blade_selected
+
+        print("[selected]")
+        for i, s in enumerate(selected, 1):
+            print(
+                f"  item {i}: class={s['class_name']} file={s['file_name']} "
+                f"orig_x0={s['orig_x0']} orig_y0={s['orig_y0']} "
+                f"orig_w={s['orig_w']} orig_h={s['orig_h']}"
+            )
+
+        canvas_mask, canvas_app, pseudo_B_bgr, placed_count, used_tray = build_scene(
+            rng=rng,
+            tray_masks=tray_masks,
+            cutouts=selected,
+            scale_min=args.rand_scale_min,
+            scale_max=args.rand_scale_max,
+            rot_min=args.rand_rot_min,
+            rot_max=args.rand_rot_max,
+            horizontal_shift_only=args.horizontal_shift_only,
+            max_horizontal_shift=args.max_horizontal_shift,
+            max_vertical_shift=max(0, int(args.max_vertical_shift)),
+            no_overlap=args.no_overlap,
+            x_search_step=max(1, int(args.x_search_step)),
+            max_transform_candidates=max(1, int(args.max_transform_candidates)),
+            tray_horizontal_margin_px=max(0, int(args.tray_horizontal_margin_px)),
+            tray_vertical_margin_px=max(0, int(args.tray_vertical_margin_px)),
+            canvas_h=canvas_h,
+            canvas_w=canvas_w,
+        )
+
+        tray_mask_bool = used_tray
+        print(
+            f"[summary] combo mode | shampoo={len(shampoo_selected)} "
+            f"blade={len(blade_selected)} total={len(selected)} placed={placed_count} "
+            f"| no_overlap={args.no_overlap}"
+        )
+
     else:
         if args.tray_mask_path:
             tray_mask_path = Path(args.tray_mask_path)
@@ -1585,15 +1479,11 @@ def main():
         preview_dir = out_root / "preview"
         preview_dir.mkdir(parents=True, exist_ok=True)
 
-        # raw conditioning actually used for pix2pix
         cv2.imwrite(str(preview_dir / f"mask_seed{args.seed}.png"), canvas_mask)
-
-        # human-friendly visualization so the label colors do not confuse debugging
         cv2.imwrite(
             str(preview_dir / f"mask_seed{args.seed}_debug_gray.png"),
             canvas_mask_to_debug_gray(canvas_mask)
         )
-
         cv2.imwrite(str(preview_dir / f"pseudo_B_seed{args.seed}.png"), pseudo_B_bgr)
         cv2.imwrite(str(preview_dir / f"canvas_app_seed{args.seed}.png"), canvas_app)
         if tray_mask_bool is not None:
@@ -1610,7 +1500,6 @@ def main():
     if args.skip_pix2pix:
         print("[summary] skip_pix2pix enabled: saving pseudo_B directly for debugging.")
         raw_final_img = pseudo_B_bgr.copy()
-        final_img = export_smooth_2x(raw_final_img.copy())
         results_root = None
     else:
         results_root = run_pix2pix_test(
@@ -1624,47 +1513,45 @@ def main():
         fake_path = resolve_fake_image_path(results_root / "images", stem)
         if fake_path is None:
             raise RuntimeError(f"Could not find fake_B output for stem '{stem}' in {results_root / 'images'}")
-        
+
         raw_final_img = cv2.imread(str(fake_path), cv2.IMREAD_COLOR)
         if raw_final_img is None:
             raise RuntimeError(f"Could not read generated image: {fake_path}")
 
-        # Remove color artifacts from generated X-ray output
         raw_final_img = force_grayscale_bgr(raw_final_img)
 
-        final_img = export_smooth_2x(raw_final_img)
-
-    # Remove any pre-existing training banner baked into the pix2pix output,
-    # then compute/display inference-only quality.
     raw_final_img = strip_existing_top_banner(raw_final_img)
     raw_final_img = force_grayscale_bgr(raw_final_img)
 
-    metrics = compute_inference_quality(
-        final_img_bgr=raw_final_img,
-        canvas_mask=canvas_mask,
-        tray_mask_bool=tray_mask_bool,
-        generate_mode=args.generate_mode,
-        training_ref=training_ref,
+    fid_info = compute_running_fid(
+        generated_img_bgr=raw_final_img,
+        fid_real_dir=fid_real_dir,
+        fid_fake_dir=fid_fake_dir,
+        stem=stem,
+        seed=args.seed,
+        canvas_h=canvas_h,
+        canvas_w=canvas_w,
+        keep_fake_history=args.fid_keep_fake_history,
     )
-    print_quality_metrics(metrics)
+    print_fid_metrics(fid_info)
 
-    raw_annotated = overlay_metric_panel(raw_final_img, build_inference_overlay_lines(metrics), anchor="top_banner")
+    raw_annotated = overlay_metric_panel(raw_final_img, build_fid_overlay_lines(fid_info))
     final_img = export_smooth_2x(raw_annotated)
 
     out_dir = out_root / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)
     suffix = args.generate_mode
     out_path = out_dir / f"generated_{suffix}_seed{args.seed}_smooth2x.png"
-    metrics_path = out_dir / f"generated_{suffix}_seed{args.seed}_metrics.json"
+    metrics_path = out_dir / f"generated_{suffix}_seed{args.seed}_fid.json"
     cv2.imwrite(str(out_path), final_img)
-    save_quality_metrics(metrics_path, metrics)
+    save_fid_metrics(metrics_path, fid_info)
     print(f"Saved generated result to: {out_path}")
 
     if (not args.keep_intermediates) and (results_root is not None):
         cleanup_intermediate_outputs(out_root, results_root, keep_preview=args.keep_preview)
 
     print(f"\nDone. Final generated result: {out_path}")
-    print(f"Done. Metrics JSON: {metrics_path}")
+    print(f"Done. FID JSON: {metrics_path}")
 
 
 if __name__ == "__main__":
@@ -1977,7 +1864,7 @@ python notebooks/Pix2Pix/generate_pix2pixV2.py \
   --coco_json data/raw/Shampoo/result.json \
   --classes Shampoo \
   --count 1 \
-  --seed 1230 \
+  --seed 166 \
   --out_dataset datasets/_gen_stage16_shampoo_tray \
   --epoch latest \
   --canvas_h 1024 \
@@ -2007,7 +1894,7 @@ BLADE WITH TRAY:
 python notebooks/Pix2Pix/generate_pix2pixV2.py \
   --generate_mode blade \
   --blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY/matched_masks/train/blade \
-  --seed 888 \
+  --seed 777 \
   --out_dataset datasets/_gen_stage16_blade_tray \
   --epoch latest \
   --canvas_h 1024 \
@@ -2030,8 +1917,37 @@ python notebooks/Pix2Pix/generate_pix2pixV2.py \
   --no_overlap \
   --keep_intermediates
 
-  
 
+  
+BLADE + SHAMPOO WITH TRAY:
+python notebooks/Pix2Pix/generate_pix2pixV2.py \
+  --generate_mode combo \
+  --images_dir data/raw/Shampoo \
+  --out_dataset datasets/_gen_stage18_combo_tray \
+  --coco_json data/raw/Shampoo/result.json \
+  --classes Shampoo \
+  --tray_mask_thr 0.5 \
+  --tray_cc_close_px 2 \
+  --tray_mask_dilate_px 0 \
+  --rand_scale_min 0.95 \
+  --rand_scale_max 0.95 \
+  --rand_rot_min -5 \
+  --rand_rot_max 155 \
+  --horizontal_shift_only \
+  --max_horizontal_shift 150 \
+  --tray_horizontal_margin_px 45 \
+  --tray_vertical_margin_px 0 \
+  --max_vertical_shift 8 \
+  --count 1 \
+  --fid_real_dir datasets/SHAMPOOBLADEWITHTRAY_TGT/test \
+  --fid_keep_fake_history \
+  --x_search_step 12 \
+  --max_transform_candidates 8 \
+  --blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_TGT/matched_masks/train/blade \
+  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_TGT/matched_masks/train/tray \
+  --seed 55
+
+  add this for overlap  --allow_overlap
   
 EMPTY TRAY:
 python notebooks/Pix2Pix/generate_pix2pixV2.py \
