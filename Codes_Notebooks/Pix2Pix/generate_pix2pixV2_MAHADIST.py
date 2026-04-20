@@ -31,13 +31,17 @@ PALETTE_BGR = {
     1: (0, 255, 0),    # shampoo -> RGB green
     2: (255, 0, 0),    # tray    -> RGB blue
     3: (0, 0, 255),    # blade   -> RGB red
+    4: (255, 255, 255), # all three
+    5: (255, 255, 0), #tray + shampoo
+    6: (0, 255, 255), #shampoo + blade
+    7: (255, 0, 255), #tray + blade
 }
 
 # overlap colors for conditioning visualization
 OVERLAP_BGR = (255, 255, 0)         # shampoo + tray
 OVERLAP_BLADE_BGR = (255, 0, 255)   # blade + tray
 
-MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage19_COMPLETESyn"
+MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage23_COMPLETESyn"
 PIX2PIX_DIR = Path("external/pix2pix")
 
 TRAIN_CFG = dict(
@@ -189,6 +193,22 @@ def build_tray_condition_from_mask(mask_bool: np.ndarray) -> np.ndarray:
     out = np.zeros((h, w, 3), dtype=np.uint8)
     out[mask_bool] = PALETTE_BGR[2]
     return out
+
+
+def apply_condition_channels(region_A: np.ndarray, obj_mask: np.ndarray, item_type: str):
+    """
+    Match training A-side encoding exactly by turning channels on independently:
+      B = tray, G = shampoo, R = blade
+    This preserves true overlap states such as:
+      tray + shampoo       -> (255,255,0)
+      tray + blade         -> (255,0,255)
+      shampoo + blade      -> (0,255,255)
+      tray + shampoo+blade -> (255,255,255)
+    """
+    if item_type == "blade":
+        region_A[..., 2][obj_mask] = 255
+    else:
+        region_A[..., 1][obj_mask] = 255
 
 
 # =============================================================================
@@ -697,10 +717,10 @@ def build_scene(
                     region_B = canvas_app[y:y + h, x:x + w].astype(np.float32)
 
                     if int(item.get("train_id", 1)) == 3 or item_type == "blade":
-                        region_A[obj_mask] = OVERLAP_BLADE_BGR
+                        apply_condition_channels(region_A, obj_mask, "blade")
                         canvas_app[y:y + h, x:x + w] = render_blade_on_tray(region_B, obj_soft, obj_mask)
                     else:
-                        region_A[obj_mask] = OVERLAP_BGR
+                        apply_condition_channels(region_A, obj_mask, "shampoo")
 
                         obj_gray = t["gray"].astype(np.float32)
                         tray01 = np.clip(region_B / 255.0, 1e-4, 1.0)
@@ -1233,18 +1253,26 @@ def force_grayscale_bgr(img_bgr: np.ndarray) -> np.ndarray:
 
 
 def canvas_mask_to_debug_gray(canvas_mask: np.ndarray) -> np.ndarray:
-    shampoo_mask = np.all(canvas_mask == np.array(PALETTE_BGR[1], dtype=np.uint8), axis=2)
-    tray_mask = np.all(canvas_mask == np.array(PALETTE_BGR[2], dtype=np.uint8), axis=2)
-    blade_mask = np.all(canvas_mask == np.array(PALETTE_BGR[3], dtype=np.uint8), axis=2)
-    overlap_mask = np.all(canvas_mask == np.array(OVERLAP_BGR, dtype=np.uint8), axis=2)
-    overlap_blade_mask = np.all(canvas_mask == np.array(OVERLAP_BLADE_BGR, dtype=np.uint8), axis=2)
+    b = canvas_mask[..., 0] > 127
+    g = canvas_mask[..., 1] > 127
+    r = canvas_mask[..., 2] > 127
+
+    tray_only = b & ~g & ~r
+    shampoo_only = ~b & g & ~r
+    blade_only = ~b & ~g & r
+    tray_shampoo = b & g & ~r
+    tray_blade = b & ~g & r
+    shampoo_blade = ~b & g & r
+    all_three = b & g & r
 
     vis = np.zeros(canvas_mask.shape[:2], dtype=np.uint8)
-    vis[tray_mask] = 140
-    vis[shampoo_mask] = 210
-    vis[blade_mask] = 180
-    vis[overlap_mask] = 235
-    vis[overlap_blade_mask] = 250
+    vis[tray_only] = 100
+    vis[shampoo_only] = 180
+    vis[blade_only] = 150
+    vis[tray_shampoo] = 210
+    vis[tray_blade] = 225
+    vis[shampoo_blade] = 240
+    vis[all_three] = 255
     return cv2.cvtColor(vis, cv2.COLOR_GRAY2BGR)
 
 
@@ -1256,14 +1284,40 @@ def make_scene_stem(index: int) -> str:
     return f"scene_{index:04d}"
 
 
-def choose_cutouts_for_mode(args, rng, real_cutouts=None, blade_cutouts=None):
-    if args.generate_mode == "shampoo":
+def sample_stage22_combo_mode(args, rng):
+    mode = getattr(args, "combo_mode", "legacy")
+    if mode != "stage22_random":
+        return mode
+
+    probs = {
+        "shampoo_only": float(args.synthetic_prob_shampoo_only),
+        "blade_only": float(args.synthetic_prob_blade_only),
+        "pair_no_overlap": float(args.synthetic_prob_pair_no_overlap),
+        "pair_overlap": float(args.synthetic_prob_pair_overlap),
+    }
+    total = sum(max(0.0, v) for v in probs.values())
+    if total <= 0:
+        raise SystemExit("Stage22 random combo mode requires positive synthetic probabilities.")
+
+    r = rng.random() * total
+    acc = 0.0
+    for k, v in probs.items():
+        acc += max(0.0, v)
+        if r <= acc:
+            return k
+    return "pair_overlap"
+
+
+def choose_cutouts_for_mode(args, rng, real_cutouts=None, blade_cutouts=None, sampled_mode=None):
+    mode = sampled_mode or args.generate_mode
+
+    if mode in {"shampoo", "shampoo_only"}:
         want_classes = [c.strip() for c in args.classes.split(",") if c.strip()] or None
         counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
         selected = select_shampoo_cutouts(real_cutouts, want_classes, counts_raw, rng)
         return selected
 
-    if args.generate_mode == "blade":
+    if mode in {"blade", "blade_only"}:
         selected = select_blade_cutouts(
             blade_cutouts=blade_cutouts,
             count=1,
@@ -1272,7 +1326,7 @@ def choose_cutouts_for_mode(args, rng, real_cutouts=None, blade_cutouts=None):
         )
         return selected
 
-    if args.generate_mode == "combo":
+    if mode in {"combo", "pair_no_overlap", "pair_overlap"}:
         want_classes = [c.strip() for c in args.classes.split(",") if c.strip()] or None
         counts_raw = [x.strip() for x in args.count.split(",") if x.strip()]
         shampoo_selected = select_shampoo_cutouts(real_cutouts, want_classes, counts_raw, rng)
@@ -1304,6 +1358,10 @@ def print_selected_items(selected):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--generate_mode", choices=["shampoo", "blade", "combo", "tray"], required=True)
+    ap.add_argument("--combo_mode",
+                    choices=["legacy", "stage22_random", "shampoo_only", "blade_only", "pair_no_overlap", "pair_overlap"],
+                    default="stage22_random",
+                    help="How combo scenes are built. stage22_random matches Stage22 synthetic training mixture.")
 
     ap.add_argument("--images_dir", type=str, default="")
     ap.add_argument("--coco_json", type=str, default="")
@@ -1321,10 +1379,15 @@ def main():
     ap.add_argument("--canvas_h", type=int, default=1024)
     ap.add_argument("--canvas_w", type=int, default=1024)
 
-    ap.add_argument("--rand_scale_min", type=float, default=0.85)
-    ap.add_argument("--rand_scale_max", type=float, default=0.85)
+    ap.add_argument("--rand_scale_min", type=float, default=0.65)
+    ap.add_argument("--rand_scale_max", type=float, default=0.75)
     ap.add_argument("--rand_rot_min", type=float, default=0.0)
     ap.add_argument("--rand_rot_max", type=float, default=40.0)
+
+    ap.add_argument("--synthetic_prob_shampoo_only", type=float, default=0.25)
+    ap.add_argument("--synthetic_prob_blade_only", type=float, default=0.25)
+    ap.add_argument("--synthetic_prob_pair_no_overlap", type=float, default=0.25)
+    ap.add_argument("--synthetic_prob_pair_overlap", type=float, default=0.25)
 
     ap.set_defaults(no_overlap=True)
     overlap_group = ap.add_mutually_exclusive_group()
@@ -1366,6 +1429,15 @@ def main():
 
     if args.num_scenes < 1:
         raise SystemExit("--num_scenes must be >= 1")
+
+    if args.generate_mode == "combo" and args.combo_mode == "stage22_random":
+        print(
+            "[stage22] using training-aligned combo mixture | "
+            f"shampoo_only={args.synthetic_prob_shampoo_only} | "
+            f"blade_only={args.synthetic_prob_blade_only} | "
+            f"pair_no_overlap={args.synthetic_prob_pair_no_overlap} | "
+            f"pair_overlap={args.synthetic_prob_pair_overlap}"
+        )
 
     if args.horizontal_shift_only:
         print(
@@ -1426,6 +1498,7 @@ def main():
         scene_seed = args.seed + scene_idx
         rng = random.Random(scene_seed)
         stem = make_scene_stem(scene_idx)
+        sampled_mode = args.generate_mode
 
         print(f"\n[scene] {scene_idx + 1}/{args.num_scenes} | stem={stem} | seed={scene_seed}")
 
@@ -1452,7 +1525,23 @@ def main():
             selected = []
             print("[summary] tray mode | generated tray conditioning image from mask")
         else:
-            selected = choose_cutouts_for_mode(args, rng, real_cutouts=real_cutouts, blade_cutouts=blade_cutouts)
+            sampled_mode = args.generate_mode
+            scene_no_overlap = args.no_overlap
+
+            if args.generate_mode == "combo":
+                sampled_mode = sample_stage22_combo_mode(args, rng)
+                if sampled_mode == "pair_no_overlap":
+                    scene_no_overlap = True
+                elif sampled_mode == "pair_overlap":
+                    scene_no_overlap = False
+                elif sampled_mode in {"shampoo_only", "blade_only"}:
+                    scene_no_overlap = True
+
+                print(f"[combo_mode] requested={args.combo_mode} | sampled={sampled_mode} | no_overlap={scene_no_overlap}")
+
+            selected = choose_cutouts_for_mode(
+                args, rng, real_cutouts=real_cutouts, blade_cutouts=blade_cutouts, sampled_mode=sampled_mode
+            )
             print_selected_items(selected)
 
             canvas_mask, canvas_app, pseudo_B_bgr, placed_count, used_tray = build_scene(
@@ -1466,7 +1555,7 @@ def main():
                 horizontal_shift_only=args.horizontal_shift_only,
                 max_horizontal_shift=args.max_horizontal_shift,
                 max_vertical_shift=max(0, int(args.max_vertical_shift)),
-                no_overlap=args.no_overlap,
+                no_overlap=scene_no_overlap,
                 x_search_step=max(1, int(args.x_search_step)),
                 max_transform_candidates=max(1, int(args.max_transform_candidates)),
                 tray_horizontal_margin_px=max(0, int(args.tray_horizontal_margin_px)),
@@ -1476,16 +1565,16 @@ def main():
             )
             tray_mask_bool = used_tray
 
-            if args.generate_mode == "shampoo":
+            if sampled_mode in {"shampoo", "shampoo_only"}:
                 print(f"[summary] shampoo mode | requested {len(selected)} items, placed {placed_count}")
-            elif args.generate_mode == "blade":
+            elif sampled_mode in {"blade", "blade_only"}:
                 print(f"[summary] blade mode | requested {len(selected)} items, placed {placed_count}")
-            elif args.generate_mode == "combo":
+            else:
                 shampoo_n = sum(1 for s in selected if s.get("item_type") == "shampoo")
                 blade_n = sum(1 for s in selected if s.get("item_type") == "blade")
                 print(
-                    f"[summary] combo mode | shampoo={shampoo_n} blade={blade_n} "
-                    f"total={len(selected)} placed={placed_count} | no_overlap={args.no_overlap}"
+                    f"[summary] combo mode | sampled={sampled_mode} | shampoo={shampoo_n} blade={blade_n} "
+                    f"total={len(selected)} placed={placed_count} | no_overlap={scene_no_overlap}"
                 )
 
         write_single_test_image(
@@ -1511,6 +1600,7 @@ def main():
             "seed": scene_seed,
             "placed_count": placed_count,
             "selected_count": len(selected),
+            "scene_mode": sampled_mode if args.generate_mode != "tray" else "tray",
         })
 
     if args.skip_pix2pix:
@@ -1586,9 +1676,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for stem, raw_img in final_images.items():
-        overlay_lines = build_overlay_lines_for_image(stem, mahal_info)
-        raw_annotated = overlay_metric_panel(raw_img, overlay_lines)
-        final_img = export_smooth_2x(raw_annotated)
+        final_img = export_smooth_2x(raw_img)
         out_path = out_dir / f"{stem}_{args.generate_mode}_smooth2x.png"
         cv2.imwrite(str(out_path), final_img)
         print(f"Saved generated result to: {out_path}")
@@ -1599,6 +1687,7 @@ def main():
     summary_path = out_dir / f"generated_{args.generate_mode}_summary.json"
     summary = {
         "generate_mode": args.generate_mode,
+        "combo_mode": getattr(args, "combo_mode", None),
         "num_scenes_requested": args.num_scenes,
         "num_scenes_generated": len(final_images),
         "seed_start": args.seed,
@@ -1629,8 +1718,8 @@ python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
   --coco_json data/raw/Shampoo/result.json \
   --classes Shampoo \
   --count 1 \
-  --seed 166 \
-  --out_dataset ressults/_gen_stage19_shampoo_tray \
+  --seed 188 \
+  --out_dataset results/_gen_stage19_shampoo_tray \
   --epoch latest \
   --canvas_h 1024 \
   --canvas_w 1024 \
@@ -1711,8 +1800,8 @@ python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
   --x_search_step 12 \
   --max_transform_candidates 8 \
   --out_dataset results/_gen_stage19_combo_tray \
-  --num_scenes 20 \
-  --seed 17 --allow_overlap \
+  --num_scenes 40 \
+  --seed 123 --allow_overlap \
   --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test \
   --mahal_pca_dim 32
 
@@ -1724,4 +1813,35 @@ python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
     c=json.load(open("data/raw/Non-Contraband/result.json"))
     print(sorted([x["name"] for x in c["categories"]]))
     PY
+
+
+ python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+  --generate_mode combo \
+  --combo_mode stage22_random \
+  --images_dir data/raw/Shampoo \
+  --coco_json data/raw/Shampoo/result.json \
+  --classes Shampoo \
+  --count 1 \
+  --blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade \
+  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --tray_mask_thr 0.5 \
+  --tray_cc_close_px 2 \
+  --tray_mask_dilate_px 0 \
+  --rand_scale_min 0.95 \
+  --rand_scale_max 0.95 \
+  --rand_rot_min -5 \
+  --rand_rot_max 5 \
+  --horizontal_shift_only \
+  --max_horizontal_shift 150 \
+  --tray_horizontal_margin_px 45 \
+  --tray_vertical_margin_px 0 \
+  --max_vertical_shift 8 \
+  --x_search_step 12 \
+  --max_transform_candidates 8 \
+  --out_dataset results/_gen_stage23_combo_tray \
+  --num_scenes 30 \
+  --seed 888 \
+  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test \
+  --mahal_pca_dim 32
+ 
 """

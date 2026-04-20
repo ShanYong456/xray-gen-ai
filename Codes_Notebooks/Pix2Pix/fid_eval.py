@@ -412,8 +412,8 @@ if __name__ == "__main__":
 python Codes_Notebooks/Pix2Pix/fid_eval.py \
 
 python Codes_Notebooks/Pix2Pix/fid_eval.py \
-  --dataroot datasets/SHAMPOOBLADEWITHTRAY_TGT \
-  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage18_BladeMaskSyn \
+  --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage19_COMPLETESyn \
   --epoch latest \
   --phase test \
   --max_images 200 \
@@ -434,8 +434,8 @@ python Codes_Notebooks/Pix2Pix/fid_eval.py \
   --use_edge_channel \
   --use_coord_channels \
   --use_tray_mask \
-  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_TGT/matched_masks/test/tray \
-  --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_TGT/matched_masks/test/blade
+  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray \
+  --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/blade
 
 
 

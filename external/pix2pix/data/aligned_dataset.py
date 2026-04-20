@@ -143,6 +143,25 @@ class AlignedDataset(BaseDataset):
             help="Fill value for padded RGB canvas. 0=black, 235=light gray.",
         )
 
+        parser.add_argument(
+            "--synthetic_combo_mode",
+            type=str,
+            default="random",
+            choices=[
+                "random",
+                "shampoo_only",
+                "blade_only",
+                "pair_no_overlap",
+                "pair_overlap",
+            ],
+            help="How to build synthetic shampoo/blade compositions.",
+        )
+
+        parser.add_argument("--synthetic_prob_shampoo_only", type=float, default=0.25)
+        parser.add_argument("--synthetic_prob_blade_only", type=float, default=0.25)
+        parser.add_argument("--synthetic_prob_pair_no_overlap", type=float, default=0.25)
+        parser.add_argument("--synthetic_prob_pair_overlap", type=float, default=0.25)
+
         return parser
 
     def __init__(self, opt):
@@ -1032,6 +1051,162 @@ class AlignedDataset(BaseDataset):
         gray[m == 0] = 0.0
         return self.normalize_xray_intensity(gray.astype(np.float32))
 
+    def _sample_synthetic_combo_mode(self):
+        mode = str(getattr(self.opt, "synthetic_combo_mode", "random")).strip().lower()
+
+        if mode in {"shampoo_only", "blade_only", "pair_no_overlap", "pair_overlap"}:
+            return mode
+
+        probs = np.array([
+            float(getattr(self.opt, "synthetic_prob_shampoo_only", 0.25)),
+            float(getattr(self.opt, "synthetic_prob_blade_only", 0.25)),
+            float(getattr(self.opt, "synthetic_prob_pair_no_overlap", 0.25)),
+            float(getattr(self.opt, "synthetic_prob_pair_overlap", 0.25)),
+        ], dtype=np.float64)
+
+        probs = np.clip(probs, 0.0, None)
+        if probs.sum() <= 0:
+            probs[:] = 1.0
+        probs = probs / probs.sum()
+
+        modes = ["shampoo_only", "blade_only", "pair_no_overlap", "pair_overlap"]
+        return str(np.random.choice(modes, p=probs))
+
+
+    def _pick_random_cutout_by_tid(self, train_id: int):
+        pool = [it for it in self.cutout_items if int(it.get("train_id", 0)) == int(train_id)]
+        if not pool:
+            return None
+        return pool[np.random.randint(len(pool))]
+
+
+    def _make_default_blade_gray(self, mask_bool: np.ndarray) -> np.ndarray:
+        """
+        Create a simple pseudo X-ray grayscale for blade masks when no real
+        grayscale companion exists.
+        """
+        m = mask_bool.astype(np.uint8)
+        if m.sum() == 0:
+            return np.zeros_like(m, dtype=np.uint8)
+
+        dist = cv2.distanceTransform(m, cv2.DIST_L2, 5).astype(np.float32)
+        if dist.max() > 0:
+            dist = dist / (dist.max() + 1e-6)
+
+        # Bright center, softer edges
+        gray = 150.0 + 70.0 * dist
+        gray[m == 0] = 0
+        return np.clip(gray, 0, 255).astype(np.uint8)
+
+
+    def _resize_cut_components(self, cut, out_w, out_h):
+        obj_mask = cv2.resize(
+            (cut["mask"].astype(np.uint8) * 255),
+            (out_w, out_h),
+            interpolation=cv2.INTER_NEAREST,
+        ) > 127
+
+        obj_soft = cv2.resize(
+            cut.get("soft_mask", cut["mask"].astype(np.float32)).astype(np.float32),
+            (out_w, out_h),
+            interpolation=cv2.INTER_LINEAR,
+        )
+        obj_soft = np.clip(obj_soft, 0.0, 1.0)
+
+        cut_gray = cut.get("gray", None)
+        if cut_gray is not None:
+            cut_gray = cv2.resize(
+                cut_gray.astype(np.uint8),
+                (out_w, out_h),
+                interpolation=cv2.INTER_LINEAR,
+            )
+
+        return obj_mask, obj_soft, cut_gray
+
+
+    def _paste_one_synth_object(
+        self,
+        canvas_A: np.ndarray,
+        canvas_B: np.ndarray,
+        occ: np.ndarray,
+        T_place: np.ndarray,
+        item: dict,
+        no_overlap: bool,
+    ):
+        tid = int(item["train_id"])
+        allow_mask_only = (tid == 3)
+
+        cut = self._transform_cutout(
+            item["bgr"],
+            gray=item.get("gray", None),
+            mask=item.get("mask", None),
+            allow_mask_only=allow_mask_only,
+        )
+        if cut is None:
+            return False
+
+        smin = float(getattr(self.opt, "synthetic_scale_min", 0.85))
+        smax = float(getattr(self.opt, "synthetic_scale_max", 0.85))
+        lo, hi = min(smin, smax), max(smin, smax)
+        scale = lo if abs(hi - lo) < 1e-6 else float(np.random.uniform(lo, hi))
+
+        h0, w0 = cut["mask"].shape
+        out_w = max(1, int(round(w0 * scale)))
+        out_h = max(1, int(round(h0 * scale)))
+
+        H, W = T_place.shape
+        if out_w > W or out_h > H:
+            shrink = min(W / max(out_w, 1), H / max(out_h, 1), 1.0)
+            out_w = max(1, int(round(out_w * shrink)))
+            out_h = max(1, int(round(out_h * shrink)))
+
+        obj_mask, obj_soft, cut_gray = self._resize_cut_components(cut, out_w, out_h)
+
+        if obj_mask.sum() == 0:
+            return False
+
+        coords = self._valid_anchor_positions(
+            T_place,
+            obj_mask,
+            occ=occ,
+            no_overlap=no_overlap,
+        )
+        if not coords:
+            return False
+
+        x, y = coords[np.random.randint(len(coords))]
+        h, w = obj_mask.shape
+
+        # ---- A canvas: multi-channel mask encoding ----
+        roiA = canvas_A[y:y+h, x:x+w]
+
+        if tid == 1:
+            # shampoo -> channel index 1
+            roiA[..., 1][obj_mask] = 255
+        elif tid == 3:
+            # blade -> channel index 2
+            roiA[..., 2][obj_mask] = 255
+
+        canvas_A[y:y+h, x:x+w] = roiA
+
+        # ---- B canvas: grayscale synthetic preview/target ----
+        if cut_gray is None:
+            if tid == 3:
+                cut_gray = self._make_default_blade_gray(obj_mask)
+            else:
+                return False
+
+        cut_gray = cut_gray.astype(np.float32)
+        roiB = canvas_B[y:y+h, x:x+w].astype(np.float32)
+
+        roiB[obj_mask] = cut_gray[obj_mask]
+
+        canvas_B[y:y+h, x:x+w] = roiB
+
+        occ[y:y+h, x:x+w] |= obj_mask
+        return True
+
+
     def _build_synthetic_pair_simple(self, size_hw, T_img: Image.Image):
         H, W = size_hw
 
@@ -1040,11 +1215,13 @@ class AlignedDataset(BaseDataset):
         if T_place.sum() == 0:
             T_place = T
 
+        # A canvas encoding:
+        # channel 0 -> tray
+        # channel 1 -> shampoo
+        # channel 2 -> blade
         canvas_A = np.zeros((H, W, 3), dtype=np.uint8)
-        tray_only_bgr = np.array([255, 0, 0], dtype=np.uint8)
-        overlap_shampoo_bgr = np.array([255, 255, 0], dtype=np.uint8)
-        overlap_blade_bgr = np.array([255, 0, 255], dtype=np.uint8)
-        canvas_A[T > 0] = tray_only_bgr
+        tray_only = np.array([255, 0, 0], dtype=np.uint8)
+        canvas_A[T > 0] = tray_only
 
         T_gray = np.array(T_img.convert("L")).astype(np.float32)
         if T_gray.shape != (H, W):
@@ -1052,112 +1229,61 @@ class AlignedDataset(BaseDataset):
         canvas_B = T_gray.copy()
 
         occ = np.zeros((H, W), dtype=bool)
-        max_item_trials = max(4, int(getattr(self.opt, "synthetic_item_retries", 4)))
-        placed = False
 
-        eligible = [it for it in self.cutout_items if int(it.get("train_id", 0)) in (1, 3)]
-        if not eligible:
-            print("[warning] no eligible shampoo/blade synthetic items; returning tray only")
+        combo_mode = self._sample_synthetic_combo_mode()
+
+        if combo_mode == "shampoo_only":
+            plan = [(1, False)]
+        elif combo_mode == "blade_only":
+            plan = [(3, False)]
+        elif combo_mode == "pair_no_overlap":
+            plan = [(1, True), (3, True)]
+            if np.random.rand() < 0.5:
+                plan = [(3, True), (1, True)]
+        elif combo_mode == "pair_overlap":
+            plan = [(1, False), (3, False)]
+            if np.random.rand() < 0.5:
+                plan = [(3, False), (1, False)]
         else:
+            plan = [(1, False)]
+
+        max_item_trials = max(4, int(getattr(self.opt, "synthetic_item_retries", 4)))
+        placed_count = 0
+
+        for tid, force_no_overlap in plan:
+            placed_this = False
+
             for _ in range(max_item_trials):
-                item = eligible[np.random.randint(len(eligible))]
-                tid = int(item["train_id"])
-                allow_mask_only = (tid == 3)
+                item = self._pick_random_cutout_by_tid(tid)
+                if item is None:
+                    break
 
-                cut = self._transform_cutout(
-                    item["bgr"],
-                    gray=item.get("gray", None),
-                    mask=item.get("mask", None),
-                    allow_mask_only=allow_mask_only,
+                ok = self._paste_one_synth_object(
+                    canvas_A=canvas_A,
+                    canvas_B=canvas_B,
+                    occ=occ,
+                    T_place=T_place,
+                    item=item,
+                    no_overlap=force_no_overlap,
                 )
-                if cut is None:
-                    continue
+                if ok:
+                    placed_this = True
+                    placed_count += 1
+                    break
 
-                obj_mask = cut["mask"]
-                obj_soft = cut.get("soft_mask", obj_mask.astype(np.float32))
-                cut_gray = cut.get("gray", None)
+            if not placed_this:
+                print(f"[warning] failed to place synthetic object tid={tid} mode={combo_mode}")
 
-                smin = float(getattr(self.opt, "synthetic_scale_min", 0.85))
-                smax = float(getattr(self.opt, "synthetic_scale_max", 0.85))
-                lo, hi = min(smin, smax), max(smin, smax)
-                scale = lo if abs(hi - lo) < 1e-6 else float(np.random.uniform(lo, hi))
+        if placed_count == 0:
+            print(f"[warning] synthetic sample placed 0 objects for mode={combo_mode}; returning tray only")
+        else:
+            print(f"[synthetic] mode={combo_mode} placed_count={placed_count}")
 
-                h0, w0 = obj_mask.shape
-                new_w = max(1, int(round(w0 * scale)))
-                new_h = max(1, int(round(h0 * scale)))
-                if new_w > W or new_h > H:
-                    shrink = min(W / max(new_w, 1), H / max(new_h, 1), 1.0)
-                    new_w = max(1, int(round(new_w * shrink)))
-                    new_h = max(1, int(round(new_h * shrink)))
+        canvas_B = np.clip(canvas_B, 0, 255).astype(np.uint8)
 
-                obj_mask = cv2.resize((obj_mask.astype(np.uint8) * 255), (new_w, new_h), interpolation=cv2.INTER_NEAREST) > 127
-                obj_soft = cv2.resize(obj_soft.astype(np.float32), (new_w, new_h), interpolation=cv2.INTER_LINEAR)
-                obj_soft = np.clip(obj_soft, 0.0, 1.0)
-
-                if cut_gray is not None:
-                    cut_gray = cv2.resize(cut_gray, (new_w, new_h), interpolation=cv2.INTER_LINEAR).astype(np.float32)
-                    cut_gray = self.normalize_xray_intensity(cut_gray)
-                elif tid == 3:
-                    cut_gray = self._render_blade_gray_from_mask(obj_mask.astype(np.uint8), obj_soft, scale=scale).astype(np.float32)
-                else:
-                    continue
-
-                h, w = obj_mask.shape
-                if h <= 0 or w <= 0 or h > H or w > W:
-                    continue
-
-                anchors = self._valid_anchor_positions(T_place.astype(bool), obj_mask, occ, bool(getattr(self.opt, "synthetic_no_overlap", False)))
-                if not anchors:
-                    continue
-
-                x, y = anchors[np.random.randint(len(anchors))]
-                region_A = canvas_A[y:y+h, x:x+w]
-                tray_here = np.all(region_A == tray_only_bgr, axis=2)
-                if not np.all(tray_here[obj_mask]):
-                    continue
-
-                if tid == 1:
-                    region_A[obj_mask] = overlap_shampoo_bgr
-                else:
-                    region_A[obj_mask] = overlap_blade_bgr
-
-                region_B = canvas_B[y:y+h, x:x+w].astype(np.float32)
-                tray01 = np.clip(region_B / 255.0, 1e-4, 1.0)
-                obj01 = np.clip(cut_gray / 255.0, 1e-4, 1.0)
-                tray_abs = -np.log(tray01)
-                obj_abs = -np.log(obj01)
-
-                atten_scale = float(scale ** 0.7)
-                if tid == 3:
-                    atten_scale *= 1.15
-
-                target_abs = tray_abs + obj_abs * atten_scale
-                blended_abs = tray_abs * (1.0 - obj_soft) + target_abs * obj_soft
-                blended = np.exp(-blended_abs)
-
-                obj_norm = (cut_gray - cut_gray.min()) / (cut_gray.max() - cut_gray.min() + 1e-6)
-                reinforce = 0.03 if tid == 1 else 0.045
-                blended = blended - (obj_norm * reinforce * obj_soft)
-                blended = np.clip(blended, 0.0, 1.0)
-
-                canvas_B[y:y+h, x:x+w] = blended * 255.0
-                occ[y:y+h, x:x+w][obj_mask] = True
-                placed = True
-                break
-
-        if not placed:
-            print("[warning] synthetic sample placed 0 objects; returning tray only")
-
-        canvas_B = np.clip(canvas_B, 0, 255)
-        canvas_B = canvas_B + np.random.randn(H, W).astype(np.float32) * 1.2
-        canvas_B = np.clip(canvas_B, 0, 255)
-        canvas_B = self.normalize_xray_intensity(canvas_B)
-        canvas_B = cv2.cvtColor(canvas_B.astype(np.uint8), cv2.COLOR_GRAY2BGR)
-
-        return (
-            Image.fromarray(cv2.cvtColor(canvas_A, cv2.COLOR_BGR2RGB)),
-            Image.fromarray(cv2.cvtColor(canvas_B, cv2.COLOR_BGR2RGB)),
-        )
+        A_img = Image.fromarray(canvas_A)
+        B_img = Image.fromarray(canvas_B)
+        return A_img, B_img
 
     def _to_gray_rgb(self, img: Image.Image) -> Image.Image:
         return img.convert("L").convert("RGB")

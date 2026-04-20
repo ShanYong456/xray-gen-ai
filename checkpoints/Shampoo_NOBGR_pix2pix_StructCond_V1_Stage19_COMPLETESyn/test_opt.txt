@@ -18,7 +18,7 @@ build_appearance_prototypes: False
                cutout_dir:                               
            d_label_smooth: 0.1                           
            d_update_ratio: 1                             
-                 dataroot: datasets/_gen_stage19_combo_tray	[default: None]
+                 dataroot: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE	[default: None]
              dataset_mode: aligned                       
                 direction: AtoB                          
   disable_test_appearance: False                         
@@ -49,31 +49,31 @@ build_appearance_prototypes: False
 max_appearance_prototypes: 200                           
          max_dataset_size: inf                           
                     model: pix2pix                       	[default: test]
-               n_layers_D: 3                             
+               n_layers_D: 4                             	[default: 3]
                      name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage19_COMPLETESyn	[default: experiment_name]
                       ndf: 64                            
-                     netD: basic                         
+                     netD: n_layers                      	[default: basic]
                      netG: unet_256                      
                       ngf: 64                            
                no_dropout: False                         
                   no_flip: True                          	[default: False]
                      norm: instance                      
-                 num_test: 20                            	[default: 50]
-              num_threads: 4                             
+                 num_test: 50                            
+              num_threads: 0                             	[default: 4]
                 output_nc: 3                             
             pad_to_canvas: True                          	[default: False]
                     phase: test                          
                preprocess: none                          	[default: resize_and_crop]
           pretrained_netG:                               
               results_dir: ./results/                    
-    return_instance_masks: True                          	[default: False]
-           serial_batches: False                         
+    return_instance_masks: False                         
+           serial_batches: True                          	[default: False]
 shampoo_horizontal_shift_only: False                         
 shampoo_max_horizontal_shift: 0                             
 shampoo_max_vertical_shift: 0                             
                    suffix:                               
            syn_gan_weight: 0.3                           
- synthetic_blade_mask_dir:                               
+ synthetic_blade_mask_dir: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/blade	[default: ]
        synthetic_erode_px: 6                             
 synthetic_fallback_shrink: 0.85                          
    synthetic_item_retries: 12                            
@@ -94,7 +94,7 @@ synthetic_sort_large_first: False
          tray_cc_close_px: 2                             
       tray_mask_autoshift: False                         
       tray_mask_dilate_px: 0                             
-            tray_mask_dir: datasets/_gen_stage19_combo_tray/test	[default: ]
+            tray_mask_dir: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray	[default: ]
          tray_mask_invert: False                         
            tray_mask_path:                               
             tray_mask_thr: 0.5                           
