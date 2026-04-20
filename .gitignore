@@ -51,6 +51,8 @@ data/labels*
 
 datasets/*
 
+results/*
+
 
 # ignore all generated html/images under checkpoints
 checkpoints/**/web/*.html

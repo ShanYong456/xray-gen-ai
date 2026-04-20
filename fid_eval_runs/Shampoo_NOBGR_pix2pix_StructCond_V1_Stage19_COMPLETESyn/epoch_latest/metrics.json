@@ -1,0 +1,7 @@
+{
+  "num_images": 118,
+  "fid": 27.010400399926283,
+  "raw_metrics": {
+    "frechet_inception_distance": 27.010400399926283
+  }
+}

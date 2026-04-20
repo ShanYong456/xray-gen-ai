@@ -1,0 +1,9 @@
+{
+  "epoch": 280,
+  "phase": "train",
+  "num_images": 472,
+  "fid": 15.34901217577341,
+  "raw_metrics": {
+    "frechet_inception_distance": 15.34901217577341
+  }
+}
