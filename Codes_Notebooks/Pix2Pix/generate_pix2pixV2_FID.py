@@ -1977,7 +1977,7 @@ python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_FID.py \
 
 
 python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_FID.py \
-  --generate_mode fit_real_dataset \
+  --generate_mode dataset_eval \
   --dataset_eval_dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE \
   --dataset_eval_phase train \
   --dataset_eval_max_images 100 \

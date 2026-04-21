@@ -212,11 +212,15 @@ class AlignedDataset(BaseDataset):
             if not self.cutout_items:
                 raise ValueError("synthetic_prob > 0 requires --cutout_dir and/or --synthetic_blade_mask_dir with valid assets.")
 
-        # --- tray mask setup ---
         self.use_tray_mask = bool(getattr(opt, "use_tray_mask", False))
         self.tray_mask_img = None
         self.tray_mask_paths = []
+
+        # FAST lookup map (replace O(N) scan per sample)
         self.tray_mask_map = {}
+        if self.tray_mask_paths:
+            for p in self.tray_mask_paths:
+                self.tray_mask_map[p.stem] = str(p)
 
         if self.use_tray_mask:
             tray_dir = str(getattr(opt, "tray_mask_dir", "")).strip()
@@ -230,9 +234,6 @@ class AlignedDataset(BaseDataset):
                 self.tray_mask_paths = sorted(tray_dir_p.glob("*.png"))
                 if not self.tray_mask_paths:
                     raise FileNotFoundError(f"No tray mask PNGs found in: {tray_dir_p}")
-
-                # FIX: build lookup map AFTER tray_mask_paths is loaded
-                self.tray_mask_map = {p.stem: str(p) for p in self.tray_mask_paths}
 
                 print(f"[tray] loaded {len(self.tray_mask_paths)} tray masks from {tray_dir_p}")
 
@@ -277,16 +278,12 @@ class AlignedDataset(BaseDataset):
 
         ab_stem = Path(ab_path).stem
 
+        # O(1) lookup
         hit = self.tray_mask_map.get(ab_stem, None)
-        if hit is not None and Path(hit).exists():
+        if hit is not None:
             return Image.open(hit).convert("L")
 
-        # fallback: try loose stem matching
-        for p in self.tray_mask_paths:
-            if p.stem == ab_stem or p.stem.startswith(ab_stem) or ab_stem.startswith(p.stem):
-                return Image.open(str(p)).convert("L")
-
-        # final fallback
+        # fallback (rare)
         return Image.open(str(self.tray_mask_paths[0])).convert("L")
         
     def _load_tray_T(self, target_size, ab_path=None):
@@ -1080,12 +1077,6 @@ class AlignedDataset(BaseDataset):
         pool = [it for it in self.cutout_items if int(it.get("train_id", 0)) == int(train_id)]
         if not pool:
             return None
-
-        # optional: prefer items that have real grayscale
-        with_gray = [it for it in pool if it.get("gray", None) is not None]
-        if with_gray and np.random.rand() < 0.8:
-            pool = with_gray
-
         return pool[np.random.randint(len(pool))]
 
 
@@ -1168,7 +1159,6 @@ class AlignedDataset(BaseDataset):
             shrink = min(W / max(out_w, 1), H / max(out_h, 1), 1.0)
             out_w = max(1, int(round(out_w * shrink)))
             out_h = max(1, int(round(out_h * shrink)))
-            scale *= shrink
 
         obj_mask, obj_soft, cut_gray = self._resize_cut_components(cut, out_w, out_h)
 
@@ -1187,36 +1177,29 @@ class AlignedDataset(BaseDataset):
         x, y = coords[np.random.randint(len(coords))]
         h, w = obj_mask.shape
 
-        # ---- A canvas ----
+        # ---- A canvas: multi-channel mask encoding ----
         roiA = canvas_A[y:y+h, x:x+w]
 
         if tid == 1:
-            roiA[..., 1][obj_mask] = 255  # shampoo
+            # shampoo -> channel index 1
+            roiA[..., 1][obj_mask] = 255
         elif tid == 3:
-            roiA[..., 2][obj_mask] = 255  # blade
+            # blade -> channel index 2
+            roiA[..., 2][obj_mask] = 255
 
         canvas_A[y:y+h, x:x+w] = roiA
 
-        # ---- B canvas ----
+        # ---- B canvas: grayscale synthetic preview/target ----
         if cut_gray is None:
             if tid == 3:
-                cut_gray = self._render_blade_gray_from_mask(
-                    obj_mask.astype(np.uint8),
-                    obj_soft.astype(np.float32),
-                    scale=scale,
-                )
+                cut_gray = self._make_default_blade_gray(obj_mask)
             else:
                 return False
 
         cut_gray = cut_gray.astype(np.float32)
         roiB = canvas_B[y:y+h, x:x+w].astype(np.float32)
 
-        # softer blending when overlap is allowed
-        if no_overlap:
-            roiB[obj_mask] = cut_gray[obj_mask]
-        else:
-            alpha = np.clip(obj_soft.astype(np.float32), 0.0, 1.0)
-            roiB = roiB * (1.0 - alpha) + cut_gray * alpha
+        roiB[obj_mask] = cut_gray[obj_mask]
 
         canvas_B[y:y+h, x:x+w] = roiB
 
@@ -1228,12 +1211,14 @@ class AlignedDataset(BaseDataset):
         H, W = size_hw
 
         T = self._get_tray_bin(T_img).astype(np.uint8)
-        erode_px = int(getattr(self.opt, "synthetic_erode_px", 2))
-        T_place = self._erode_bin(T, erode_px)
+        T_place = self._erode_bin(T, 2)
         if T_place.sum() == 0:
             T_place = T
 
-        # channel 0 = tray, channel 1 = shampoo, channel 2 = blade
+        # A canvas encoding:
+        # channel 0 -> tray
+        # channel 1 -> shampoo
+        # channel 2 -> blade
         canvas_A = np.zeros((H, W, 3), dtype=np.uint8)
         tray_only = np.array([255, 0, 0], dtype=np.uint8)
         canvas_A[T > 0] = tray_only
@@ -1244,6 +1229,7 @@ class AlignedDataset(BaseDataset):
         canvas_B = T_gray.copy()
 
         occ = np.zeros((H, W), dtype=bool)
+
         combo_mode = self._sample_synthetic_combo_mode()
 
         if combo_mode == "shampoo_only":
@@ -1261,23 +1247,12 @@ class AlignedDataset(BaseDataset):
         else:
             plan = [(1, False)]
 
-        # optional: place larger item first
-        if bool(getattr(self.opt, "synthetic_sort_large_first", False)) and len(plan) > 1:
-            item_sizes = {}
-            for tid, _ in plan:
-                sample = self._pick_random_cutout_by_tid(tid)
-                if sample is None:
-                    item_sizes[tid] = 0
-                else:
-                    m = sample["mask"]
-                    item_sizes[tid] = int(m.shape[0] * m.shape[1])
-            plan = sorted(plan, key=lambda x: item_sizes.get(x[0], 0), reverse=True)
-
         max_item_trials = max(4, int(getattr(self.opt, "synthetic_item_retries", 4)))
         placed_count = 0
 
         for tid, force_no_overlap in plan:
             placed_this = False
+
             for _ in range(max_item_trials):
                 item = self._pick_random_cutout_by_tid(tid)
                 if item is None:

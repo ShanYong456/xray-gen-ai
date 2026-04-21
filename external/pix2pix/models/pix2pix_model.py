@@ -504,14 +504,6 @@ class Pix2PixModel(BaseModel):
             self.loss_G_ssim +
             self.loss_G_stats
         )
-        self.loss_G = (
-            self.loss_G_GAN +
-            self.loss_G_L1 +
-            self.loss_G_grad +
-            self.loss_G_lap +
-            self.loss_G_ssim +
-            self.loss_G_stats
-        )
         self.loss_G.backward()
                
 
@@ -799,8 +791,6 @@ class Pix2PixModel(BaseModel):
         if fake_val is not None:
             fake_bgr = self._tensor_to_bgr_u8(fake_val)
             if fake_bgr is not None:
-                if not self.is_synthetic:
-                    fake_bgr = self._overlay_metric_panel(fake_bgr, self._build_training_overlay_lines(), anchor="tl")
                 visuals["fake_B"] = self._bgr_u8_to_tensor_like(fake_bgr, fake_val)
             else:
                 visuals["fake_B"] = fake_val

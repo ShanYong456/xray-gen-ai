@@ -933,7 +933,7 @@ python external/pix2pix/train.py \
 
 python external/pix2pix/train.py \
   --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE \
-  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage19_COMPLETESyn \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage20_COMPLETESyn \
   --model pix2pix --dataset_mode aligned --direction AtoB \
   --input_nc 7 --output_nc 3 --class_nc 3 --thickness_nc 1 \
   --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
@@ -948,7 +948,7 @@ python external/pix2pix/train.py \
   --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
   --synthetic_min_items 1 --synthetic_max_items 1 \
   --synthetic_place_tries 30 --synthetic_item_retries 6 --synthetic_erode_px 2 \
-  --synthetic_prob 0 --synthetic_no_overlap \
+  --synthetic_prob 0.35 --synthetic_no_overlap \
   --pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
   --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
   --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade \
@@ -961,6 +961,71 @@ python external/pix2pix/train.py \
   --fid_work_dir fid_eval_runs
 
 
+  python external/pix2pix/train.py \
+  --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage23_COMPLETESyn \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 7 --output_nc 3 --class_nc 3 --thickness_nc 1 \
+  --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+  --preprocess none --load_size 0 --crop_size 0 --no_flip \
+  --batch_size 1 --pool_size 0 --gan_mode lsgan \
+  --lr 3e-6 --beta1 0.5 --n_epochs 150 --n_epochs_decay 150 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels --return_instance_masks \
+  --use_masked_l1 --lambda_L1 25 --lambda_bg 0 \
+  --use_grad_loss --lambda_grad 5 \
+  --use_lap_loss --lambda_lap 2 \
+  --use_ssim_loss --lambda_ssim 2 \
+  --d_label_smooth 0.1 \
+  --syn_gan_weight 1.0 \
+  --d_update_ratio 1 \
+  --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --synthetic_prob 0.5 \
+  --synthetic_combo_mode random \
+  --synthetic_prob_shampoo_only 0.25 \
+  --synthetic_prob_blade_only 0.25 \
+  --synthetic_prob_pair_no_overlap 0.25 \
+  --synthetic_prob_pair_overlap 0.25 \
+  --synthetic_place_tries 60 --synthetic_item_retries 10 --synthetic_erode_px 2 \
+  --pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
+  --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+  --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade \
+  --synthetic_scale_min 0.65 --synthetic_scale_max 0.65 \
+  --continue_train --epoch latest
+
+
+  
+  python external/pix2pix/train.py \
+  --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn \
+  --model pix2pix --dataset_mode aligned --direction AtoB \
+  --input_nc 7 --output_nc 3 --class_nc 3 --thickness_nc 1 \
+  --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance \
+  --preprocess none --load_size 0 --crop_size 0 --no_flip \
+  --batch_size 1 --pool_size 0 --gan_mode lsgan \
+  --lr 3e-6 --beta1 0.5 --n_epochs 150 --n_epochs_decay 150 \
+  --use_thickness_channel --use_edge_channel --use_coord_channels --return_instance_masks \
+  --use_masked_l1 --lambda_L1 25 --lambda_bg 0 \
+  --use_grad_loss --lambda_grad 5 \
+  --use_lap_loss --lambda_lap 2 \
+  --use_ssim_loss --lambda_ssim 2 \
+  --d_label_smooth 0.1 \
+  --syn_gan_weight 0.5 \
+  --d_update_ratio 1 \
+  --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --synthetic_prob 0.5 \
+  --synthetic_combo_mode random \
+  --synthetic_prob_shampoo_only 0.25 \
+  --synthetic_prob_blade_only 0.25 \
+  --synthetic_prob_pair_no_overlap 0.25 \
+  --synthetic_prob_pair_overlap 0.25 \
+  --synthetic_place_tries 100 --synthetic_item_retries 16 --synthetic_erode_px 2 \
+  --synthetic_sort_large_first \
+  --pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
+  --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
+  --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade \
+  --synthetic_scale_min 0.60 --synthetic_scale_max 0.72 \
+  --synthetic_rot_min -8 --synthetic_rot_max 8 \
+  --continue_train --epoch latest
 
 
 

@@ -68,7 +68,7 @@ max_appearance_prototypes: 200
                  n_epochs: 150                           	[default: 100]
            n_epochs_decay: 150                           	[default: 100]
                n_layers_D: 4                             	[default: 3]
-                     name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage23_COMPLETESyn	[default: experiment_name]
+                     name: Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn	[default: experiment_name]
                       ndf: 64                            
                      netD: n_layers                      	[default: basic]
                      netG: unet_256                      
@@ -94,28 +94,28 @@ shampoo_horizontal_shift_only: False
 shampoo_max_horizontal_shift: 0                             
 shampoo_max_vertical_shift: 0                             
                    suffix:                               
-           syn_gan_weight: 1.0                           	[default: 0.3]
+           syn_gan_weight: 0.5                           	[default: 0.3]
  synthetic_blade_mask_dir: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade	[default: ]
      synthetic_combo_mode: random                        
        synthetic_erode_px: 2                             	[default: 6]
 synthetic_fallback_shrink: 0.85                          
-   synthetic_item_retries: 10                            	[default: 12]
+   synthetic_item_retries: 16                            	[default: 12]
       synthetic_max_items: 3                             
       synthetic_min_items: 1                             
            synthetic_mode: random_mask                   
      synthetic_no_overlap: False                         
-    synthetic_place_tries: 60                            	[default: 120]
+    synthetic_place_tries: 100                           	[default: 120]
            synthetic_prob: 0.5                           	[default: 0.0]
 synthetic_prob_blade_only: 0.25                          
 synthetic_prob_pair_no_overlap: 0.25                          
 synthetic_prob_pair_overlap: 0.25                          
 synthetic_prob_shampoo_only: 0.25                          
-        synthetic_rot_max: 360.0                         
-        synthetic_rot_min: 0.0                           
+        synthetic_rot_max: 8.0                           	[default: 360.0]
+        synthetic_rot_min: -8.0                          	[default: 0.0]
 synthetic_same_class_prob: 0.0                           
-      synthetic_scale_max: 0.65                          	[default: 1.4]
-      synthetic_scale_min: 0.65                          	[default: 0.6]
-synthetic_sort_large_first: False                         
+      synthetic_scale_max: 0.72                          	[default: 1.4]
+      synthetic_scale_min: 0.6                           
+synthetic_sort_large_first: True                          	[default: False]
              thickness_nc: 1                             
          tray_bbox_margin: 2                             
          tray_cc_close_px: 2                             

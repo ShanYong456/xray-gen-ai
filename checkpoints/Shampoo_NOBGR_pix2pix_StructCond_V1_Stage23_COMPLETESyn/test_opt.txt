@@ -18,7 +18,7 @@ build_appearance_prototypes: False
                cutout_dir:                               
            d_label_smooth: 0.1                           
            d_update_ratio: 1                             
-                 dataroot: results/_gen_stage23_combo_tray	[default: None]
+                 dataroot: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE	[default: None]
              dataset_mode: aligned                       
                 direction: AtoB                          
   disable_test_appearance: False                         
@@ -58,7 +58,7 @@ max_appearance_prototypes: 200
                no_dropout: False                         
                   no_flip: True                          	[default: False]
                      norm: instance                      
-                 num_test: 150                           	[default: 50]
+                 num_test: 400                           	[default: 50]
               num_threads: 4                             
                 output_nc: 3                             
             pad_to_canvas: True                          	[default: False]
@@ -99,7 +99,7 @@ synthetic_sort_large_first: False
          tray_cc_close_px: 2                             
       tray_mask_autoshift: False                         
       tray_mask_dilate_px: 0                             
-            tray_mask_dir: results/_gen_stage23_combo_tray/test	[default: ]
+            tray_mask_dir:                               
          tray_mask_invert: False                         
            tray_mask_path:                               
             tray_mask_thr: 0.5                           
@@ -120,7 +120,7 @@ synthetic_sort_large_first: False
             use_soft_mask: False                         
             use_ssim_loss: False                         
     use_thickness_channel: True                          	[default: False]
-            use_tray_mask: True                          	[default: False]
+            use_tray_mask: False                         
                 use_wandb: False                         
                   verbose: False                         
        wandb_project_name: CycleGAN-and-pix2pix          

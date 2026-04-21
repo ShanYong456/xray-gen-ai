@@ -903,50 +903,283 @@ def extract_feature_from_pil(pil_img: Image.Image, extractor: dict) -> np.ndarra
     return feat
 
 
-def build_real_feature_distribution(real_eval_dir: Path, extractor: dict, pca_dim: int = 32):
-    image_paths = _list_image_files(real_eval_dir)
-    if not image_paths:
-        raise RuntimeError(f"No images found in real_eval_dir: {real_eval_dir}")
+def extract_features_for_images_by_stem(images_by_stem, extractor: dict):
+    feats = {}
+    failed = {}
 
-    feats = []
-    used_paths = []
-
-    for p in image_paths:
+    for stem, img_bgr in images_by_stem.items():
         try:
-            pil_img = _load_gray3_pil_from_path(p)
+            pil_img = _load_gray3_pil_from_bgr(img_bgr)
             feat = extract_feature_from_pil(pil_img, extractor)
-            feats.append(feat)
-            used_paths.append(str(p))
+            feats[stem] = feat
         except Exception as e:
-            print(f"[mahal] skipped real image {p} | reason={e}")
+            failed[stem] = str(e)
 
-    if len(feats) < 2:
-        raise RuntimeError(f"Need at least 2 valid real images for Mahalanobis scoring. Got {len(feats)}")
+    return feats, failed
 
-    X = np.stack(feats, axis=0)  # [N, D]
 
-    max_valid_dim = min(len(feats) - 1, X.shape[1])
+def build_feature_distribution_from_feature_dict(feature_dict: dict, feature_name: str, pca_dim: int = 32):
+    if len(feature_dict) < 2:
+        raise RuntimeError(f"Need at least 2 valid images to fit a feature distribution. Got {len(feature_dict)}")
+
+    stems = list(feature_dict.keys())
+    X = np.stack([feature_dict[s] for s in stems], axis=0)
+
+    max_valid_dim = min(len(stems) - 1, X.shape[1])
     pca_dim = max(2, min(int(pca_dim), int(max_valid_dim)))
 
     pca = PCA(n_components=pca_dim, svd_solver="auto", whiten=False, random_state=0)
-    Xp = pca.fit_transform(X)  # [N, pca_dim]
+    Xp = pca.fit_transform(X)
 
     mu = Xp.mean(axis=0)
     cov = np.cov(Xp, rowvar=False)
-
-    eps = 1e-6
-    cov = cov + np.eye(cov.shape[0], dtype=np.float64) * eps
+    cov = cov + np.eye(cov.shape[0], dtype=np.float64) * 1e-6
     cov_inv = np.linalg.pinv(cov)
 
     return {
-        "feature_name": extractor["name"],
-        "num_real_images": len(feats),
+        "feature_name": feature_name,
+        "num_images": len(stems),
         "raw_feature_dim": int(X.shape[1]),
         "pca_dim": int(pca_dim),
         "pca_model": pca,
         "mean": mu,
         "cov_inv": cov_inv,
-        "used_paths": used_paths,
+        "used_stems": stems,
+    }
+
+
+def compute_mahalanobis_from_feature_dict(feature_dict: dict, dist: dict, failed: dict | None = None, enabled=True):
+    if not enabled:
+        return {
+            "enabled": False,
+            "available": False,
+            "error": "Mahalanobis disabled by user",
+            "feature_name": None,
+            "num_images_in_reference": 0,
+            "raw_feature_dim": None,
+            "pca_dim": None,
+            "per_image": {},
+            "mean": None,
+            "min": None,
+            "max": None,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        }
+
+    per_image = {}
+    vals = []
+    pca = dist["pca_model"]
+
+    for stem, feat in feature_dict.items():
+        try:
+            feat_pca = pca.transform(feat.reshape(1, -1))[0]
+            d = mahalanobis_distance(feat_pca, dist["mean"], dist["cov_inv"])
+            per_image[stem] = {
+                "mahalanobis": float(d),
+                "status": "ok",
+            }
+            vals.append(float(d))
+        except Exception as e:
+            per_image[stem] = {
+                "mahalanobis": None,
+                "status": f"failed: {e}",
+            }
+
+    if failed:
+        for stem, err in failed.items():
+            if stem not in per_image:
+                per_image[stem] = {
+                    "mahalanobis": None,
+                    "status": f"failed: {err}",
+                }
+
+    return {
+        "enabled": True,
+        "available": True,
+        "error": None,
+        "feature_name": dist["feature_name"],
+        "num_images_in_reference": int(dist["num_images"]),
+        "raw_feature_dim": int(dist["raw_feature_dim"]),
+        "pca_dim": int(dist["pca_dim"]),
+        "per_image": per_image,
+        "mean": float(np.mean(vals)) if vals else None,
+        "min": float(np.min(vals)) if vals else None,
+        "max": float(np.max(vals)) if vals else None,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
+
+def build_feature_dict_from_real_dir(real_eval_dir: Path, extractor: dict):
+    image_paths = _list_image_files(real_eval_dir)
+    if not image_paths:
+        raise RuntimeError(f"No images found in real_eval_dir: {real_eval_dir}")
+
+    feats = {}
+    failed = {}
+    used_paths = []
+
+    for p in image_paths:
+        stem = p.stem
+        try:
+            pil_img = _load_gray3_pil_from_path(p)
+            feat = extract_feature_from_pil(pil_img, extractor)
+            feats[stem] = feat
+            used_paths.append(str(p))
+        except Exception as e:
+            failed[stem] = str(e)
+            print(f"[real-feat] skipped real image {p} | reason={e}")
+
+    if len(feats) < 2:
+        raise RuntimeError(f"Need at least 2 valid real images for feature bank. Got {len(feats)}")
+
+    return feats, failed, used_paths
+
+
+def compute_real_nn_novelty_from_feature_dict(gen_feature_dict: dict, real_feature_dict: dict, pca_model, failed: dict | None = None):
+    if len(real_feature_dict) < 1:
+        return {
+            "enabled": True,
+            "available": False,
+            "error": "No valid real reference features for nearest-neighbor novelty",
+            "reference_space": "real_dataset_pca_space",
+            "reference_count": 0,
+            "per_image": {},
+            "mean": None,
+            "min": None,
+            "max": None,
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        }
+
+    real_stems = list(real_feature_dict.keys())
+    real_X = np.stack([real_feature_dict[s] for s in real_stems], axis=0)
+    real_Xp = pca_model.transform(real_X)
+
+    per_image = {}
+    vals = []
+
+    for stem, feat in gen_feature_dict.items():
+        try:
+            gp = pca_model.transform(feat.reshape(1, -1))[0]
+            dists = np.linalg.norm(real_Xp - gp[None, :], axis=1)
+            nn_idx = int(np.argmin(dists))
+            nn_dist = float(dists[nn_idx])
+
+            per_image[stem] = {
+                "nearest_real_distance": nn_dist,
+                "nearest_real_stem": real_stems[nn_idx],
+                "status": "ok",
+            }
+            vals.append(nn_dist)
+        except Exception as e:
+            per_image[stem] = {
+                "nearest_real_distance": None,
+                "nearest_real_stem": None,
+                "status": f"failed: {e}",
+            }
+
+    if failed:
+        for stem, err in failed.items():
+            if stem not in per_image:
+                per_image[stem] = {
+                    "nearest_real_distance": None,
+                    "nearest_real_stem": None,
+                    "status": f"failed: {err}",
+                }
+
+    return {
+        "enabled": True,
+        "available": True,
+        "error": None,
+        "reference_space": "real_dataset_pca_space",
+        "reference_count": len(real_feature_dict),
+        "per_image": per_image,
+        "mean": float(np.mean(vals)) if vals else None,
+        "min": float(np.min(vals)) if vals else None,
+        "max": float(np.max(vals)) if vals else None,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
+def print_named_nn_metrics(tag: str, nn_info: dict):
+    if not nn_info.get("enabled", False):
+        print(f"[{tag}] disabled | reason={nn_info.get('error')}")
+        return
+
+    if not nn_info.get("available", False):
+        print(f"[{tag}] unavailable | reason={nn_info.get('error')}")
+        return
+
+    print(
+        f"[{tag}] reference_space={nn_info.get('reference_space')} | "
+        f"reference_count={nn_info.get('reference_count')} | "
+        f"mean={nn_info.get('mean')} | "
+        f"min={nn_info.get('min')} | "
+        f"max={nn_info.get('max')}"
+    )
+
+    for stem, info in nn_info.get("per_image", {}).items():
+        print(
+            f"[{tag}] {stem} | "
+            f"nearest_real_distance={info.get('nearest_real_distance')} | "
+            f"nearest_real_stem={info.get('nearest_real_stem')} | "
+            f"status={info.get('status')}"
+        )
+
+def print_named_mahalanobis_metrics(tag: str, mahal_info: dict):
+    if not mahal_info.get("enabled", False):
+        print(f"[{tag}] disabled | reason={mahal_info.get('error')}")
+        return
+
+    if not mahal_info.get("available", False):
+        print(f"[{tag}] unavailable | reason={mahal_info.get('error')}")
+        return
+
+    print(
+        f"[{tag}] feature={mahal_info.get('feature_name')} | "
+        f"ref_count={mahal_info.get('num_images_in_reference')} | "
+        f"raw_dim={mahal_info.get('raw_feature_dim')} | "
+        f"pca_dim={mahal_info.get('pca_dim')} | "
+        f"mean={mahal_info.get('mean')} | "
+        f"min={mahal_info.get('min')} | "
+        f"max={mahal_info.get('max')}"
+    )
+
+    for stem, info in mahal_info.get("per_image", {}).items():
+        print(
+            f"[{tag}] {stem} | "
+            f"distance={info.get('mahalanobis')} | "
+            f"status={info.get('status')}"
+        )
+
+
+def build_real_feature_distribution_from_feature_dict(real_feature_dict: dict, feature_name: str, pca_dim: int = 32, used_paths=None):
+    if len(real_feature_dict) < 2:
+        raise RuntimeError(f"Need at least 2 valid real images for Mahalanobis scoring. Got {len(real_feature_dict)}")
+
+    stems = list(real_feature_dict.keys())
+    X = np.stack([real_feature_dict[s] for s in stems], axis=0)
+
+    max_valid_dim = min(len(stems) - 1, X.shape[1])
+    pca_dim = max(2, min(int(pca_dim), int(max_valid_dim)))
+
+    pca = PCA(n_components=pca_dim, svd_solver="auto", whiten=False, random_state=0)
+    Xp = pca.fit_transform(X)
+
+    mu = Xp.mean(axis=0)
+    cov = np.cov(Xp, rowvar=False)
+    cov = cov + np.eye(cov.shape[0], dtype=np.float64) * 1e-6
+    cov_inv = np.linalg.pinv(cov)
+
+    return {
+        "feature_name": feature_name,
+        "num_real_images": len(stems),
+        "raw_feature_dim": int(X.shape[1]),
+        "pca_dim": int(pca_dim),
+        "pca_model": pca,
+        "mean": mu,
+        "cov_inv": cov_inv,
+        "used_paths": used_paths or [],
+        "used_stems": stems,
     }
 
 
@@ -1193,6 +1426,7 @@ def strip_existing_top_banner(img_bgr: np.ndarray) -> np.ndarray:
 
 
 def overlay_metric_panel(img_bgr: np.ndarray, lines) -> np.ndarray:
+    """
     if img_bgr is None:
         return None
     base = img_bgr.copy()
@@ -1220,9 +1454,12 @@ def overlay_metric_panel(img_bgr: np.ndarray, lines) -> np.ndarray:
         y += line_h
 
     return np.vstack([banner, base])
+    """
+    return img_bgr
 
 
 def build_overlay_lines_for_image(stem: str, mahal_info: dict):
+    """
     lines = []
 
     per_image = mahal_info.get("per_image", {}) if mahal_info else {}
@@ -1240,6 +1477,9 @@ def build_overlay_lines_for_image(stem: str, mahal_info: dict):
             lines.append("Mahalanobis disabled")
 
     return lines
+    """
+    return []
+
 
 
 def force_grayscale_bgr(img_bgr: np.ndarray) -> np.ndarray:
@@ -1641,12 +1881,12 @@ def main():
             raw_final_img = force_grayscale_bgr(raw_final_img)
             final_images[stem] = raw_final_img
 
-    mahal_info = {
+    realism_mahal_info = {
         "enabled": False,
         "available": False,
-        "error": "Mahalanobis not computed",
+        "error": "Realism Mahalanobis not computed",
         "feature_name": None,
-        "num_real_images": 0,
+        "num_images_in_reference": 0,
         "raw_feature_dim": None,
         "pca_dim": None,
         "per_image": {},
@@ -1656,33 +1896,82 @@ def main():
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
 
+    real_nn_novelty_info = {
+        "enabled": False,
+        "available": False,
+        "error": "Real nearest-neighbor novelty not computed",
+        "reference_space": None,
+        "reference_count": 0,
+        "per_image": {},
+        "mean": None,
+        "min": None,
+        "max": None,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+    }
+
     if not args.disable_mahalanobis:
         extractor = init_feature_extractor()
-        real_dist = build_real_feature_distribution(
-            Path(args.real_eval_dir),
-            extractor,
-            pca_dim=args.mahal_pca_dim,
+
+        gen_feature_dict, gen_failed = extract_features_for_images_by_stem(final_images, extractor)
+        real_feature_dict, real_failed, real_used_paths = build_feature_dict_from_real_dir(
+            Path(args.real_eval_dir), extractor
         )
-        mahal_info = compute_mahalanobis_for_images(
-            images_by_stem=final_images,
-            real_dist=real_dist,
-            extractor=extractor,
+
+        real_dist = build_real_feature_distribution_from_feature_dict(
+            real_feature_dict,
+            feature_name=extractor["name"] + "_realism_ref",
+            pca_dim=args.mahal_pca_dim,
+            used_paths=real_used_paths,
+        )
+
+        real_dist_generic = {
+            "feature_name": real_dist["feature_name"],
+            "num_images": int(real_dist["num_real_images"]),
+            "raw_feature_dim": int(real_dist["raw_feature_dim"]),
+            "pca_dim": int(real_dist["pca_dim"]),
+            "pca_model": real_dist["pca_model"],
+            "mean": real_dist["mean"],
+            "cov_inv": real_dist["cov_inv"],
+        }
+
+        realism_mahal_info = compute_mahalanobis_from_feature_dict(
+            feature_dict=gen_feature_dict,
+            dist=real_dist_generic,
+            failed=gen_failed,
             enabled=True,
         )
 
-    print_mahalanobis_metrics(mahal_info)
+        real_nn_novelty_info = compute_real_nn_novelty_from_feature_dict(
+            gen_feature_dict=gen_feature_dict,
+            real_feature_dict=real_feature_dict,
+            pca_model=real_dist["pca_model"],
+            failed=gen_failed,
+        )
+
+    print_named_mahalanobis_metrics("realism_mahal", realism_mahal_info)
+    print_named_nn_metrics("real_nn_novelty", real_nn_novelty_info)
 
     out_dir = out_root / "generated"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for stem, raw_img in final_images.items():
         final_img = export_smooth_2x(raw_img)
+
         out_path = out_dir / f"{stem}_{args.generate_mode}_smooth2x.png"
         cv2.imwrite(str(out_path), final_img)
+
+        raw_fake_path = resolve_fake_image_path(results_root / "images", stem)
+        if raw_fake_path is not None:
+            cv2.imwrite(str(raw_fake_path), raw_img)
+
         print(f"Saved generated result to: {out_path}")
 
-    mahal_path = out_dir / "generated_mahalanobis.json"
-    save_mahalanobis_metrics(mahal_path, mahal_info)
+    realism_mahal_path = out_dir / "generated_realism_mahalanobis.json"
+    save_mahalanobis_metrics(realism_mahal_path, realism_mahal_info)
+
+    real_nn_novelty_path = out_dir / "generated_real_nn_novelty.json"
+    real_nn_novelty_path.write_text(json.dumps(real_nn_novelty_info, indent=2))
+    print(f"[real_nn] wrote metrics to: {real_nn_novelty_path}")
 
     summary_path = out_dir / f"generated_{args.generate_mode}_summary.json"
     summary = {
@@ -1692,7 +1981,8 @@ def main():
         "num_scenes_generated": len(final_images),
         "seed_start": args.seed,
         "no_overlap": args.no_overlap,
-        "mahalanobis": mahal_info,
+        "realism_mahalanobis": realism_mahal_info,
+        "real_nn_novelty": real_nn_novelty_info,
         "scenes": generated_scene_info,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
@@ -1703,7 +1993,8 @@ def main():
         cleanup_intermediate_outputs(out_root, results_root, keep_preview=args.keep_preview)
 
     print(f"\nDone. Output folder: {out_dir}")
-    print(f"Done. Mahalanobis JSON: {mahal_path}")
+    print(f"Done. Realism Mahalanobis JSON: {realism_mahal_path}")
+    print(f"Done. Real nearest-neighbor novelty JSON: {real_nn_novelty_path}")
     print(f"Done. Summary JSON: {summary_path}")
 
 
@@ -1839,9 +2130,43 @@ python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
   --x_search_step 12 \
   --max_transform_candidates 8 \
   --out_dataset results/_gen_stage23_combo_tray \
-  --num_scenes 30 \
-  --seed 888 \
+  --num_scenes 200 \
+  --seed 12 \
   --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test \
   --mahal_pca_dim 32
+
+
+
+  python external/pix2pix/test.py \
+  --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE \
+  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage23_COMPLETESyn \
+  --model pix2pix \
+  --dataset_mode aligned \
+  --direction AtoB \
+  --input_nc 7 \
+  --output_nc 3 \
+  --netG unet_256 \
+  --norm instance \
+  --preprocess none \
+  --load_size 0 \
+  --crop_size 0 \
+  --no_flip \
+  --epoch latest \
+  --eval \
+  --class_nc 3 \
+  --thickness_nc 1 \
+  --use_thickness_channel \
+  --use_edge_channel \
+  --use_coord_channels \
+  --return_instance_masks \
+  --mask_thr 0.05 \
+  --canvas_h 1024 \
+  --canvas_w 1024 \
+  --pad_to_canvas \
+  --use_tray_mask \
+  --tray_mask_thr 0.5 \
+  --tray_cc_close_px 2 \
+  --tray_mask_dilate_px 0 \
+  --num_test 400 --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray
  
 """
