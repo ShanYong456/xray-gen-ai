@@ -1008,9 +1008,7 @@ python external/pix2pix/train.py \
   --use_grad_loss --lambda_grad 5 \
   --use_lap_loss --lambda_lap 2 \
   --use_ssim_loss --lambda_ssim 2 \
-  --d_label_smooth 0.1 \
-  --syn_gan_weight 0.5 \
-  --d_update_ratio 1 \
+  --d_label_smooth 0.1 --syn_gan_weight 0.5 --d_update_ratio 1 \
   --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
   --synthetic_prob 0.5 \
   --synthetic_combo_mode random \
@@ -1018,13 +1016,13 @@ python external/pix2pix/train.py \
   --synthetic_prob_blade_only 0.25 \
   --synthetic_prob_pair_no_overlap 0.25 \
   --synthetic_prob_pair_overlap 0.25 \
-  --synthetic_place_tries 100 --synthetic_item_retries 16 --synthetic_erode_px 2 \
-  --synthetic_sort_large_first \
+  --synthetic_place_tries 100 --synthetic_item_retries 16 --synthetic_erode_px 2 --synthetic_sort_large_first \
   --pad_to_canvas --canvas_w 1024 --canvas_h 1024 \
   --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library \
   --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade \
   --synthetic_scale_min 0.60 --synthetic_scale_max 0.72 \
   --synthetic_rot_min -8 --synthetic_rot_max 8 \
+  --fid_during_training  --fid_epoch_freq 40 --fid_phase train --fid_max_images 500 --fid_work_dir fid_eval_runs \
   --continue_train --epoch latest
 
 

@@ -99,7 +99,7 @@ synthetic_sort_large_first: False
          tray_cc_close_px: 2                             
       tray_mask_autoshift: False                         
       tray_mask_dilate_px: 0                             
-            tray_mask_dir:                               
+            tray_mask_dir: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray	[default: ]
          tray_mask_invert: False                         
            tray_mask_path:                               
             tray_mask_thr: 0.5                           
@@ -120,7 +120,7 @@ synthetic_sort_large_first: False
             use_soft_mask: False                         
             use_ssim_loss: False                         
     use_thickness_channel: True                          	[default: False]
-            use_tray_mask: False                         
+            use_tray_mask: True                          	[default: False]
                 use_wandb: False                         
                   verbose: False                         
        wandb_project_name: CycleGAN-and-pix2pix          

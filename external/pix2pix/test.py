@@ -36,10 +36,63 @@ from util.visualizer import save_images
 from util import html
 import torch
 
+from pathlib import Path
+import shutil
+
 try:
     import wandb
 except ImportError:
     print('Warning: wandb package cannot be found. The option "--use_wandb" will result in error.')
+
+
+def separate_real_fake_images_if_stage23(opt, web_dir):
+    """
+    Only separate real/fake images for this exact Stage23 test run.
+    Do nothing for all other runs.
+    """
+    target_name = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage23_COMPLETESyn"
+    target_dataroot = "datasets/SHAMPOOBLADEWITHTRAY_COMPLETE"
+    target_num_test = 400
+
+    opt_dataroot = str(Path(opt.dataroot)).rstrip("/\\")
+    want_dataroot = str(Path(target_dataroot)).rstrip("/\\")
+
+    if not (
+        opt.name == target_name
+        and opt_dataroot == want_dataroot
+        and int(getattr(opt, "num_test", 0)) == target_num_test
+    ):
+        print("[separate] skipped (not the exact Stage23 test command)")
+        return
+
+    web_dir = Path(web_dir)
+    images_dir = web_dir / "images"
+
+    if not images_dir.exists():
+        print(f"[separate] images dir not found: {images_dir}")
+        return
+
+    fake_dir = web_dir / "images_fake"
+    real_dir = web_dir / "images_real"
+
+    fake_dir.mkdir(parents=True, exist_ok=True)
+    real_dir.mkdir(parents=True, exist_ok=True)
+
+    fake_count = 0
+    real_count = 0
+
+    for img_path in images_dir.glob("*.png"):
+        name = img_path.name
+
+        if name.endswith("_fake_B.png"):
+            shutil.copy2(img_path, fake_dir / name)
+            fake_count += 1
+        elif name.endswith("_real_B.png"):
+            shutil.copy2(img_path, real_dir / name)
+            real_count += 1
+
+    print(f"[separate] copied {fake_count} fake images to: {fake_dir}")
+    print(f"[separate] copied {real_count} real images to: {real_dir}")
 
 
 if __name__ == "__main__":
@@ -77,3 +130,4 @@ if __name__ == "__main__":
             print(f"processing ({i:04d})-th image... {img_path}")
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
     webpage.save()  # save the HTML
+    separate_real_fake_images_if_stage23(opt, web_dir)

@@ -18,6 +18,7 @@ from PIL import Image
 from sklearn.decomposition import PCA
 
 
+
 # =============================================================================
 # CONFIG — must match training options exactly
 # =============================================================================
@@ -41,7 +42,7 @@ PALETTE_BGR = {
 OVERLAP_BGR = (255, 255, 0)         # shampoo + tray
 OVERLAP_BLADE_BGR = (255, 0, 255)   # blade + tray
 
-MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage23_COMPLETESyn"
+MODEL_NAME = "Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn"
 PIX2PIX_DIR = Path("external/pix2pix")
 
 TRAIN_CFG = dict(
@@ -61,7 +62,6 @@ TRAIN_CFG = dict(
 
 X_SEARCH_STEP = 12
 MAX_TRANSFORM_CANDIDATES = 8
-
 
 # =============================================================================
 # Geometry helpers
