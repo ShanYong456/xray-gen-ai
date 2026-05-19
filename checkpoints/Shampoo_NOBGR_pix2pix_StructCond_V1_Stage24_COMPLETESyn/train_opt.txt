@@ -18,7 +18,7 @@ build_appearance_prototypes: False
                cutout_dir:                               
            d_label_smooth: 0.1                           
            d_update_ratio: 1                             
-                 dataroot: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE	[default: None]
+                 dataroot: datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE	[default: None]
              dataset_mode: aligned                       
                 direction: AtoB                          
   disable_test_appearance: False                         
@@ -26,7 +26,7 @@ build_appearance_prototypes: False
            edge_dilate_px: 1                             
                 empty_dir:                               
                empty_path:                               
-                    epoch: 240                           	[default: latest]
+                    epoch: latest                        
                      eval: True                          	[default: False]
                 init_gain: 0.02                          
                 init_type: normal                        
@@ -73,7 +73,7 @@ shampoo_max_horizontal_shift: 0
 shampoo_max_vertical_shift: 0                             
                    suffix:                               
            syn_gan_weight: 0.3                           
- synthetic_blade_mask_dir: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade	[default: ]
+ synthetic_blade_mask_dir: datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade	[default: ]
      synthetic_combo_mode: random                        
        synthetic_erode_px: 6                             
 synthetic_fallback_shrink: 0.85                          
@@ -99,7 +99,7 @@ synthetic_sort_large_first: False
          tray_cc_close_px: 2                             
       tray_mask_autoshift: False                         
       tray_mask_dilate_px: 0                             
-            tray_mask_dir: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray	[default: ]
+            tray_mask_dir: datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray	[default: ]
          tray_mask_invert: False                         
            tray_mask_path:                               
             tray_mask_thr: 0.5                           

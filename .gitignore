@@ -53,6 +53,8 @@ datasets/*
 
 results/*
 
+reports/*
+
 
 # ignore all generated html/images under checkpoints
 checkpoints/**/web/*.html

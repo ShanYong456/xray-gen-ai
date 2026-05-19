@@ -1590,14 +1590,223 @@ def print_selected_items(selected):
             f"orig_w={s['orig_w']} orig_h={s['orig_h']}"
         )
 
+# =============================================================================
+# Generate Mode helper
+# =============================================================================
+
+def real_ab_matches_filter(img_bgr: np.ndarray, filter_mode: str, min_pixels: int = 50) -> bool:
+    """
+    Filter real Pix2Pix AB images using the A-side condition mask.
+
+    AB format:
+      left half  = A condition mask
+      right half = B real X-ray target
+
+    BGR channel meaning:
+      B = tray
+      G = shampoo
+      R = blade
+
+    filter_mode:
+      all
+      shampoo
+      shampoo_or_shampoo_blade
+      shampoo_blade_only
+    """
+
+    if filter_mode == "all":
+        return True
+
+    h, w = img_bgr.shape[:2]
+    mid = w // 2
+
+    # A-side condition mask
+    A = img_bgr[:, :mid]
+
+    # BGR channels
+    tray_mask = A[..., 0] > 127
+    shampoo_mask = A[..., 1] > 127
+    blade_mask = A[..., 2] > 127
+
+    shampoo_pixels = int(shampoo_mask.sum())
+    blade_pixels = int(blade_mask.sum())
+
+    has_shampoo = shampoo_pixels >= min_pixels
+    has_blade = blade_pixels >= min_pixels
+
+    if filter_mode == "shampoo":
+        # Shampoo only, no blade
+        return has_shampoo and not has_blade
+
+    if filter_mode == "shampoo_or_shampoo_blade":
+        # Any image that contains shampoo.
+        # This includes shampoo only and shampoo + blade.
+        return has_shampoo
+
+    if filter_mode == "shampoo_blade_only":
+        # Must contain both shampoo and blade
+        return has_shampoo and has_blade
+
+    raise ValueError(f"Unknown real_ab_filter: {filter_mode}")
+
+
+
+
+def copy_real_ab_images_to_test(
+    real_ab_dir: Path,
+    test_dir: Path,
+    limit: int,
+    seed: int,
+    real_ab_filter: str = "all",
+    min_pixels: int = 50,
+):
+    """
+    Copies real Pix2Pix AB images into the generation test folder.
+
+    This keeps the original training-style layout:
+      left half  = A condition mask
+      right half = B real X-ray target
+
+    Optional filtering:
+      all
+      shampoo
+      shampoo_or_shampoo_blade
+      shampoo_blade_only
+    """
+
+    if not real_ab_dir.exists():
+        raise SystemExit(f"real_ab_dir does not exist: {real_ab_dir}")
+
+    exts = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
+    paths = sorted([p for p in real_ab_dir.iterdir() if p.suffix.lower() in exts])
+
+    if not paths:
+        raise SystemExit(f"No AB images found in: {real_ab_dir}")
+
+    rng = random.Random(seed)
+    rng.shuffle(paths)
+
+    test_dir.mkdir(parents=True, exist_ok=True)
+
+    copied = []
+    checked = 0
+    matched = 0
+
+    for src in paths:
+        checked += 1
+
+        img = cv2.imread(str(src), cv2.IMREAD_COLOR)
+        if img is None:
+            print(f"[real_ab] skipped unreadable image: {src}")
+            continue
+
+        if not real_ab_matches_filter(
+            img_bgr=img,
+            filter_mode=real_ab_filter,
+            min_pixels=min_pixels,
+        ):
+            continue
+
+        matched += 1
+
+        stem = f"real_ab_{len(copied):04d}"
+        dst = test_dir / f"{stem}.png"
+
+        cv2.imwrite(str(dst), img)
+
+        copied.append({
+            "stem": stem,
+            "source": str(src),
+            "test_path": str(dst),
+            "filter": real_ab_filter,
+        })
+
+        print(f"[real_ab] copied {src.name} -> {dst.name}")
+
+        if limit > 0 and len(copied) >= limit:
+            break
+
+    print(
+        f"[real_ab] filter={real_ab_filter} | "
+        f"checked={checked} | matched={matched} | copied={len(copied)}"
+    )
+
+    if not copied:
+        raise SystemExit(
+            f"No valid real AB images were copied. "
+            f"Filter={real_ab_filter}. Try lowering --real_ab_min_pixels."
+        )
+
+    return copied
+
+
+def export_separated_pix2pix_outputs(results_root: Path, out_root: Path):
+    images_dir = results_root / "images"
+    if not images_dir.exists():
+        raise RuntimeError(f"Pix2Pix images dir not found: {images_dir}")
+
+    fake_dir = out_root / "fake_images"
+    real_dir = out_root / "real_images"
+
+    fake_dir.mkdir(parents=True, exist_ok=True)
+    real_dir.mkdir(parents=True, exist_ok=True)
+
+    for p in sorted(images_dir.glob("*.png")):
+        name = p.name
+        if name.endswith("_fake_B.png"):
+            shutil.copy2(p, fake_dir / name)
+        elif name.endswith("_real_B.png"):
+            shutil.copy2(p, real_dir / name)
+
+    print(f"[separate] fake -> {fake_dir}")
+    print(f"[separate] real -> {real_dir}")
 
 # =============================================================================
 # Main
 # =============================================================================
 
 def main():
+    global MODEL_NAME
+
     ap = argparse.ArgumentParser()
-    ap.add_argument("--generate_mode", choices=["shampoo", "blade", "combo", "tray"], required=True)
+    ap.add_argument(
+        "--model_name",
+        type=str,
+        default=MODEL_NAME,
+        help="Pix2Pix checkpoint name to use for generation.",
+    )
+    ap.add_argument(
+        "--generate_mode",
+        choices=["shampoo", "blade", "combo", "tray", "real_ab"],
+        required=True
+    )
+    ap.add_argument(
+        "--real_ab_dir",
+        type=str,
+        default="",
+        help="Folder containing real Pix2Pix AB images. Example: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train"
+    )
+
+    ap.add_argument(
+        "--real_ab_limit",
+        type=int,
+        default=50,
+        help="Number of real AB images to use for real-layout generation."
+    )
+
+    ap.add_argument(
+    "--real_ab_filter",
+    choices=["all", "shampoo", "shampoo_or_shampoo_blade", "shampoo_blade_only"],
+    default="all",
+    help="Filter real AB images by objects present in the A-side condition mask."
+    )
+
+    ap.add_argument(
+        "--real_ab_min_pixels",
+        type=int,
+        default=50,
+        help="Minimum number of mask pixels needed to count shampoo/blade as present."
+    )
     ap.add_argument("--combo_mode",
                     choices=["legacy", "stage22_random", "shampoo_only", "blade_only", "pair_no_overlap", "pair_overlap"],
                     default="stage22_random",
@@ -1666,6 +1875,7 @@ def main():
                 help="PCA dimension used before Mahalanobis scoring. Recommended: 16, 32, or 64.")
 
     args = ap.parse_args()
+    MODEL_NAME = args.model_name
 
     if args.num_scenes < 1:
         raise SystemExit("--num_scenes must be >= 1")
@@ -1726,6 +1936,44 @@ def main():
 
     test_dir = out_root / "test"
     clean_test_dir(test_dir)
+
+    # ============================================================
+    # REAL AB MODE
+    # ============================================================
+    if args.generate_mode == "real_ab":
+        if not args.real_ab_dir:
+            raise SystemExit("--real_ab_dir is required when --generate_mode real_ab")
+
+        copied_info = copy_real_ab_images_to_test(
+            real_ab_dir=Path(args.real_ab_dir),
+            test_dir=test_dir,
+            limit=args.real_ab_limit,
+            seed=args.seed,
+            real_ab_filter=args.real_ab_filter,
+            min_pixels=args.real_ab_min_pixels,
+        )
+
+        summary_path = out_root / "real_ab_input_summary.json"
+        summary_path.write_text(json.dumps(copied_info, indent=2))
+        print(f"[real_ab] wrote input summary: {summary_path}")
+
+        if not args.skip_pix2pix:
+            results_root = run_pix2pix_test(
+                temp_dataset_dir=out_root,
+                epoch=args.epoch,
+                num_test=len(copied_info),
+                tray_mask_dir=args.tray_mask_dir,
+                use_tray_mask=bool(args.tray_mask_dir),
+            )
+
+            print(f"[real_ab] pix2pix results: {results_root}")
+
+            export_separated_pix2pix_outputs(
+                results_root=results_root,
+                out_root=out_root,
+            )
+
+        return
 
     preview_dir = out_root / "preview"
     if args.keep_preview or args.keep_intermediates:
@@ -1865,6 +2113,8 @@ def main():
             tray_mask_dir=str(test_dir),
             use_tray_mask=True,
         )
+
+        export_separated_pix2pix_outputs(results_root, out_root)
 
         final_images = {}
         for scene in generated_scene_info:
@@ -2137,36 +2387,67 @@ python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
 
 
 
-  python external/pix2pix/test.py \
-  --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE \
-  --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage23_COMPLETESyn \
-  --model pix2pix \
-  --dataset_mode aligned \
-  --direction AtoB \
-  --input_nc 7 \
-  --output_nc 3 \
-  --netG unet_256 \
-  --norm instance \
-  --preprocess none \
-  --load_size 0 \
-  --crop_size 0 \
-  --no_flip \
+python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train \
+  --score_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test \
+  --mahal_pca_dim 32 \
+  --out_json results/real_test_mahal_against_train.json
+
+
+
+
+  python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+  --generate_mode real_ab \
+  --real_ab_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test \
+  --real_ab_limit 50 \
+  --out_dataset results/_gen_real_ab_reference \
   --epoch latest \
-  --eval \
-  --class_nc 3 \
-  --thickness_nc 1 \
-  --use_thickness_channel \
-  --use_edge_channel \
-  --use_coord_channels \
-  --return_instance_masks \
-  --mask_thr 0.05 \
-  --canvas_h 1024 \
-  --canvas_w 1024 \
-  --pad_to_canvas \
-  --use_tray_mask \
-  --tray_mask_thr 0.5 \
-  --tray_cc_close_px 2 \
-  --tray_mask_dilate_px 0 \
-  --num_test 400 --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray
+  --seed 123 \
+  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray \
+  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train \
+  --mahal_pca_dim 32 \
+  --keep_preview
+
+
+python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+  --generate_mode real_ab \
+  --real_ab_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train \
+  --real_ab_limit 100 \
+  --out_dataset results/_gen_real_ab_reference_train \
+  --epoch latest \
+  --seed 123 \
+  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train \
+  --mahal_pca_dim 32 \
+  --keep_preview
  
+
+  python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+  --generate_mode real_ab \
+  --real_ab_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train \
+  --real_ab_limit 100 \
+  --real_ab_filter shampoo_or_shampoo_blade \
+  --real_ab_min_pixels 50 \
+  --out_dataset results/_gen_real_ab_reference_train_shampoo_or_shampoo_blade \
+  --epoch latest \
+  --seed 123 \
+  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train \
+  --mahal_pca_dim 32 \
+  --keep_preview
+
+
+  python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py \
+  --generate_mode real_ab \
+  --real_ab_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train \
+  --real_ab_limit 100 \
+  --real_ab_filter shampoo_or_shampoo_blade \
+  --real_ab_min_pixels 50 \
+  --out_dataset results/_gen_real_ab_reference_train_shampoo_or_shampoo_blade \
+  --epoch latest \
+  --seed 123 \
+  --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray \
+  --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train \
+  --mahal_pca_dim 32 \
+  --keep_preview
 """

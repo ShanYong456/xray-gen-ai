@@ -316,6 +316,8 @@ def main():
     with open(out_json, "w") as f:
         json.dump(
             {
+                "epoch": args.epoch,
+                "phase": args.phase,
                 "num_images": n,
                 "fid": fid_value,
                 "raw_metrics": metrics,

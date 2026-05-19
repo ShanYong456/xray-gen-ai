@@ -356,4 +356,8 @@ if __name__ == "__main__":
 python Codes_Notebooks/Pix2Pix/mahal_scene_viewer.py \
   --summary-json results/_gen_stage23_combo_tray/generated/generated_combo_summary.json \
   --generated-images-dir results/_gen_stage23_combo_tray/generated
+
+  python Codes_Notebooks/Pix2Pix/mahal_scene_viewer.py \
+  --summary-json results/_gen_stage23_combo_tray/generated/generated_combo_summary.json \
+  --generated-images-dir results/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage23_COMPLETESyn/test_latest/images_real
 """

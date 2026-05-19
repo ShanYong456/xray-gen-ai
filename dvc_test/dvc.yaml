@@ -1,0 +1,351 @@
+# Experimental end-to-end DVC pipeline.
+# This file intentionally lives outside the production dvc.yaml.
+# Run from this folder with `dvc repro` after reviewing the smoke settings below.
+
+stages:
+  prepare_pix2pix_dataset:
+    wdir: ..
+    cmd: >
+      python src/xraygen/pipeline/prepare_dvc_test_pix2pix_data.py
+      --source datasets/SHAMPOOBLADEWITHTRAY_COMPLETE
+      --dest datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
+      --report-json reports/dvc_test/preprocess_dataset_report.json
+      --link symlink
+    deps:
+      - src/xraygen/pipeline/prepare_dvc_test_pix2pix_data.py
+      - datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train
+      - datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test
+      - datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      - datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade
+      - datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray
+      - datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/blade
+    outs:
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
+    metrics:
+      - reports/dvc_test/preprocess_dataset_report.json
+
+  train_generator_smoke:
+    wdir: ..
+    cmd: >
+      python src/xraygen/pipeline/bootstrap_pix2pix_checkpoint.py
+      --source-dir checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn
+      --dest-dir checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+      --epoch latest
+      &&
+      python external/pix2pix/train.py
+      --dataroot datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
+      --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+      --model pix2pix
+      --dataset_mode aligned
+      --direction AtoB
+      --input_nc 7
+      --output_nc 3
+      --class_nc 3
+      --thickness_nc 1
+      --netG unet_256
+      --netD n_layers
+      --n_layers_D 4
+      --norm instance
+      --preprocess none
+      --load_size 0
+      --crop_size 0
+      --no_flip
+      --batch_size 1
+      --pool_size 0
+      --gan_mode lsgan
+      --lr 3e-6
+      --beta1 0.5
+      --n_epochs 100
+      --n_epochs_decay 50
+      --max_dataset_size 128
+      --save_latest_freq 100000000
+      --save_epoch_freq 50
+      --continue_train
+      --epoch latest
+      --no_html
+      --use_thickness_channel
+      --use_edge_channel
+      --use_coord_channels
+      --return_instance_masks
+      --use_masked_l1
+      --lambda_L1 25
+      --lambda_bg 0
+      --use_grad_loss
+      --lambda_grad 5
+      --use_lap_loss
+      --lambda_lap 2
+      --use_ssim_loss
+      --lambda_ssim 2
+      --d_label_smooth 0.1
+      --syn_gan_weight 0.5
+      --d_update_ratio 1
+      --use_tray_mask
+      --tray_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      --synthetic_prob 0.5
+      --synthetic_combo_mode random
+      --synthetic_prob_shampoo_only 0.25
+      --synthetic_prob_blade_only 0.25
+      --synthetic_prob_pair_no_overlap 0.25
+      --synthetic_prob_pair_overlap 0.25
+      --synthetic_place_tries 100
+      --synthetic_item_retries 16
+      --synthetic_erode_px 2
+      --synthetic_sort_large_first
+      --pad_to_canvas
+      --canvas_w 1024
+      --canvas_h 1024
+      --cutout_dir data/raw/Shampoo_nobackground/Cropped_Library
+      --synthetic_blade_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade
+      --synthetic_scale_min 0.60
+      --synthetic_scale_max 0.72
+      --synthetic_rot_min -8
+      --synthetic_rot_max 8
+    deps:
+      - src/xraygen/pipeline/bootstrap_pix2pix_checkpoint.py
+      - external/pix2pix/train.py
+      - external/pix2pix
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
+      - data/raw/Shampoo_nobackground/Cropped_Library
+      - checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn/latest_net_G.pth
+      - checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn/latest_net_D.pth
+    outs:
+      - checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+
+  score_real_reference:
+    wdir: ..
+    cmd: >
+      python Codes_Notebooks/Pix2Pix/generate_realscore_pix2pix_MAHADIST.py
+      --real_eval_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/train
+      --score_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/test
+      --mahal_pca_dim 32
+      --out_json reports/dvc_test/real_test_mahal_against_train.json
+    deps:
+      - Codes_Notebooks/Pix2Pix/generate_realscore_pix2pix_MAHADIST.py
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/train
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/test
+    metrics:
+      - reports/dvc_test/real_test_mahal_against_train.json
+
+  generate_real_ab_reference:
+    wdir: ..
+    cmd: >
+      python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py
+      --model_name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+      --generate_mode real_ab
+      --real_ab_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/train
+      --real_ab_limit 25
+      --real_ab_filter shampoo_or_shampoo_blade
+      --real_ab_min_pixels 50
+      --out_dataset results/_dvc_test_gen_real_ab_reference
+      --epoch latest
+      --seed 123
+      --tray_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      --real_eval_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/train
+      --mahal_pca_dim 32
+      --keep_preview
+    deps:
+      - Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/train
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      - checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+    outs:
+      - results/_dvc_test_gen_real_ab_reference/fake_images
+      - results/_dvc_test_gen_real_ab_reference/real_images
+    metrics:
+      - results/_dvc_test_gen_real_ab_reference/real_ab_input_summary.json
+
+  generate_synthetic:
+    wdir: ..
+    cmd: >
+      python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py
+      --model_name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+      --generate_mode combo
+      --combo_mode stage22_random
+      --images_dir data/raw/Shampoo
+      --coco_json data/raw/Shampoo/result.json
+      --blade_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade
+      --tray_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      --out_dataset datasets/_dvc_test_generated_combo
+      --classes Shampoo
+      --count 1
+      --tray_mask_thr 0.5
+      --tray_cc_close_px 2
+      --tray_mask_dilate_px 0
+      --rand_scale_min 0.95
+      --rand_scale_max 0.95
+      --rand_rot_min -5
+      --rand_rot_max 5
+      --horizontal_shift_only
+      --max_horizontal_shift 150
+      --tray_horizontal_margin_px 45
+      --tray_vertical_margin_px 0
+      --max_vertical_shift 8
+      --x_search_step 12
+      --max_transform_candidates 8
+      --num_scenes 20
+      --seed 12
+      --real_eval_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/test
+      --epoch latest
+      --mahal_pca_dim 32
+      --keep_preview
+      &&
+      mkdir -p reports/dvc_test
+      &&
+      cp datasets/_dvc_test_generated_combo/generated/generated_combo_summary.json
+      reports/dvc_test/generated_combo_summary.json
+    deps:
+      - Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py
+      - data/raw/Shampoo
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/test
+      - checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+    outs:
+      - datasets/_dvc_test_generated_combo/generated
+    metrics:
+      - reports/dvc_test/generated_combo_summary.json
+
+  filter_synthetic:
+    wdir: ..
+    cmd: >
+      python src/xraygen/pipeline/filter_generated.py
+      --generated_dir datasets/_dvc_test_generated_combo/generated
+      --mahal_json datasets/_dvc_test_generated_combo/generated/generated_realism_mahalanobis.json
+      --novelty_json datasets/_dvc_test_generated_combo/generated/generated_real_nn_novelty.json
+      --accepted_dir datasets/_dvc_test_generated_combo/accepted
+      --rejected_dir datasets/_dvc_test_generated_combo/rejected
+      --report_json reports/dvc_test/filter_report.json
+      --mahal_percentile 75
+      --novelty_min 0.0
+    deps:
+      - src/xraygen/pipeline/filter_generated.py
+      - datasets/_dvc_test_generated_combo/generated
+    outs:
+      - datasets/_dvc_test_generated_combo/accepted
+      - datasets/_dvc_test_generated_combo/rejected
+    metrics:
+      - reports/dvc_test/filter_report.json
+
+  evaluate_generator_fid_train:
+    wdir: ..
+    cmd: >
+      python Codes_Notebooks/Pix2Pix/fid_eval.py
+      --dataroot datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
+      --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+      --epoch latest
+      --phase train
+      --work_dir reports/dvc_test/fid_eval_runs/train
+      --max_images 50
+      --input_nc 7
+      --output_nc 3
+      --netG unet_256
+      --netD n_layers
+      --n_layers_D 4
+      --norm instance
+      --class_nc 3
+      --preprocess none
+      --load_size 0
+      --crop_size 0
+      --pad_to_canvas
+      --canvas_w 1024
+      --canvas_h 1024
+      --use_thickness_channel
+      --use_edge_channel
+      --use_coord_channels
+      --use_tray_mask
+      --tray_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      --synthetic_blade_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade
+    deps:
+      - Codes_Notebooks/Pix2Pix/fid_eval.py
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
+      - checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+    metrics:
+      - reports/dvc_test/fid_eval_runs/train/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST/epoch_latest/metrics.json
+
+  evaluate_generator_fid_test:
+    wdir: ..
+
+    cmd: >
+      python Codes_Notebooks/Pix2Pix/fid_eval.py
+      --dataroot datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
+      --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+      --epoch latest
+      --phase test
+      --work_dir reports/dvc_test/fid_eval_runs/test
+      --max_images 50
+      --input_nc 7
+      --output_nc 3
+      --netG unet_256
+      --netD n_layers
+      --n_layers_D 4
+      --norm instance
+      --class_nc 3
+      --preprocess none
+      --load_size 0
+      --crop_size 0
+      --pad_to_canvas
+      --canvas_w 1024
+      --canvas_h 1024
+      --use_thickness_channel
+      --use_edge_channel
+      --use_coord_channels
+      --use_tray_mask
+      --tray_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray
+      --synthetic_blade_mask_dir datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/blade
+    deps:
+      - Codes_Notebooks/Pix2Pix/fid_eval.py
+      - datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
+      - checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+    metrics:
+      - reports/dvc_test/fid_eval_runs/test/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST/epoch_latest/metrics.json
+
+  stage_classifier_summary:
+    wdir: ..
+    cmd: >
+      python -c "from pathlib import Path; import shutil; src=Path('reports/validation/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/combined_validation_summary.json'); dst=Path('reports/dvc_test/classifier_validation_summary.json'); dst.parent.mkdir(parents=True, exist_ok=True); shutil.copy2(src, dst)"
+    deps:
+      - reports/validation/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/combined_validation_summary.json
+    metrics:
+      - reports/dvc_test/classifier_validation_summary.json
+
+  evaluate_candidate:
+    wdir: ..
+    cmd: >
+      python src/xraygen/pipeline/evaluate_candidate.py
+      --filter_report reports/dvc_test/filter_report.json
+      --fid_metrics reports/dvc_test/fid_eval_runs/test/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST/epoch_latest/metrics.json
+      --classifier_summary reports/dvc_test/classifier_validation_summary.json
+      --out_json reports/dvc_test/candidate_eval.json
+      --min_accepted 5
+      --min_acceptance_rate 0.10
+      --max_fid 500.0
+      --min_spatial_accuracy 0.85
+      --min_threat_accuracy 0.85
+      --min_spatial_auc 0.90
+      --min_threat_auc 0.90
+    deps:
+      - src/xraygen/pipeline/evaluate_candidate.py
+      - reports/dvc_test/filter_report.json
+      - reports/dvc_test/fid_eval_runs/test/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST/epoch_latest/metrics.json
+      - reports/dvc_test/classifier_validation_summary.json
+    metrics:
+      - reports/dvc_test/candidate_eval.json
+
+  promote_candidate:
+    wdir: ..
+    cmd: >
+      python src/xraygen/pipeline/promote_if_passed.py
+      --candidate_eval reports/dvc_test/candidate_eval.json
+      --production_dir models/production_test
+      --generator_checkpoint_dir checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+      --spatial_model_dir models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/spatial_overlap_isolated
+      --threat_model_dir models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/threat_contraband_noncontraband
+      --allow_hold_output
+    deps:
+      - src/xraygen/pipeline/promote_if_passed.py
+      - reports/dvc_test/candidate_eval.json
+      - checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
+      - models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/spatial_overlap_isolated
+      - models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/threat_contraband_noncontraband
+    outs:
+      - models/production_test

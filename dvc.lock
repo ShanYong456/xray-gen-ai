@@ -60,3 +60,357 @@ stages:
       md5: 8a9ae2d3c9d25a5a63a17be1f703c101.dir
       size: 14315030
       nfiles: 1
+  score_real_reference:
+    cmd: "python Codes_Notebooks/Pix2Pix/generate_realscore_pix2pix_MAHADIST.py --real_eval_dir
+      datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train --score_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test
+      --mahal_pca_dim 32 --out_json reports/dvc/real_test_mahal_against_train.json\n"
+    deps:
+    - path: Codes_Notebooks/Pix2Pix/generate_realscore_pix2pix_MAHADIST.py
+      hash: md5
+      md5: 3e2e512d5997211331d7cfd1134b37de
+      size: 9621
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test
+      hash: md5
+      md5: 142f4ad859a21c743c85d203db9c1253.dir
+      size: 244413644
+      nfiles: 118
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train
+      hash: md5
+      md5: db641be3afd0ec69666da562f5548569.dir
+      size: 971603273
+      nfiles: 472
+    outs:
+    - path: reports/dvc/real_test_mahal_against_train.json
+      hash: md5
+      md5: 8bcc9e8f0a5240c78731cbd75adefe0b
+      size: 14771
+  generate_synthetic:
+    cmd: "python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py --generate_mode
+      combo --combo_mode stage22_random --images_dir data/raw/Shampoo --coco_json
+      data/raw/Shampoo/result.json --blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade
+      --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      --out_dataset datasets/_dvc_generated_combo --classes Shampoo --count 1 --tray_mask_thr
+      0.5 --tray_cc_close_px 2 --tray_mask_dilate_px 0 --rand_scale_min 0.95 --rand_scale_max
+      0.95 --rand_rot_min -5 --rand_rot_max 5 --horizontal_shift_only --max_horizontal_shift
+      150 --tray_horizontal_margin_px 45 --tray_vertical_margin_px 0 --max_vertical_shift
+      8 --x_search_step 12 --max_transform_candidates 8 --num_scenes 200 --seed 12
+      --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test --epoch latest --mahal_pca_dim
+      32 --keep_preview && mkdir -p reports/dvc && cp datasets/_dvc_generated_combo/generated/generated_combo_summary.json
+      reports/dvc/generated_combo_summary.json\n"
+    deps:
+    - path: Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py
+      hash: md5
+      md5: f11d7f12ff6c401dfba55b2f46c99e7c
+      size: 84110
+    - path: checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn
+      hash: md5
+      md5: a588da2e6e45c1136f3f577125e177e3.dir
+      size: 13618272604
+      nfiles: 736
+    - path: data/raw/Shampoo
+      hash: md5
+      md5: 347842aa9d0602e5e19494f42ddfb96f.dir
+      size: 312190176
+      nfiles: 302
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade
+      hash: md5
+      md5: cebf899a41edb0b897ef43e8d2419d54.dir
+      size: 1910313
+      nfiles: 472
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      hash: md5
+      md5: ae86e1d5526d5d798b3ceaa91fb3e9bd.dir
+      size: 3801223
+      nfiles: 472
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/test
+      hash: md5
+      md5: 142f4ad859a21c743c85d203db9c1253.dir
+      size: 244413644
+      nfiles: 118
+    outs:
+    - path: datasets/_dvc_generated_combo/generated
+      hash: md5
+      md5: 2cee00e8e0512f704ee66204ff750ebd.dir
+      size: 384623806
+      nfiles: 203
+    - path: reports/dvc/generated_combo_summary.json
+      hash: md5
+      md5: 87385391c8ef1f6666092f19168e452f
+      size: 85748
+  evaluate_generator_fid:
+    cmd: "python Codes_Notebooks/Pix2Pix/fid_eval.py --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE
+      --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn --epoch latest
+      --phase test --work_dir reports/dvc/fid_eval_runs --max_images 200 --input_nc
+      7 --output_nc 3 --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance
+      --class_nc 3 --preprocess none --load_size 0 --crop_size 0 --pad_to_canvas --canvas_w
+      1024 --canvas_h 1024 --use_thickness_channel --use_edge_channel --use_coord_channels
+      --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray
+      --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/blade\n"
+    deps:
+    - path: Codes_Notebooks/Pix2Pix/fid_eval.py
+      hash: md5
+      md5: 3d00abe701ed11db3cccbd8a0216c2dd
+      size: 13416
+    - path: checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn
+      hash: md5
+      md5: 05d28efae4233026684363de110c4ff9.dir
+      size: 13618272714
+      nfiles: 736
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE
+      hash: md5
+      md5: 6e77756ca7e53df989053606d96e40ce.dir
+      size: 1226742904
+      nfiles: 2361
+    outs:
+    - path: 
+        reports/dvc/fid_eval_runs/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn/epoch_latest/metrics.json
+      hash: md5
+      md5: 11921f24ff6b5a1b21e0026ed104ae1e
+      size: 129
+  validate_classifier:
+    cmd: "cd Codes_Notebooks/SimpleCNN && python validate_two_separate_models.py\n"
+    deps:
+    - path: Codes_Notebooks/SimpleCNN/validate_two_separate_models.py
+      hash: md5
+      md5: 32f0361e0956fca3d308f337a81bfbb3
+      size: 16787
+    - path: 
+        data/labels/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/gray/spatial_overlap_isolated/test.json
+      hash: md5
+      md5: 1fb5fe8ba6421cf6a6b0996e09d4e32a
+      size: 12422
+    - path: 
+        data/labels/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/gray/threat_contraband_noncontraband/test.json
+      hash: md5
+      md5: 3a9bac818e70f9a7394d654f61dcab44
+      size: 13474
+    - path: data/processed/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/gray
+      hash: md5
+      md5: 8af00c6533176a8e9f421741860d12b4.dir
+      size: 1104088611
+      nfiles: 1802
+    - path: 
+        models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/spatial_overlap_isolated
+      hash: md5
+      md5: f4d765ecd85c0ac799f6545900a31147.dir
+      size: 22161723
+      nfiles: 5
+    - path: 
+        models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/threat_contraband_noncontraband
+      hash: md5
+      md5: 19d4d850be0b24cf0885cfe2a859396a.dir
+      size: 22187255
+      nfiles: 5
+    outs:
+    - path: reports/validation/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models
+      hash: md5
+      md5: 0992b3d66796c1dd9ab39a38a5c6e3cb.dir
+      size: 106205
+      nfiles: 9
+  filter_synthetic:
+    cmd: "python src/xraygen/pipeline/filter_generated.py --generated_dir datasets/_dvc_generated_combo/generated
+      --mahal_json datasets/_dvc_generated_combo/generated/generated_realism_mahalanobis.json
+      --novelty_json datasets/_dvc_generated_combo/generated/generated_real_nn_novelty.json
+      --accepted_dir datasets/_dvc_generated_combo/accepted --rejected_dir datasets/_dvc_generated_combo/rejected
+      --report_json reports/dvc/filter_report.json --mahal_percentile 75 --novelty_min
+      0.0\n"
+    deps:
+    - path: datasets/_dvc_generated_combo/generated
+      hash: md5
+      md5: 2cee00e8e0512f704ee66204ff750ebd.dir
+      size: 384623806
+      nfiles: 203
+    - path: src/xraygen/pipeline/filter_generated.py
+      hash: md5
+      md5: 7a0292ebe4706e3ea2d8327264a4944c
+      size: 5313
+    outs:
+    - path: datasets/_dvc_generated_combo/accepted
+      hash: md5
+      md5: 75119a6965a4ce0867d31c31216aa6ab.dir
+      size: 289075856
+      nfiles: 150
+    - path: datasets/_dvc_generated_combo/rejected
+      hash: md5
+      md5: d690b760d9943eb70987a0f434e2b55a.dir
+      size: 95409735
+      nfiles: 50
+    - path: reports/dvc/filter_report.json
+      hash: md5
+      md5: 1e844dc247824aeaaa61917b1dd1a449
+      size: 42300
+  evaluate_candidate:
+    cmd: "python src/xraygen/pipeline/evaluate_candidate.py --filter_report reports/dvc/filter_report.json
+      --fid_metrics reports/dvc/fid_eval_runs/test/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn/epoch_latest/metrics.json
+      --classifier_summary reports/validation/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/combined_validation_summary.json
+      --out_json reports/dvc/candidate_eval.json --min_accepted 50 --min_acceptance_rate
+      0.50 --max_fid 80.0 --min_spatial_accuracy 0.85 --min_threat_accuracy 0.85 --min_spatial_auc
+      0.90 --min_threat_auc 0.90\n"
+    deps:
+    - path: 
+        reports/dvc/fid_eval_runs/test/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn/epoch_latest/metrics.json
+      hash: md5
+      md5: 6d79781387c59cf4422f3d8d9b3a3e37
+      size: 169
+    - path: reports/dvc/filter_report.json
+      hash: md5
+      md5: 1e844dc247824aeaaa61917b1dd1a449
+      size: 42300
+    - path: 
+        reports/validation/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/combined_validation_summary.json
+      hash: md5
+      md5: 7ef6b6c8faab22e5a0292f3cd05487dc
+      size: 2179
+    - path: src/xraygen/pipeline/evaluate_candidate.py
+      hash: md5
+      md5: 1660bd40a929b83acb52c8ea40e27a3e
+      size: 4009
+    outs:
+    - path: reports/dvc/candidate_eval.json
+      hash: md5
+      md5: 4fe64072cdf0f16279882cf6a5ab2dda
+      size: 1367
+  promote_candidate:
+    cmd: "python src/xraygen/pipeline/promote_if_passed.py --candidate_eval reports/dvc/candidate_eval.json
+      --production_dir models/production --generator_checkpoint_dir checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn
+      --spatial_model_dir models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/spatial_overlap_isolated
+      --threat_model_dir models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/threat_contraband_noncontraband
+      --allow_hold_output\n"
+    deps:
+    - path: checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn
+      hash: md5
+      md5: 338a7468a3b2e9c2b9403c4ed39a0f04.dir
+      size: 13618270988
+      nfiles: 736
+    - path: 
+        models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/spatial_overlap_isolated
+      hash: md5
+      md5: f4d765ecd85c0ac799f6545900a31147.dir
+      size: 22161723
+      nfiles: 5
+    - path: 
+        models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/threat_contraband_noncontraband
+      hash: md5
+      md5: 19d4d850be0b24cf0885cfe2a859396a.dir
+      size: 22187255
+      nfiles: 5
+    - path: reports/dvc/candidate_eval.json
+      hash: md5
+      md5: 4fe64072cdf0f16279882cf6a5ab2dda
+      size: 1367
+    - path: src/xraygen/pipeline/promote_if_passed.py
+      hash: md5
+      md5: 7ea20c7f725bc574cb9283cedce0048f
+      size: 3702
+    outs:
+    - path: models/production
+      hash: md5
+      md5: 613b5b7c5bac1a988f1ed0e5f68cc423.dir
+      size: 247887783
+      nfiles: 12
+  generate_real_ab_reference:
+    cmd: "python Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py --generate_mode
+      real_ab --real_ab_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train --real_ab_limit
+      100 --real_ab_filter shampoo_or_shampoo_blade --real_ab_min_pixels 50 --out_dataset
+      results/_gen_real_ab_reference_train_shampoo_or_shampoo_blade --epoch latest
+      --seed 123 --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      --real_eval_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train --mahal_pca_dim
+      32 --keep_preview\n"
+    deps:
+    - path: Codes_Notebooks/Pix2Pix/generate_pix2pixV2_MAHADIST.py
+      hash: md5
+      md5: f11d7f12ff6c401dfba55b2f46c99e7c
+      size: 84110
+    - path: checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn
+      hash: md5
+      md5: da8eb844431ae51b866eddb8194b9667.dir
+      size: 13618272664
+      nfiles: 736
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      hash: md5
+      md5: ae86e1d5526d5d798b3ceaa91fb3e9bd.dir
+      size: 3801223
+      nfiles: 472
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/train
+      hash: md5
+      md5: db641be3afd0ec69666da562f5548569.dir
+      size: 971603273
+      nfiles: 472
+    outs:
+    - path: 
+        results/_gen_real_ab_reference_train_shampoo_or_shampoo_blade/fake_images
+      hash: md5
+      md5: 8866f419a6f5049af08859884e5343c2.dir
+      size: 75543070
+      nfiles: 100
+    - path: 
+        results/_gen_real_ab_reference_train_shampoo_or_shampoo_blade/real_ab_input_summary.json
+      hash: md5
+      md5: 77639bd224e059dbecdef3ff208fdf50
+      size: 29102
+    - path: 
+        results/_gen_real_ab_reference_train_shampoo_or_shampoo_blade/real_images
+      hash: md5
+      md5: c06da8bab3a821397134d41d432d7b1e.dir
+      size: 39516566
+      nfiles: 100
+  evaluate_generator_fid_train:
+    cmd: "python Codes_Notebooks/Pix2Pix/fid_eval.py --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE
+      --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn --epoch latest
+      --phase train --work_dir reports/dvc/fid_eval_runs/train --max_images 500 --input_nc
+      7 --output_nc 3 --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance
+      --class_nc 3 --preprocess none --load_size 0 --crop_size 0 --pad_to_canvas --canvas_w
+      1024 --canvas_h 1024 --use_thickness_channel --use_edge_channel --use_coord_channels
+      --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/tray
+      --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/train/blade\n"
+    deps:
+    - path: Codes_Notebooks/Pix2Pix/fid_eval.py
+      hash: md5
+      md5: 7d518e8a2382e675e520f17747a46c3e
+      size: 13490
+    - path: checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn
+      hash: md5
+      md5: dcfc774aa8d0db6c79437a4f2b4c01f4.dir
+      size: 13618270878
+      nfiles: 736
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE
+      hash: md5
+      md5: 6e77756ca7e53df989053606d96e40ce.dir
+      size: 1226742904
+      nfiles: 2361
+    outs:
+    - path: 
+        reports/dvc/fid_eval_runs/train/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn/epoch_latest/metrics.json
+      hash: md5
+      md5: 876f8f6fa2678740d38999b6a192e3f1
+      size: 170
+  evaluate_generator_fid_test:
+    cmd: "python Codes_Notebooks/Pix2Pix/fid_eval.py --dataroot datasets/SHAMPOOBLADEWITHTRAY_COMPLETE
+      --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn --epoch latest
+      --phase test --work_dir reports/dvc/fid_eval_runs/test --max_images 200 --input_nc
+      7 --output_nc 3 --netG unet_256 --netD n_layers --n_layers_D 4 --norm instance
+      --class_nc 3 --preprocess none --load_size 0 --crop_size 0 --pad_to_canvas --canvas_w
+      1024 --canvas_h 1024 --use_thickness_channel --use_edge_channel --use_coord_channels
+      --use_tray_mask --tray_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/tray
+      --synthetic_blade_mask_dir datasets/SHAMPOOBLADEWITHTRAY_COMPLETE/matched_masks/test/blade\n"
+    deps:
+    - path: Codes_Notebooks/Pix2Pix/fid_eval.py
+      hash: md5
+      md5: 7d518e8a2382e675e520f17747a46c3e
+      size: 13490
+    - path: checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn
+      hash: md5
+      md5: 338a7468a3b2e9c2b9403c4ed39a0f04.dir
+      size: 13618270988
+      nfiles: 736
+    - path: datasets/SHAMPOOBLADEWITHTRAY_COMPLETE
+      hash: md5
+      md5: 6e77756ca7e53df989053606d96e40ce.dir
+      size: 1226742904
+      nfiles: 2361
+    outs:
+    - path: 
+        reports/dvc/fid_eval_runs/test/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_COMPLETESyn/epoch_latest/metrics.json
+      hash: md5
+      md5: 6d79781387c59cf4422f3d8d9b3a3e37
+      size: 169
