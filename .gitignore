@@ -15,6 +15,7 @@ venv/
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints/
+* copy.ipynb
 
 # VS Code
 .vscode/
@@ -30,8 +31,14 @@ venv/
 *.onnx
 
 # Model output folders
+checkpoints/*
+!checkpoints/.gitignore
+CNN_models/classifier/*
+!CNN_models/classifier/.gitkeep
+CNN_models/generator/outputs/
 models/classifier/
 models/generator/
+models/production*/
 models/**/checkpoints/
 models/**/runs/
 
@@ -54,6 +61,11 @@ datasets/*
 results/*
 
 reports/*
+
+fid_eval_runs/
+allfiles.txt
+cuda-keyring_*.deb
+*.db
 
 
 # ignore all generated html/images under checkpoints

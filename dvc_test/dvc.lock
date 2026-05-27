@@ -169,8 +169,8 @@ stages:
     outs:
     - path: results/_dvc_test_gen_real_ab_reference/fake_images
       hash: md5
-      md5: 6c17947018acf48bde75e2eaab376a45.dir
-      size: 18442820
+      md5: 8579677887bb38e52520b2dded322151.dir
+      size: 18442281
       nfiles: 25
     - path: results/_dvc_test_gen_real_ab_reference/real_ab_input_summary.json
       hash: md5
@@ -231,13 +231,13 @@ stages:
     outs:
     - path: datasets/_dvc_test_generated_combo/generated
       hash: md5
-      md5: c57e8367af35aa1ec15f4dc6b9839b95.dir
-      size: 37339905
+      md5: a923394dcbc659ed233d442d4284b5ba.dir
+      size: 37338996
       nfiles: 23
     - path: reports/dvc_test/generated_combo_summary.json
       hash: md5
-      md5: 1d246b0298e113f4ba62a8d0a8e29156
-      size: 9420
+      md5: cbf734c9dda889fbe9ae64973b690f5c
+      size: 9418
   filter_synthetic:
     cmd: "python src/xraygen/pipeline/filter_generated.py --generated_dir datasets/_dvc_test_generated_combo/generated
       --mahal_json datasets/_dvc_test_generated_combo/generated/generated_realism_mahalanobis.json
@@ -248,8 +248,8 @@ stages:
     deps:
     - path: datasets/_dvc_test_generated_combo/generated
       hash: md5
-      md5: c57e8367af35aa1ec15f4dc6b9839b95.dir
-      size: 37339905
+      md5: a923394dcbc659ed233d442d4284b5ba.dir
+      size: 37338996
       nfiles: 23
     - path: src/xraygen/pipeline/filter_generated.py
       hash: md5
@@ -258,18 +258,18 @@ stages:
     outs:
     - path: datasets/_dvc_test_generated_combo/accepted
       hash: md5
-      md5: 7b5986addad7b1edf2d508fb4def3271.dir
-      size: 28085083
+      md5: 432913aa12a0c1f86f4d16ef7de29405.dir
+      size: 28084797
       nfiles: 15
     - path: datasets/_dvc_test_generated_combo/rejected
       hash: md5
-      md5: fb3220ac71eec33a7f96d84e63fc9117.dir
-      size: 9239599
+      md5: 798af0dd17b74feda5e83a8770a5c078.dir
+      size: 9238980
       nfiles: 5
     - path: reports/dvc_test/filter_report.json
       hash: md5
-      md5: 6ab78dc0fd27c69a1666180d945a8fd9
-      size: 4692
+      md5: 864e1f29e07550b84f0c81b4c1bb4186
+      size: 4693
   evaluate_generator_fid_train:
     cmd: "python Codes_Notebooks/Pix2Pix/fid_eval.py --dataroot datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
       --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST --epoch latest --phase
@@ -298,8 +298,8 @@ stages:
     - path: 
         reports/dvc_test/fid_eval_runs/train/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST/epoch_latest/metrics.json
       hash: md5
-      md5: f18ab4a8f71ba971ea092f8411a555e4
-      size: 169
+      md5: 3f41e8d12db9efda51749448ed9be4d4
+      size: 167
   evaluate_generator_fid_test:
     cmd: "python Codes_Notebooks/Pix2Pix/fid_eval.py --dataroot datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE
       --name Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST --epoch latest --phase
@@ -328,8 +328,8 @@ stages:
     - path: 
         reports/dvc_test/fid_eval_runs/test/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST/epoch_latest/metrics.json
       hash: md5
-      md5: 31acd1106ad33c05de54fb6a30408cae
-      size: 166
+      md5: ead891e589af76a23ce927824a7bb58e
+      size: 168
   stage_classifier_summary:
     cmd: "python -c \"from pathlib import Path; import shutil; src=Path('reports/validation/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/combined_validation_summary.json');
       dst=Path('reports/dvc_test/classifier_validation_summary.json'); dst.parent.mkdir(parents=True,
@@ -360,12 +360,12 @@ stages:
     - path: 
         reports/dvc_test/fid_eval_runs/test/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST/epoch_latest/metrics.json
       hash: md5
-      md5: 31acd1106ad33c05de54fb6a30408cae
-      size: 166
+      md5: ead891e589af76a23ce927824a7bb58e
+      size: 168
     - path: reports/dvc_test/filter_report.json
       hash: md5
-      md5: 6ab78dc0fd27c69a1666180d945a8fd9
-      size: 4692
+      md5: 864e1f29e07550b84f0c81b4c1bb4186
+      size: 4693
     - path: src/xraygen/pipeline/evaluate_candidate.py
       hash: md5
       md5: 1660bd40a929b83acb52c8ea40e27a3e
@@ -373,8 +373,8 @@ stages:
     outs:
     - path: reports/dvc_test/candidate_eval.json
       hash: md5
-      md5: f9d84b448e5c775bef51070b834e75be
-      size: 1362
+      md5: 99690131eccb98fa029b210f2808c5e1
+      size: 1364
   promote_candidate:
     cmd: "python src/xraygen/pipeline/promote_if_passed.py --candidate_eval reports/dvc_test/candidate_eval.json
       --production_dir models/production_test --generator_checkpoint_dir checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST
@@ -401,8 +401,8 @@ stages:
       nfiles: 5
     - path: reports/dvc_test/candidate_eval.json
       hash: md5
-      md5: f9d84b448e5c775bef51070b834e75be
-      size: 1362
+      md5: 99690131eccb98fa029b210f2808c5e1
+      size: 1364
     - path: src/xraygen/pipeline/promote_if_passed.py
       hash: md5
       md5: 7ea20c7f725bc574cb9283cedce0048f
@@ -410,6 +410,6 @@ stages:
     outs:
     - path: models/production_test
       hash: md5
-      md5: 1b0a3897eb5f09d6690a273cf9ea55c7.dir
-      size: 247216586
+      md5: 5842c1340ff3d88680b93bdb058cfa0e.dir
+      size: 247216589
       nfiles: 12
