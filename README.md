@@ -53,6 +53,7 @@ The repository is a research codebase with an automation layer, not a minimal Py
 ├── Codes_Notebooks/          # notebooks and experiment scripts
 ├── external/                 # third-party GAN implementations
 ├── label_studio/             # annotation and dataset-processing helpers
+├── fiftyone/                 # FiftyOne embedding and model-inspection helpers
 ├── data/                     # raw, interim, processed, and label data
 ├── datasets/                 # Pix2Pix datasets, masks, generated datasets
 ├── checkpoints/              # GAN checkpoints
@@ -100,6 +101,7 @@ This section explains the purpose of the main project-owned files. It intentiona
 | `src/xraygen/pipeline/prepare_dvc_test_pix2pix_data.py` | Builds a small isolated Pix2Pix dataset workspace for safer DVC test runs. |
 | `src/xraygen/pipeline/bootstrap_pix2pix_checkpoint.py` | Copies or initializes the checkpoint used by the DVC test pipeline. |
 | `src/xraygen/pipeline/dvc_test_unified_dashboard.py` | Local web dashboard for running and monitoring the DVC test workflow. |
+| `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py` | Extended local dashboard copied from the unified dashboard with added FiftyOne embedding inspection before training and real-vs-generated evaluation after training. |
 | `src/xraygen/pipeline/cnn_gradcam_dashboard.py` | Local web dashboard for classifier inference and Grad-CAM inspection on generated images. |
 
 ### Main Pix2Pix And Synthetic-Data Scripts: `Codes_Notebooks/Pix2Pix`
@@ -201,8 +203,8 @@ Each stage folder stores an earlier or staged classifier experiment with the sam
 
 | File | Purpose |
 | --- | --- |
-| `fiftyone/myowncnnmodels.py` | Local helper code for inspecting or loading CNN model outputs in FiftyOne experiments. |
-| `fiftyone/test.py` | Local FiftyOne test script for dataset visualization and experimentation. |
+| `fiftyone/fiftyone_embedding.py` | Standalone FiftyOne workflow for comparing real and generated images with embeddings, similarity, visualization, uniqueness, and near-duplicate analysis. |
+| `fiftyone/myowncnnmodel.py` | FiftyOne helper that loads staged CNN models, extracts model embeddings/predictions, and creates per-stage or combined embedding visualizations. |
 
 ### Data And Artifact Folders
 
@@ -235,6 +237,7 @@ This directory contains the most reusable project code.
 - `src/xraygen/pipeline/prepare_dvc_test_pix2pix_data.py` prepares a DVC test dataset workspace.
 - `src/xraygen/pipeline/bootstrap_pix2pix_checkpoint.py` initializes a test checkpoint from an existing Pix2Pix checkpoint.
 - `src/xraygen/pipeline/dvc_test_unified_dashboard.py` serves the local DVC test dashboard.
+- `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py` serves the extended DVC test dashboard with FiftyOne embedding inspection.
 - `src/xraygen/pipeline/cnn_gradcam_dashboard.py` serves the generated-image CNN and Grad-CAM dashboard.
 
 ### `Codes_Notebooks`
@@ -247,6 +250,13 @@ This directory contains the main research notebooks and experiment scripts.
 - `Codes_Notebooks/CDGan/` contains an earlier conditional/DCGAN workflow.
 - `Codes_Notebooks/StyleGan/` contains StyleGAN preprocessing, patching, training, and generation helpers.
 - `Codes_Notebooks/ClassifierModels/` contains earlier classifier experiments and testing scripts.
+
+### `fiftyone`
+
+This directory contains standalone FiftyOne experiments used alongside the dashboards.
+
+- `fiftyone/fiftyone_embedding.py` compares real and generated image folders using a FiftyOne zoo embedding model, computes similarity, visualization, uniqueness, and near-duplicates, and opens the FiftyOne app with real/generated coloring.
+- `fiftyone/myowncnnmodel.py` uses local staged CNN models to add predictions and model-specific embeddings to a FiftyOne dataset, then computes per-stage and combined visualizations.
 
 ### `external`
 
@@ -266,6 +276,7 @@ This directory contains third-party GAN implementations used by the project.
 - `models/classifier` stores classifier checkpoints and related artifacts.
 - `models/production` and `models/production_test` store promoted artifact records.
 - `reports` stores DVC reports, validation summaries, Grad-CAM outputs, and evaluation artifacts.
+- `reports/fiftyone_cache` stores processed real/generated images prepared for FiftyOne embedding analysis.
 - `results` stores generated examples and experiment outputs.
 
 ## Environment Setup
@@ -405,6 +416,31 @@ Open:
 http://127.0.0.1:8770
 ```
 
+### DVC Test And FiftyOne Dashboard
+
+This extended dashboard keeps the same DVC test controls, retraining controls, FID evaluation controls, and image galleries as the unified dashboard. It adds a FiftyOne Embeddings tab for:
+
+- inspecting train/test data before training with embedding visualization, similarity, uniqueness, and near-duplicate checks
+- comparing real and generated images after training evaluation using a workflow similar to `fiftyone/fiftyone_embedding.py`
+
+For post-training evaluation, the dashboard expects FID `real/` and `fake/` folders. If those folders are missing because a previous FID run deleted temporary images, the dashboard can rerun FID with `--keep_images` and the selected image-pair count before launching FiftyOne. The prepared images are written under `reports/fiftyone_cache/<dataset_name>/real_B_processed` and `reports/fiftyone_cache/<dataset_name>/fake_B_processed`.
+
+```bash
+python src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py
+```
+
+Open:
+
+```text
+http://127.0.0.1:8771
+```
+
+The FiftyOne app launched by this dashboard opens separately on:
+
+```text
+http://localhost:5151
+```
+
 ### CNN Grad-CAM Dashboard
 
 The CNN Grad-CAM dashboard evaluates generated images with the classifier and exports Grad-CAM visualizations.
@@ -473,6 +509,24 @@ python label_studio/verify_setup.py
 
 Use this check before annotation processing or dataset preparation work.
 
+### Compare Real And Generated Images In FiftyOne
+
+Use the extended dashboard when you want the full DVC controls plus visual embedding comparison:
+
+```bash
+python src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py
+```
+
+Open `http://127.0.0.1:8771`, select **FiftyOne Embeddings**, then use **Compare Real Vs Fake**. The dashboard will use existing FID `real/` and `fake/` folders when available, or regenerate them with `--keep_images` using the selected image-pair count.
+
+For the standalone script-style workflow:
+
+```bash
+python fiftyone/fiftyone_embedding.py
+```
+
+Review and edit the directory constants at the top of the script before running it on a different experiment.
+
 ## Important Pix2Pix Scripts
 
 Most generator-related helper scripts are located in `Codes_Notebooks/Pix2Pix/`.
@@ -532,6 +586,12 @@ Grad-CAM support:
 - `Codes_Notebooks/Pix2Pix/evaluate_generated_cnn_gradcam.py`
 - `src/xraygen/pipeline/cnn_gradcam_dashboard.py`
 
+FiftyOne embedding support:
+
+- `fiftyone/fiftyone_embedding.py`
+- `fiftyone/myowncnnmodel.py`
+- `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py`
+
 ## Earlier GAN Experiments
 
 Earlier GAN experiments are retained for comparison, reference, and possible reuse.
@@ -559,5 +619,6 @@ Before running older experiments, review paths and artifact assumptions inside t
 - Generator utilities: `Codes_Notebooks/Pix2Pix`
 - Classifier validation: `Codes_Notebooks/SimpleCNN`
 - Grad-CAM support: `src/xraygen/explain` and `src/xraygen/pipeline/cnn_gradcam_dashboard.py`
+- FiftyOne embedding comparison: `fiftyone/fiftyone_embedding.py` and `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py`
 - Annotation and data-preparation helpers: `label_studio`
 - Earlier GAN experiments: `Codes_Notebooks/CDGan`, `Codes_Notebooks/StyleGan`, `external/stylegan2-ada-pytorch`
