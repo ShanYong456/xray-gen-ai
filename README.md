@@ -57,7 +57,7 @@ The repository is a research codebase with an automation layer, not a minimal Py
 ├── data/                     # raw, interim, processed, and label data
 ├── datasets/                 # Pix2Pix datasets, masks, generated datasets
 ├── checkpoints/              # GAN checkpoints
-├── models/                   # classifier and promoted model artifacts
+├── models/                   # active, legacy, and promoted model artifacts
 ├── reports/                  # validation reports, DVC metrics, Grad-CAM outputs
 ├── results/                  # generated reference outputs and experiment results
 ├── dvc.yaml                  # main pipeline
@@ -144,7 +144,7 @@ This section explains the purpose of the main project-owned files. It intentiona
 | `Codes_Notebooks/SimpleCNN/validate_two_separate_models.py` | Scripted two-classifier validation used by the DVC pipeline. |
 | `Codes_Notebooks/ClassifierModels/classifiermodels.py` | Model definitions for earlier classifier experiments. |
 | `Codes_Notebooks/ClassifierModels/SimpleCNN.ipynb` | Earlier SimpleCNN training and experimentation notebook. |
-| `Codes_Notebooks/ClassifierModels/test.ipynb` | Earlier classifier testing notebook. |
+| `Codes_Notebooks/ClassifierModels/test.ipynb` | Earlier classifier testing notebook. Some saved cells may still reference the old `CNN_models/classifier` path; use `models/old_classifier` for the current legacy-weight location. |
 | `Codes_Notebooks/ClassifierModels/test_image_two_models_gradcam.py` | Tests two classifier models on images and exports Grad-CAM-style inspection outputs. |
 
 ### Staged Classifier Experiments: `Codes_Notebooks/CNN_Stage0` To `CNN_Stage3`
@@ -216,8 +216,10 @@ Each stage folder stores an earlier or staged classifier experiment with the sam
 | `data/labels/` | Train, validation, and test label JSON files for staged and current classifier tasks. |
 | `datasets/` | Pix2Pix datasets, matched masks, generated datasets, and DVC test workspaces. |
 | `checkpoints/` | Generator/discriminator checkpoints and related model weights. |
-| `CNN_models/` | Older or local CNN classifier/generator model storage. |
-| `models/` | Current classifier checkpoints and promoted production/test registries. |
+| `models/classifier/` | Current classifier checkpoints and related metrics/logs used by validation and promotion. |
+| `models/old_classifier/` | Legacy staged classifier weights formerly kept under `CNN_models/classifier`. Retained for older notebooks and comparison only. |
+| `models/production/` | Main promoted generator/classifier registry and copied artifacts. |
+| `models/production_test/` | Isolated promoted-artifact registry from the DVC test pipeline. |
 | `reports/` | DVC metrics, validation reports, Grad-CAM outputs, dashboards outputs, and candidate evaluation files. |
 | `results/` | Generated reference outputs and experiment result files. |
 | `fid_eval_runs/` | Local FID evaluation run artifacts. |
@@ -273,8 +275,10 @@ This directory contains third-party GAN implementations used by the project.
 - `data/labels` stores train, validation, and test JSON labels.
 - `datasets` stores Pix2Pix aligned datasets, matched masks, generated DVC datasets, and test workspaces.
 - `checkpoints` stores generator and discriminator checkpoints.
-- `models/classifier` stores classifier checkpoints and related artifacts.
-- `models/production` and `models/production_test` store promoted artifact records.
+- `models/classifier` stores the current classifier checkpoints and related artifacts.
+- `models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models` stores the current two-model classifier setup used by DVC validation and promotion.
+- `models/old_classifier` stores legacy staged classifier weights from the older `CNN_models/classifier` layout.
+- `models/production` and `models/production_test` store promoted generator/classifier records and copied artifacts.
 - `reports` stores DVC reports, validation summaries, Grad-CAM outputs, and evaluation artifacts.
 - `reports/fiftyone_cache` stores processed real/generated images prepared for FiftyOne embedding analysis.
 - `results` stores generated examples and experiment outputs.
@@ -367,6 +371,8 @@ Important main-pipeline outputs:
 - `datasets/_dvc_generated_combo/generated`
 - `datasets/_dvc_generated_combo/accepted`
 - `datasets/_dvc_generated_combo/rejected`
+- `results/_gen_real_ab_reference_train_shampoo_or_shampoo_blade/fake_images`
+- `results/_gen_real_ab_reference_train_shampoo_or_shampoo_blade/real_images`
 - `reports/dvc/generated_combo_summary.json`
 - `reports/dvc/filter_report.json`
 - `reports/dvc/candidate_eval.json`
@@ -389,6 +395,8 @@ Important test-pipeline outputs:
 
 - `datasets/_dvc_test/SHAMPOOBLADEWITHTRAY_COMPLETE`
 - `checkpoints/Shampoo_NOBGR_pix2pix_StructCond_V1_Stage24_DVC_TEST`
+- `results/_dvc_test_gen_real_ab_reference/fake_images`
+- `results/_dvc_test_gen_real_ab_reference/real_images`
 - `datasets/_dvc_test_generated_combo/generated`
 - `datasets/_dvc_test_generated_combo/accepted`
 - `datasets/_dvc_test_generated_combo/rejected`
@@ -396,6 +404,7 @@ Important test-pipeline outputs:
 - `reports/dvc_test/generated_combo_summary.json`
 - `reports/dvc_test/filter_report.json`
 - `reports/dvc_test/candidate_eval.json`
+- `reports/dvc_test/fid_eval_runs/`
 - `models/production_test/model_registry.json`
 
 Use this pipeline when changing generation settings, filtering thresholds, checkpoint bootstrapping, or dashboard behavior.
@@ -580,6 +589,21 @@ Main classifier locations:
 - `Codes_Notebooks/CNN_Stage3/`
 - `Codes_Notebooks/ClassifierModels/`
 
+Current classifier artifact locations:
+
+- `models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/spatial_overlap_isolated`
+- `models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2_two_models/threat_contraband_noncontraband`
+- `models/classifier/SHAMPOOBLADEINTRAY_COMPLETEV2/gray_multihead_itemmask_optional_slow`
+
+Legacy classifier weights:
+
+- `models/old_classifier/Stage0`
+- `models/old_classifier/Stage1`
+- `models/old_classifier/Stage2`
+- `models/old_classifier/Stage3`
+
+The old root-level `CNN_models/classifier` layout has been superseded by `models/old_classifier`. Older notebooks may still contain saved paths pointing to `CNN_models`; update those paths before rerunning them.
+
 Grad-CAM support:
 
 - `src/xraygen/explain/gradcam.py`
@@ -618,6 +642,8 @@ Before running older experiments, review paths and artifact assumptions inside t
 - Maintained helper scripts: `src/xraygen/pipeline`
 - Generator utilities: `Codes_Notebooks/Pix2Pix`
 - Classifier validation: `Codes_Notebooks/SimpleCNN`
+- Current classifier artifacts: `models/classifier`
+- Legacy staged classifier artifacts: `models/old_classifier`
 - Grad-CAM support: `src/xraygen/explain` and `src/xraygen/pipeline/cnn_gradcam_dashboard.py`
 - FiftyOne embedding comparison: `fiftyone/fiftyone_embedding.py` and `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py`
 - Annotation and data-preparation helpers: `label_studio`
