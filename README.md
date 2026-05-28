@@ -145,7 +145,7 @@ This section explains the purpose of the main project-owned files. It intentiona
 | `Codes_Notebooks/ClassifierModels/test.ipynb` | Earlier classifier testing notebook. |
 | `Codes_Notebooks/ClassifierModels/test_image_two_models_gradcam.py` | Tests two classifier models on images and exports Grad-CAM-style inspection outputs. |
 
-### Staged Classifier Experiments: `Codes_Notebooks/Stage0` To `Stage3`
+### Staged Classifier Experiments: `Codes_Notebooks/CNN_Stage0` To `CNN_Stage3`
 
 Each stage folder stores an earlier or staged classifier experiment with the same broad notebook pattern:
 
@@ -243,7 +243,7 @@ This directory contains the main research notebooks and experiment scripts.
 
 - `Codes_Notebooks/Pix2Pix/` contains dataset builders, mask extraction utilities, generation scripts, FID evaluation, Mahalanobis scoring, and result viewers.
 - `Codes_Notebooks/SimpleCNN/` contains the current classifier workflow and two-model validation.
-- `Codes_Notebooks/Stage0` through `Codes_Notebooks/Stage3` contain staged classifier experiments.
+- `Codes_Notebooks/CNN_Stage0` through `Codes_Notebooks/CNN_Stage3` contain staged classifier experiments.
 - `Codes_Notebooks/CDGan/` contains an earlier conditional/DCGAN workflow.
 - `Codes_Notebooks/StyleGan/` contains StyleGAN preprocessing, patching, training, and generation helpers.
 - `Codes_Notebooks/ClassifierModels/` contains earlier classifier experiments and testing scripts.
@@ -520,10 +520,10 @@ The classifier workflow is used both for the target classification task and as a
 Main classifier locations:
 
 - `Codes_Notebooks/SimpleCNN/`
-- `Codes_Notebooks/Stage0/`
-- `Codes_Notebooks/Stage1/`
-- `Codes_Notebooks/Stage2/`
-- `Codes_Notebooks/Stage3/`
+- `Codes_Notebooks/CNN_Stage0/`
+- `Codes_Notebooks/CNN_Stage1/`
+- `Codes_Notebooks/CNN_Stage2/`
+- `Codes_Notebooks/CNN_Stage3/`
 - `Codes_Notebooks/ClassifierModels/`
 
 Grad-CAM support:
