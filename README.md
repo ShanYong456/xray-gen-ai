@@ -66,6 +66,162 @@ The repository is a research codebase with an automation layer, not a minimal Py
 
 Large datasets, generated images, checkpoints, and reports should be managed with DVC or kept as local artifacts rather than committed directly to Git.
 
+## File Purpose Guide
+
+This section explains the purpose of the main project-owned files. It intentionally excludes generated caches such as `__pycache__`, local virtual environments such as `.venv`, large binary model weights, and most vendored third-party files under `external/` and `label_studio/label-studio-ml-backend/`.
+
+### Root Files
+
+| File | Purpose |
+| --- | --- |
+| `README.md` | Main project documentation, setup guide, workflow guide, and file map. |
+| `requirements.txt` | Python dependencies for training, evaluation, dashboards, DVC, image processing, and notebooks. |
+| `dvc.yaml` | Main reproducible DVC pipeline for generation, filtering, FID evaluation, classifier validation, candidate evaluation, and promotion. |
+| `dvc.lock` | Locked DVC dependency and output state for the main pipeline. |
+| `.dvcignore` | Tells DVC which files or folders to ignore when tracking data and artifacts. |
+| `.gitignore` | Tells Git which local artifacts, caches, datasets, and generated outputs should not be committed. |
+| `.gitmodules` | Records Git submodule configuration, especially for external model repositories. |
+| `.python-version` | Records the local Python version expected by the project environment. |
+| `LICENSE` | Project license file. |
+| `allfiles.txt` | Local inventory/reference list of repository files. |
+| `cuda-keyring_1.1-1_all.deb`, `cuda-keyring_1.1-1_all.deb.1` | Local CUDA package installer files used for GPU/CUDA environment setup. |
+
+### Reusable Project Package: `src/xraygen`
+
+| File | Purpose |
+| --- | --- |
+| `src/xraygen/__init__.py` | Marks `xraygen` as an importable Python package. |
+| `src/xraygen/explain/__init__.py` | Marks the explainability module as importable. |
+| `src/xraygen/explain/gradcam.py` | Reusable Grad-CAM implementation for visualizing CNN attention on X-ray images. |
+| `src/xraygen/pipeline/__init__.py` | Marks the pipeline scripts as an importable module. |
+| `src/xraygen/pipeline/filter_generated.py` | Filters generated synthetic images into accepted and rejected sets using realism and novelty metrics. |
+| `src/xraygen/pipeline/evaluate_candidate.py` | Combines filter results, FID metrics, and classifier validation metrics into one pass/fail quality-gate report. |
+| `src/xraygen/pipeline/promote_if_passed.py` | Promotes generator/classifier artifacts into a production registry only when the candidate evaluation passes. |
+| `src/xraygen/pipeline/prepare_dvc_test_pix2pix_data.py` | Builds a small isolated Pix2Pix dataset workspace for safer DVC test runs. |
+| `src/xraygen/pipeline/bootstrap_pix2pix_checkpoint.py` | Copies or initializes the checkpoint used by the DVC test pipeline. |
+| `src/xraygen/pipeline/dvc_test_unified_dashboard.py` | Local web dashboard for running and monitoring the DVC test workflow. |
+| `src/xraygen/pipeline/cnn_gradcam_dashboard.py` | Local web dashboard for classifier inference and Grad-CAM inspection on generated images. |
+
+### Main Pix2Pix And Synthetic-Data Scripts: `Codes_Notebooks/Pix2Pix`
+
+| File | Purpose |
+| --- | --- |
+| `build_pix2pix_dataset.py` | Builds aligned Pix2Pix A/B datasets from images, masks, and annotation data. |
+| `build_pix2pix_dataset (no_resize).py` | Dataset builder variant that preserves original sizing assumptions instead of resizing. |
+| `complete_workflow.ipynb` | Notebook version of the broader Pix2Pix workflow for exploration and demonstration. |
+| `empty_tray.py` | Utilities for working with empty tray images used as generation backgrounds or references. |
+| `evaluate_generated_cnn_gradcam.py` | Runs CNN validation and Grad-CAM export on generated images. |
+| `extract_all_tray_mask.py` | Extracts tray masks from available tray images for later Pix2Pix conditioning and scene placement. |
+| `fid_epoch_viewer.py` | Viewer/helper for comparing FID metrics across checkpoints, epochs, or evaluation runs. |
+| `fid_eval.py` | Computes FID metrics for Pix2Pix-generated outputs against real reference images. |
+| `filterrawdata.py` | Filters or cleans raw input data before dataset building. |
+| `generate_pix2pix.py` | Earlier Pix2Pix generation entry point retained for reference. |
+| `generate_pix2pixV2.py` | Updated Pix2Pix generation script with newer generation options. |
+| `generate_pix2pixV2_FID.py` | Generation variant focused on producing outputs for FID evaluation. |
+| `generate_pix2pixV2_MAHADIST.py` | Main DVC-used generation script; creates synthetic scenes and scores realism/novelty with Mahalanobis-style metrics. |
+| `generate_pix2pixV2_NIQE.py` | Generation/evaluation variant that includes NIQE-style image-quality scoring. |
+| `generate_random_masks.py` | Creates random mask inputs for synthetic scene generation experiments. |
+| `generate_realscore_pix2pix_MAHADIST.py` | Scores real images against real reference data to establish a baseline for realism filtering. |
+| `mahal_scene_viewer.py` | Viewer for inspecting generated scenes and Mahalanobis-related scoring outputs. |
+| `match_empty_trays.py` | Matches empty tray assets to dataset scenes or mask sets. |
+| `pix2pix_object_library.py` | Shared object, mask, and placement helpers used by Pix2Pix generation scripts. |
+| `realdataset_mahalanobis.py` | Computes Mahalanobis-style statistics for real datasets. |
+| `tray_mask.py` | Tray mask extraction and processing utilities. |
+
+### Classifier And Validation Workflows
+
+| File | Purpose |
+| --- | --- |
+| `Codes_Notebooks/SimpleCNN/1_preprocessing.ipynb` | Prepares images, labels, and metadata for the SimpleCNN classifier workflow. |
+| `Codes_Notebooks/SimpleCNN/2_freeze_dataset.ipynb` | Freezes processed classifier datasets for repeatable training and validation. |
+| `Codes_Notebooks/SimpleCNN/3_train_model.ipynb` | Trains the SimpleCNN classifier models. |
+| `Codes_Notebooks/SimpleCNN/4_validate_model.ipynb` | Validates trained classifiers and produces evaluation artifacts. |
+| `Codes_Notebooks/SimpleCNN/train_single_task_classifier.ipynb` | Trains a single-task classifier variant. |
+| `Codes_Notebooks/SimpleCNN/freeze_two_model_datasets.ipynb` | Freezes datasets for the two-model classifier setup. |
+| `Codes_Notebooks/SimpleCNN/validate_two_separate_model.ipynb` | Notebook version of the two-classifier validation workflow. |
+| `Codes_Notebooks/SimpleCNN/validate_two_separate_models.py` | Scripted two-classifier validation used by the DVC pipeline. |
+| `Codes_Notebooks/ClassifierModels/classifiermodels.py` | Model definitions for earlier classifier experiments. |
+| `Codes_Notebooks/ClassifierModels/SimpleCNN.ipynb` | Earlier SimpleCNN training and experimentation notebook. |
+| `Codes_Notebooks/ClassifierModels/test.ipynb` | Earlier classifier testing notebook. |
+| `Codes_Notebooks/ClassifierModels/test_image_two_models_gradcam.py` | Tests two classifier models on images and exports Grad-CAM-style inspection outputs. |
+
+### Staged Classifier Experiments: `Codes_Notebooks/Stage0` To `Stage3`
+
+Each stage folder stores an earlier or staged classifier experiment with the same broad notebook pattern:
+
+| File Pattern | Purpose |
+| --- | --- |
+| `1_preprocessing.ipynb` | Prepares the data for that stage. |
+| `2_freeze_dataset.ipynb` | Freezes a reproducible dataset split for that stage. |
+| `2_freeze_datasetV2.ipynb` | Stage-specific updated dataset-freezing variant where present. |
+| `3_train_model.ipynb` | Trains the stage-specific classifier model. |
+| `4_validate_model.ipynb` | Validates the stage-specific classifier model. |
+| `training.log`, `evaluation.log` | Saved local logs from training or evaluation runs. |
+| `gradcam_export_val_all_layers/*.html`, `*.csv` | Generated Grad-CAM galleries and summaries for stage validation outputs. |
+
+### Earlier GAN Experiments
+
+| File | Purpose |
+| --- | --- |
+| `Codes_Notebooks/CDGan/__init__.py` | Marks the CDGAN experiment folder as a Python module. |
+| `Codes_Notebooks/CDGan/augmentation.py` | Image augmentation helpers for the earlier conditional/DCGAN workflow. |
+| `Codes_Notebooks/CDGan/data_separation.py` | Data splitting/separation utilities for CDGAN experiments. |
+| `Codes_Notebooks/CDGan/dataset.py` | Dataset loader definitions for CDGAN training. |
+| `Codes_Notebooks/CDGan/model.py` | Generator/discriminator model definitions for the CDGAN experiment. |
+| `Codes_Notebooks/CDGan/modeltraining.py` | Training loop and training utilities for the CDGAN experiment. |
+| `Codes_Notebooks/StyleGan/preprocessing.py` | Prepares images for StyleGAN experiments. |
+| `Codes_Notebooks/StyleGan/coco_mask.py` | Converts or uses COCO-style masks for StyleGAN-related data preparation. |
+| `Codes_Notebooks/StyleGan/make_patches.py` | Builds image patches for StyleGAN training or inspection. |
+| `Codes_Notebooks/StyleGan/make_zip.py` | Packages StyleGAN training data into zip format. |
+| `Codes_Notebooks/StyleGan/train_stylegan.py` | Local wrapper for launching StyleGAN training. |
+| `Codes_Notebooks/StyleGan/generate.py` | Generates images from a StyleGAN checkpoint. |
+| `Codes_Notebooks/StyleGan/gui.py` | Experimental GUI helper for StyleGAN generation or inspection. |
+
+### DVC Test Pipeline: `dvc_test`
+
+| File | Purpose |
+| --- | --- |
+| `dvc_test/README.md` | Documentation for the isolated DVC smoke-test workflow. |
+| `dvc_test/dvc.yaml` | Smaller DVC pipeline used to test generation, filtering, evaluation, and promotion safely. |
+| `dvc_test/dvc.lock` | Locked DVC state for the test pipeline. |
+
+### Label Studio And Annotation Helpers
+
+| File | Purpose |
+| --- | --- |
+| `label_studio/README.md` | Notes for local Label Studio setup and annotation workflow. |
+| `label_studio/pyproject.toml` | Python project configuration for the Label Studio helper environment. |
+| `label_studio/uv.lock` | Locked dependency versions for the Label Studio helper environment. |
+| `label_studio/verify_setup.py` | Checks whether Label Studio and related annotation dependencies are installed correctly. |
+| `label_studio/dataset_processing.py` | Processes Label Studio annotation exports into dataset-ready files. |
+| `label_studio/fiftyone/test.py` | Local FiftyOne test/helper script for dataset exploration. |
+| `label_studio/label-studio-ml-backend/` | Vendored/custom Label Studio ML backend used for interactive annotation assistance; most internal files belong to that backend rather than the core X-ray generation pipeline. |
+
+### FiftyOne Helpers
+
+| File | Purpose |
+| --- | --- |
+| `fiftyone/myowncnnmodels.py` | Local helper code for inspecting or loading CNN model outputs in FiftyOne experiments. |
+| `fiftyone/test.py` | Local FiftyOne test script for dataset visualization and experimentation. |
+
+### Data And Artifact Folders
+
+| Folder/File | Purpose |
+| --- | --- |
+| `data/raw/` | Original source data, including object images and annotation exports. |
+| `data/interim/` | Intermediate preprocessing outputs. |
+| `data/processed/` | Classifier-ready processed datasets. |
+| `data/labels/` | Train, validation, and test label JSON files for staged and current classifier tasks. |
+| `datasets/` | Pix2Pix datasets, matched masks, generated datasets, and DVC test workspaces. |
+| `checkpoints/` | Generator/discriminator checkpoints and related model weights. |
+| `CNN_models/` | Older or local CNN classifier/generator model storage. |
+| `models/` | Current classifier checkpoints and promoted production/test registries. |
+| `reports/` | DVC metrics, validation reports, Grad-CAM outputs, dashboards outputs, and candidate evaluation files. |
+| `results/` | Generated reference outputs and experiment result files. |
+| `fid_eval_runs/` | Local FID evaluation run artifacts. |
+| `external/pix2pix/` | Third-party Pix2Pix implementation used by the current generator workflow. |
+| `external/stylegan2-ada-pytorch/` | Third-party StyleGAN2-ADA implementation retained for earlier experiments and comparison. |
+
 ## Main Components
 
 ### `src/xraygen`
