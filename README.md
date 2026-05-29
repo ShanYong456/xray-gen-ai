@@ -39,7 +39,7 @@ For a first pass through the project, start with the current pipeline files befo
 
 - `dvc.yaml` defines the main end-to-end candidate generation, evaluation, and promotion pipeline.
 - `dvc_test/dvc.yaml` defines a smaller smoke-test pipeline for safer iteration.
-- `src/xraygen/pipeline/` contains reusable scripts used by the DVC stages and dashboards.
+- `src/xraygen/pipeline/` contains reusable scripts used by the DVC stages and dashboards, including the current unified and FiftyOne dashboard entry points.
 - `Codes_Notebooks/Pix2Pix/` contains Pix2Pix dataset, generation, scoring, and evaluation utilities.
 - `Codes_Notebooks/SimpleCNN/` contains the current CNN validation workflow.
 
@@ -60,8 +60,10 @@ The repository is a research codebase with an automation layer, not a minimal Py
 ├── models/                   # active, legacy, and promoted model artifacts
 ├── reports/                  # validation reports, DVC metrics, Grad-CAM outputs
 ├── results/                  # generated reference outputs and experiment results
+├── fid_eval_runs/            # older/local FID run outputs outside reports/
 ├── dvc.yaml                  # main pipeline
 ├── dvc_test/                 # smaller DVC test pipeline
+├── .dvc/                     # local DVC metadata and cache
 └── requirements.txt          # pinned Python environment
 ```
 
@@ -83,6 +85,7 @@ This section explains the purpose of the main project-owned files. It intentiona
 | `.gitignore` | Tells Git which local artifacts, caches, datasets, and generated outputs should not be committed. |
 | `.gitmodules` | Records Git submodule configuration, especially for external model repositories. |
 | `.python-version` | Records the local Python version expected by the project environment. |
+| `.codex` | Optional local Codex instruction/context file. It is currently empty. |
 | `LICENSE` | Project license file. |
 | `allfiles.txt` | Local inventory/reference list of repository files. |
 | `cuda-keyring_1.1-1_all.deb`, `cuda-keyring_1.1-1_all.deb.1` | Local CUDA package installer files used for GPU/CUDA environment setup. |
@@ -100,8 +103,8 @@ This section explains the purpose of the main project-owned files. It intentiona
 | `src/xraygen/pipeline/promote_if_passed.py` | Promotes generator/classifier artifacts into a production registry only when the candidate evaluation passes. |
 | `src/xraygen/pipeline/prepare_dvc_test_pix2pix_data.py` | Builds a small isolated Pix2Pix dataset workspace for safer DVC test runs. |
 | `src/xraygen/pipeline/bootstrap_pix2pix_checkpoint.py` | Copies or initializes the checkpoint used by the DVC test pipeline. |
-| `src/xraygen/pipeline/dvc_test_unified_dashboard.py` | Local web dashboard for running and monitoring the DVC test workflow. |
-| `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py` | Extended local dashboard copied from the unified dashboard with added FiftyOne embedding inspection before training and real-vs-generated evaluation after training. |
+| `src/xraygen/pipeline/dvc_unified_dashboard.py` | Local web dashboard for running and monitoring the DVC test workflow, manual retraining, and FID evaluation loops. |
+| `src/xraygen/pipeline/dvc_fiftyone_dashboard.py` | Extended DVC dashboard with FiftyOne embedding inspection before training and real-vs-generated comparison after evaluation. |
 | `src/xraygen/pipeline/cnn_gradcam_dashboard.py` | Local web dashboard for classifier inference and Grad-CAM inspection on generated images. |
 
 ### Main Pix2Pix And Synthetic-Data Scripts: `Codes_Notebooks/Pix2Pix`
@@ -238,8 +241,8 @@ This directory contains the most reusable project code.
 - `src/xraygen/pipeline/promote_if_passed.py` writes production registry information and copies passing artifacts.
 - `src/xraygen/pipeline/prepare_dvc_test_pix2pix_data.py` prepares a DVC test dataset workspace.
 - `src/xraygen/pipeline/bootstrap_pix2pix_checkpoint.py` initializes a test checkpoint from an existing Pix2Pix checkpoint.
-- `src/xraygen/pipeline/dvc_test_unified_dashboard.py` serves the local DVC test dashboard.
-- `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py` serves the extended DVC test dashboard with FiftyOne embedding inspection.
+- `src/xraygen/pipeline/dvc_unified_dashboard.py` serves the local DVC test dashboard.
+- `src/xraygen/pipeline/dvc_fiftyone_dashboard.py` serves the extended DVC test dashboard with FiftyOne embedding inspection.
 - `src/xraygen/pipeline/cnn_gradcam_dashboard.py` serves the generated-image CNN and Grad-CAM dashboard.
 
 ### `Codes_Notebooks`
@@ -411,12 +414,12 @@ Use this pipeline when changing generation settings, filtering thresholds, check
 
 ## Local Dashboards
 
-### DVC Test Dashboard
+### DVC Unified Dashboard
 
-The DVC test dashboard monitors and controls the local DVC test workflow.
+The unified dashboard monitors and controls the local DVC test workflow. It can run the full smoke pipeline, continue Pix2Pix training, and run FID evaluation loops from one browser UI.
 
 ```bash
-python src/xraygen/pipeline/dvc_test_unified_dashboard.py
+python src/xraygen/pipeline/dvc_unified_dashboard.py
 ```
 
 Open:
@@ -425,7 +428,7 @@ Open:
 http://127.0.0.1:8770
 ```
 
-### DVC Test And FiftyOne Dashboard
+### DVC And FiftyOne Dashboard
 
 This extended dashboard keeps the same DVC test controls, retraining controls, FID evaluation controls, and image galleries as the unified dashboard. It adds a FiftyOne Embeddings tab for:
 
@@ -435,7 +438,7 @@ This extended dashboard keeps the same DVC test controls, retraining controls, F
 For post-training evaluation, the dashboard expects FID `real/` and `fake/` folders. If those folders are missing because a previous FID run deleted temporary images, the dashboard can rerun FID with `--keep_images` and the selected image-pair count before launching FiftyOne. The prepared images are written under `reports/fiftyone_cache/<dataset_name>/real_B_processed` and `reports/fiftyone_cache/<dataset_name>/fake_B_processed`.
 
 ```bash
-python src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py
+python src/xraygen/pipeline/dvc_fiftyone_dashboard.py
 ```
 
 Open:
@@ -523,7 +526,7 @@ Use this check before annotation processing or dataset preparation work.
 Use the extended dashboard when you want the full DVC controls plus visual embedding comparison:
 
 ```bash
-python src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py
+python src/xraygen/pipeline/dvc_fiftyone_dashboard.py
 ```
 
 Open `http://127.0.0.1:8771`, select **FiftyOne Embeddings**, then use **Compare Real Vs Fake**. The dashboard will use existing FID `real/` and `fake/` folders when available, or regenerate them with `--keep_images` using the selected image-pair count.
@@ -614,7 +617,7 @@ FiftyOne embedding support:
 
 - `fiftyone/fiftyone_embedding.py`
 - `fiftyone/myowncnnmodel.py`
-- `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py`
+- `src/xraygen/pipeline/dvc_fiftyone_dashboard.py`
 
 ## Earlier GAN Experiments
 
@@ -645,6 +648,6 @@ Before running older experiments, review paths and artifact assumptions inside t
 - Current classifier artifacts: `models/classifier`
 - Legacy staged classifier artifacts: `models/old_classifier`
 - Grad-CAM support: `src/xraygen/explain` and `src/xraygen/pipeline/cnn_gradcam_dashboard.py`
-- FiftyOne embedding comparison: `fiftyone/fiftyone_embedding.py` and `src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py`
+- FiftyOne embedding comparison: `fiftyone/fiftyone_embedding.py` and `src/xraygen/pipeline/dvc_fiftyone_dashboard.py`
 - Annotation and data-preparation helpers: `label_studio`
 - Earlier GAN experiments: `Codes_Notebooks/CDGan`, `Codes_Notebooks/StyleGan`, `external/stylegan2-ada-pytorch`

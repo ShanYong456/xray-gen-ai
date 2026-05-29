@@ -26,7 +26,7 @@ From the repository root, use the unified dashboard to run and monitor the DVC
 test pipeline, continue Pix2Pix training, and run FID evaluation:
 
 ```bash
-python src/xraygen/pipeline/dvc_test_unified_dashboard.py
+python src/xraygen/pipeline/dvc_unified_dashboard.py
 ```
 
 Open:
@@ -39,7 +39,7 @@ Use the extended FiftyOne dashboard when you also want embedding inspection
 before training or real-vs-generated comparison after evaluation:
 
 ```bash
-python src/xraygen/pipeline/dvc_test_fiftyone_dashboard.py
+python src/xraygen/pipeline/dvc_fiftyone_dashboard.py
 ```
 
 Open:
